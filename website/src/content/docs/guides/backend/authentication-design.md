@@ -233,7 +233,7 @@ A missing `auth_time` after `max_age` was sent is therefore a failed re-proof. O
 
 ### An ordinary sign-in
 
-![A sequence across the browser, Popcorn Wave, and the provider: redirects out, a code back, and an exchange](../../../../assets/diagrams/login-sequence.svg)
+![A sequence across the browser, Popcorn Web, and the provider: redirects out, a code back, and an exchange](../../../../assets/diagrams/login-sequence.svg)
 
 That final rotation revokes whatever session the browser already held. Nothing from before the login survives it, which is what closes fixation.
 

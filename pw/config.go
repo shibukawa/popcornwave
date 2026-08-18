@@ -4,17 +4,17 @@ import (
 	"context"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwobservability"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwobservability"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
-// The framework's own configuration bindings live in popcornwave/pwconfig, and
+// The framework's own configuration bindings live in popcornweb/pwconfig, and
 // every type below is a true alias of the one declared there.
 //
 // They moved for the reason the session types moved before them: a settings
@@ -91,7 +91,7 @@ const (
 )
 
 // The [session] binding. Every type is a true alias of the one declared in
-// sessionconfig, so pw and popcornwave/plugin/auth name one type from two
+// sessionconfig, so pw and popcornweb/plugin/auth name one type from two
 // packages without depending on each other, and the reflect.Type keyed
 // configuration registry resolves both names to one entry.
 type (

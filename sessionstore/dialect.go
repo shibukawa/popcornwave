@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -46,7 +46,7 @@ var dialects struct {
 // a blank import is what makes session.backend = "rdb" work against that
 // engine:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/postgres"
 //
 // A duplicate or incomplete dialect panics: two descriptions of one engine is
 // a build mistake, not a runtime condition.
@@ -93,7 +93,7 @@ func dialectFor(name string) (Dialect, error) {
 	}
 	return Dialect{}, fmt.Errorf(
 		"session storage for %q needs its engine; add to the application: import _ %q",
-		name, "github.com/shibukawa/popcornwave/sessionstore/"+name)
+		name, "github.com/shibukawa/popcornweb/sessionstore/"+name)
 }
 
 // MigrationSQL returns the goose migration that creates table under one
@@ -111,7 +111,7 @@ func MigrationSQL(dialect, table string) (string, error) {
 		return "", fmt.Errorf("%w: table name", session.ErrInvalidOptions)
 	}
 	return `-- +goose Up
--- Owned by github.com/shibukawa/popcornwave/sessionstore.
+-- Owned by github.com/shibukawa/popcornweb/sessionstore.
 -- Login sessions: one row per issued cookie token, keyed by its hash.
 ` + engine.CreateTable(table) + `;
 

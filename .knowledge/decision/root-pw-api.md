@@ -3,7 +3,7 @@ id: decision:root-pw-api
 type: decision
 title: Root pw API
 ---
-Popcorn Wave hides routine TinyBind usage behind the root pw package while preserving standard net/http handler signatures and intentional low-level escape hatches.
+Popcorn Web hides routine TinyBind usage behind the root pw package while preserving standard net/http handler signatures and intentional low-level escape hatches.
 
 ```yaml
 status: accepted

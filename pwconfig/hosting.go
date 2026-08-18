@@ -17,7 +17,7 @@ func HostingPort(configured int, lookup func(string) (string, bool)) (int, error
 		}
 		port, err := strconv.Atoi(raw)
 		if err != nil || port < 1 || port > 65535 {
-			return 0, fmt.Errorf("popcornwave: invalid %s %q: use a port from 1 through 65535", name, raw)
+			return 0, fmt.Errorf("popcornweb: invalid %s %q: use a port from 1 through 65535", name, raw)
 		}
 		return port, nil
 	}

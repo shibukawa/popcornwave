@@ -3,7 +3,7 @@
 package pw
 
 import (
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 	"net/http"
 	"net/http/httptest"
 	"strings"

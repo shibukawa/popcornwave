@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	petitweb "github.com/shibukawa/popcornwave"
+	petitweb "github.com/shibukawa/popcornweb"
 )
 
 func TestAppComposesStandardHandlersAndMiddleware(t *testing.T) {

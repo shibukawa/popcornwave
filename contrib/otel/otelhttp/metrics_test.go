@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 func TestClientInstrumentsRecordTheCalleeAndNotThePath(t *testing.T) {

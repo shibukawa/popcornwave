@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/database"
 
-	_ "github.com/shibukawa/popcornwave/authstate/mysql"
-	_ "github.com/shibukawa/popcornwave/authstate/postgres"
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/database/mysql"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/mysql"
+	_ "github.com/shibukawa/popcornweb/authstate/postgres"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 )
 
 // The server engines need a live server, so their runs are opt-in.

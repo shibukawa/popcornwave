@@ -3,7 +3,7 @@ package pwcli
 import (
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 // The runtime stage of every recipe below. distroless/static carries CA
@@ -22,7 +22,7 @@ const tinygoBuilderImage = "tinygo/tinygo:0.42.0"
 // application and cost one deletion to decline.
 //
 // The reason they are scaffolded rather than documented is that the Dockerfile
-// a Go reader already knows how to write does not work here. A Popcorn Wave
+// a Go reader already knows how to write does not work here. A Popcorn Web
 // build has a host phase before the compiler — generation, the stylesheet, the
 // embedded asset tree — and every file it writes is excluded from version
 // control, so COPY . . followed by go build fails on symbols whose sources the
@@ -49,7 +49,7 @@ func dockerfileScaffold(options initOptions) string {
 #   docker build -t ` + name + ` .
 #   docker run --rm -p 8080:8080 ` + name + `
 #
-# A Popcorn Wave build is not "go build". The generated Go, the stylesheet, and
+# A Popcorn Web build is not "go build". The generated Go, the stylesheet, and
 # the embedded asset tree under dist/ are build outputs that version control
 # does not carry, so the builder stage runs "pw build" — generate, CSS, assets,
 # then compile — rather than invoking the compiler itself. A Dockerfile that
@@ -169,7 +169,7 @@ func containerPWInstall() string {
 	return `# pw generates the code the framework reads, so its version has to match the
 # framework this project depends on. go.mod is the one place that records it.
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 `
 }

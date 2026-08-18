@@ -16,7 +16,7 @@ import (
 // generator emits for a `cache:"key"` marked struct: the derived identity, then
 // each marked field framed. They are hand-written only because this package is
 // the one under test and generating into it would be circular.
-const keyIdentity = "github.com/shibukawa/popcornwave/pwruntime."
+const keyIdentity = "github.com/shibukawa/popcornweb/pwruntime."
 
 type userKey struct {
 	ID   string

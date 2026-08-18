@@ -85,12 +85,12 @@ func (e *listError) Error() string { return e.detail }
 // is not in this list and is not reported as missing: the checks only speak
 // about wiring they can name a remedy for.
 const (
-	authPluginPackage     = "github.com/shibukawa/popcornwave/plugin/auth"
-	rdbSessionPackage     = "github.com/shibukawa/popcornwave/sessionstore/sqlite"
-	devIdPPackagePrefix   = "github.com/shibukawa/popcornwave/contrib/devidp"
-	sqliteDriverPackage   = "github.com/shibukawa/popcornwave/database/sqlite"
-	postgresDriverPackage = "github.com/shibukawa/popcornwave/database/postgres"
-	mysqlDriverPackage    = "github.com/shibukawa/popcornwave/database/mysql"
+	authPluginPackage     = "github.com/shibukawa/popcornweb/plugin/auth"
+	rdbSessionPackage     = "github.com/shibukawa/popcornweb/sessionstore/sqlite"
+	devIdPPackagePrefix   = "github.com/shibukawa/popcornweb/contrib/devidp"
+	sqliteDriverPackage   = "github.com/shibukawa/popcornweb/database/sqlite"
+	postgresDriverPackage = "github.com/shibukawa/popcornweb/database/postgres"
+	mysqlDriverPackage    = "github.com/shibukawa/popcornweb/database/mysql"
 )
 
 // sessionBackendPackage names the plugin that registers a backend, or "" for a

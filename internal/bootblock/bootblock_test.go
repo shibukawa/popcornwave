@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 )
 
 // baseRows is a configuration tree as it reaches a stream. The rows are written
@@ -22,7 +22,7 @@ var baseRows = []string{
 func blockWith(rows []string, listening string) []string {
 	lines := []string{
 		Art[0],
-		Art[1] + "   Popcorn Wave 0.1.0",
+		Art[1] + "   Popcorn Web 0.1.0",
 		Art[2] + "   started at 2026-08-12 09:00:00 JST",
 		Art[3] + "   env dev · config.dev.toml",
 		Art[4],
@@ -101,7 +101,7 @@ func TestScannerFindsASummaryWhoseArtWasTrimmed(t *testing.T) {
 
 func TestParseReadsTheRowsAndTheFactsAroundThem(t *testing.T) {
 	report := scan(t, sampleBlock())
-	if report.Version != "Popcorn Wave 0.1.0" || report.Environment != "dev" || report.ConfigFile != "config.dev.toml" {
+	if report.Version != "Popcorn Web 0.1.0" || report.Environment != "dev" || report.ConfigFile != "config.dev.toml" {
 		t.Fatalf("facts read as %+v", report)
 	}
 	if report.Listening != "http://localhost:8080" {
@@ -216,7 +216,7 @@ func TestRenderKeepsTheSectionAndDropsEverythingElse(t *testing.T) {
 			t.Fatalf("rendered report missing %q:\n%s", want, rendered)
 		}
 	}
-	for _, unwanted := range []string{"streaming", "server", "8080", "Popcorn Wave"} {
+	for _, unwanted := range []string{"streaming", "server", "8080", "Popcorn Web"} {
 		if strings.Contains(rendered, unwanted) {
 			t.Fatalf("rendered report still carries %q:\n%s", unwanted, rendered)
 		}

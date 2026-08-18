@@ -7,7 +7,7 @@ sidebar:
 
 ブラウザのログインには、ルート、セッション解決、一連のプロトコルコードが伴います。
 API サーバーが解く問題は別です。リクエストごとに Bearer トークンを受け取り、issuer、
-audience、署名、有効期間、アクセス規則を検証してからハンドラへ渡します。Popcorn Wave は
+audience、署名、有効期間、アクセス規則を検証してからハンドラへ渡します。Popcorn Web は
 両方を扱います。アプリケーションがプロトコルのエンドポイントや検証ミドルウェアを
 繰り返し実装する必要はありません。
 
@@ -25,8 +25,8 @@ audience、署名、有効期間、アクセス規則を検証してからハン
 // import 2つは SQLite のもの——セッションと、ログインの儀式が使い切る単回限りの
 // レコードです。
 import (
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 func main() {
@@ -414,7 +414,7 @@ WebAuthn の Relying Party は**ドメイン**にスコープされ、IP リテ�
 検証を通ったアクセストークンは、有効期限が切れるまで有効です。これはリソースサーバーの側からはどうにもできない唯一の性質です。トークンを発行したのはこのアプリケーションではないし、発行者のところで取り消すこともできません。だからトークンが漏れたとき、あるいはアカウントの乗っ取りが分かったとき、その資格情報のコピーはすべて `exp` まで動き続けます — アプリケーションが「もう受け付けないトークンの一覧」を自分で持っていない限り。失効とは、その一覧のことで、対象は [`jwt_only`](#jwt-only-の-api-サーバー) だけです。
 
 :::note[必要になるもの]
-一覧はリレーショナルテーブルなので、失効には `middleware.rdb` と `auth.backend = "rdb"`、そして `popcornwave_auth_revocation` テーブルを作るフレームワークのマイグレーションが必要です。`admission = "authenticated"` かつ `revocation.mode = "off"` のデプロイにはデータベースそのものが不要です。失効を有効にすることが、この要件を生みます。
+一覧はリレーショナルテーブルなので、失効には `middleware.rdb` と `auth.backend = "rdb"`、そして `popcornweb_auth_revocation` テーブルを作るフレームワークのマイグレーションが必要です。`admission = "authenticated"` かつ `revocation.mode = "off"` のデプロイにはデータベースそのものが不要です。失効を有効にすることが、この要件を生みます。
 :::
 
 ### 有効にする
@@ -457,8 +457,8 @@ package admin
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 const issuer = "https://issuer.example" // このサーバーが検証する auth.jwt.issuer
@@ -502,7 +502,7 @@ func RevokeAccount(w http.ResponseWriter, r *http.Request) {
 代わりに `pw dev` が開発用プロバイダを起動できます。
 
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [dev.idp]
 enabled = true
 ```

@@ -14,12 +14,12 @@ var publicFSState = struct {
 // Generated project public.go files call this during package initialization.
 func RegisterPublicFS(value fs.FS) {
 	if value == nil {
-		panic("popcornwave: nil public filesystem")
+		panic("popcornweb: nil public filesystem")
 	}
 	publicFSState.Lock()
 	defer publicFSState.Unlock()
 	if publicFSState.value != nil {
-		panic("popcornwave: public filesystem is already registered")
+		panic("popcornweb: public filesystem is already registered")
 	}
 	publicFSState.value = value
 }

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
 

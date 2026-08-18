@@ -4,7 +4,7 @@
  *
  * Astro applies `base` to assets and to Starlight-generated navigation, but not
  * to hrefs written by hand inside a page. Without this plugin every page would
- * have to repeat `/popcornwave/` in its links, which silently breaks as soon as
+ * have to repeat `/popcornweb/` in its links, which silently breaks as soon as
  * the base changes. With it, pages link with plain `/guides/testing/`.
  *
  * @param {{ base: string }} options

@@ -1,16 +1,16 @@
 // Package sqlite registers the SQLite dialect of the session store.
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 //
 // The import contributes the dialect and, through it, the rdb session backend.
 // It registers no database/sql driver: an engine package under
-// popcornwave/database does that separately.
+// popcornweb/database does that separately.
 package sqlite
 
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/sessionstore"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

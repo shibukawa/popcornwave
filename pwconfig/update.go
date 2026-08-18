@@ -1,6 +1,6 @@
 package pwconfig
 
-import "github.com/shibukawa/popcornwave/pwruntime"
+import "github.com/shibukawa/popcornweb/pwruntime"
 
 // PublishUpdateSettings records what a browser-facing response needs to know
 // about the update surface, and what tells a bot apart from a reader.

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // A Requirement states how recently the identity of a request must have been

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Diagnostic toggles. Auto ties the setting to something the process already
@@ -96,14 +96,14 @@ func ReportQueryDiagnostics(diagnostics *pwruntime.QueryDiagnostics, env string,
 		return
 	}
 	if !development {
-		ProcessLogger().Warn("popcornwave query diagnostics enabled",
+		ProcessLogger().Warn("popcornweb query diagnostics enabled",
 			pwruntime.String("environment", env),
 			pwruntime.Bool("bind_values", diagnostics.BindValues),
 			pwruntime.Duration("slow_threshold", diagnostics.SlowThreshold),
 		)
 	}
 	if diagnostics.Explain && diagnostics.SlowThreshold > 0 && driver != "" && !pwruntime.SupportsExplain(driver) {
-		ProcessLogger().Warn("popcornwave slow query explain is unavailable",
+		ProcessLogger().Warn("popcornweb slow query explain is unavailable",
 			pwruntime.String("driver", driver),
 			pwruntime.String("reason", "no known plan-only EXPLAIN form for this driver"),
 		)

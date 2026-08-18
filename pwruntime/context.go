@@ -1,5 +1,5 @@
 // Package pwruntime contains the narrow runtime contract used by generated
-// Popcorn Wave code. Handwritten applications should normally import pw.
+// Popcorn Web code. Handwritten applications should normally import pw.
 package pwruntime
 
 import (
@@ -187,7 +187,7 @@ func (r *Resources) connection() (*Connection, error) {
 			return r.single, nil
 		}
 		if r.DB == nil {
-			return nil, errors.New("popcornwave: database is not available in context")
+			return nil, errors.New("popcornweb: database is not available in context")
 		}
 		// A capsule that never passed WithResources, which only a test can
 		// assemble; the request path always has the memoized connection above.
@@ -321,7 +321,7 @@ func baseSQLExecutor(ctx context.Context, current *Resources) (sqlbind.SQLExecut
 		}
 		if !connection.ReadOnly {
 			return nil, nil, fmt.Errorf(
-				"popcornwave: group %q is writable and cannot be selected inside a transaction on group %q",
+				"popcornweb: group %q is writable and cannot be selected inside a transaction on group %q",
 				group, current.TxScope.Group())
 		}
 		return readOnlyExecutor(connection.Executor(), true), connection, nil

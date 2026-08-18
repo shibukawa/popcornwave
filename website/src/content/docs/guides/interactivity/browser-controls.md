@@ -7,7 +7,7 @@ sidebar:
 
 :::note[Browser features]
 `<dialog>`, the popover attributes and `<details>` belong to the web platform,
-not to Popcorn Wave. The framework's share of this page is the four template
+not to Popcorn Web. The framework's share of this page is the four template
 rules at the end, which govern how that same markup behaves inside a `.pw.html`
 component.
 :::

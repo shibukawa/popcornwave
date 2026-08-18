@@ -1,4 +1,4 @@
-// Package testutil runs Popcorn Wave applications from isolated copies of the
+// Package testutil runs Popcorn Web applications from isolated copies of the
 // registered runtime configuration.
 package testutil
 
@@ -14,12 +14,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
-	"github.com/shibukawa/popcornwave/internal/dbseed"
-	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
-	"github.com/shibukawa/popcornwave/migrate"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
+	"github.com/shibukawa/popcornweb/internal/pwtestbridge"
+	"github.com/shibukawa/popcornweb/migrate"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // TestingT is the subset of testing.T used by TestRun.
@@ -169,7 +169,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	t.Helper()
 	snapshot, err := pw.SnapshotTestConfigs()
 	if err != nil {
-		t.Fatalf("copy Popcorn Wave configuration: %v", err)
+		t.Fatalf("copy Popcorn Web configuration: %v", err)
 		return nil
 	}
 	config := &Config{values: cloneConfigs(snapshot)}
@@ -185,7 +185,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 			continue
 		}
 		if err := apply(&settings); err != nil {
-			t.Fatalf("configure Popcorn Wave TestRun: %v", err)
+			t.Fatalf("configure Popcorn Web TestRun: %v", err)
 			return nil
 		}
 	}
@@ -197,7 +197,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	if settings.idp != nil {
 		idpServer, idpInfo, err = startIdentityProvider(settings.idp, config)
 		if err != nil {
-			t.Fatalf("start Popcorn Wave TestRun identity provider: %v", err)
+			t.Fatalf("start Popcorn Web TestRun identity provider: %v", err)
 			return nil
 		}
 		t.Cleanup(func() { _ = idpServer.Close() })
@@ -205,7 +205,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 
 	serverConfig := Get[pw.ServerConfig](config)
 	if serverConfig.Port < -1 || serverConfig.Port > 65535 {
-		t.Fatalf("listen for Popcorn Wave TestRun: port must be -1 or between 0 and 65535")
+		t.Fatalf("listen for Popcorn Web TestRun: port must be -1 or between 0 and 65535")
 		return nil
 	}
 	address := "127.0.0.1:0"
@@ -214,7 +214,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		t.Fatalf("listen for Popcorn Wave TestRun: %v", err)
+		t.Fatalf("listen for Popcorn Web TestRun: %v", err)
 		return nil
 	}
 	actualPort := listener.Addr().(*net.TCPAddr).Port
@@ -243,7 +243,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 	})
 	if err != nil {
 		_ = listener.Close()
-		t.Fatalf("initialize Popcorn Wave TestRun: %v", err)
+		t.Fatalf("initialize Popcorn Web TestRun: %v", err)
 		return nil
 	}
 	seedDir := settings.seedDir
@@ -257,7 +257,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		if err := applySeed(config, dbseed.FromSQL(prepared.DB), false, seedDir, settings.seedFiles); err != nil {
 			_ = listener.Close()
 			_ = prepared.Close()
-			t.Fatalf("initialize Popcorn Wave TestRun seed: %v", err)
+			t.Fatalf("initialize Popcorn Web TestRun seed: %v", err)
 			return nil
 		}
 	}
@@ -267,7 +267,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		if err := prepared.TxScope.Begin(context.Background(), nil); err != nil {
 			_ = listener.Close()
 			_ = prepared.Close()
-			t.Fatalf("begin Popcorn Wave TestRun transaction: %v", err)
+			t.Fatalf("begin Popcorn Web TestRun transaction: %v", err)
 			return nil
 		}
 	}
@@ -299,7 +299,7 @@ func TestRun(t TestingT, handler http.Handler, customize func(*Config), options 
 		t.Cleanup(func() {
 			result.Close()
 			if result.rollbackErr != nil {
-				t.Fatalf("roll back Popcorn Wave TestRun transaction: %v", result.rollbackErr)
+				t.Fatalf("roll back Popcorn Web TestRun transaction: %v", result.rollbackErr)
 			}
 		})
 	}

@@ -3,9 +3,9 @@ package dynamo
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	statedynamo "github.com/shibukawa/popcornwave/authstate/dynamo"
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/authstate"
+	statedynamo "github.com/shibukawa/popcornweb/authstate/dynamo"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 func init() {

@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
@@ -80,7 +80,7 @@ func TestScaffoldPerEngine(t *testing.T) {
 			engine:         engineSQLite,
 			dsn:            `dsn = "sqlite://demo.db"`,
 			schemaFragment: "name TEXT NOT NULL",
-			driverImport:   "github.com/shibukawa/popcornwave/database/sqlite",
+			driverImport:   "github.com/shibukawa/popcornweb/database/sqlite",
 			maxOpenConns:   "max_open_conns = 1",
 		},
 		{
@@ -88,7 +88,7 @@ func TestScaffoldPerEngine(t *testing.T) {
 			dsn:            `dsn = "postgres://demo:demo@127.0.0.1:5432/demo?sslmode=disable"`,
 			schemaFragment: "name TEXT NOT NULL",
 			devboxPackage:  "postgresql@latest",
-			driverImport:   "github.com/shibukawa/popcornwave/database/postgres",
+			driverImport:   "github.com/shibukawa/popcornweb/database/postgres",
 			maxOpenConns:   "max_open_conns = 10",
 		},
 		{
@@ -96,7 +96,7 @@ func TestScaffoldPerEngine(t *testing.T) {
 			dsn:            `dsn = "mysql://demo:demo@tcp(127.0.0.1:3306)/demo"`,
 			schemaFragment: "name VARCHAR(255) NOT NULL",
 			devboxPackage:  "mysql80@latest",
-			driverImport:   "github.com/shibukawa/popcornwave/database/mysql",
+			driverImport:   "github.com/shibukawa/popcornweb/database/mysql",
 			maxOpenConns:   "max_open_conns = 10",
 		},
 	} {
@@ -133,9 +133,9 @@ func TestScaffoldPerEngine(t *testing.T) {
 			}
 			// Generation reads the dialect from here, so a project states its
 			// engine once and both the DSN and the placeholders follow.
-			project := files["popcornwave.toml"]
+			project := files["popcornweb.toml"]
 			if !strings.Contains(project, `database = "`+testcase.engine+`"`) {
-				t.Fatalf("popcornwave.toml does not record the engine:\n%s", project)
+				t.Fatalf("popcornweb.toml does not record the engine:\n%s", project)
 			}
 		})
 	}
@@ -153,7 +153,7 @@ func TestScaffoldDeclinedDatabaseIgnoresEngine(t *testing.T) {
 	if strings.Contains(files["config.dev.toml"], "[middleware.rdb]") {
 		t.Fatal("a declined database still wrote an rdb section")
 	}
-	if strings.Contains(files["cmd/demo/main.go"], "popcornwave/database/") {
+	if strings.Contains(files["cmd/demo/main.go"], "popcornweb/database/") {
 		t.Fatal("a declined database still linked an engine")
 	}
 	if strings.Contains(files["devbox.json"], "postgresql@") {
@@ -232,14 +232,14 @@ func TestScaffoldFilesWithoutTinyGoUsesStandardServeMux(t *testing.T) {
 			t.Errorf("handlers/index.go does not contain %q:\n%s", want, index)
 		}
 	}
-	if strings.Contains(index, "popcornwave/pw") {
+	if strings.Contains(index, "popcornweb/pw") {
 		t.Errorf("host-only scaffold still routes through pw:\n%s", index)
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "handlers/index.go", index, parser.AllErrors); err != nil {
 		t.Fatalf("scaffold is invalid Go: %v\n%s", err, index)
 	}
-	if !strings.Contains(files["popcornwave.toml"], `toolchain = "go"`) {
-		t.Errorf("popcornwave.toml does not record the host toolchain:\n%s", files["popcornwave.toml"])
+	if !strings.Contains(files["popcornweb.toml"], `toolchain = "go"`) {
+		t.Errorf("popcornweb.toml does not record the host toolchain:\n%s", files["popcornweb.toml"])
 	}
 	if strings.Contains(files["devbox.json"], "tinygo") {
 		t.Errorf("devbox.json installs TinyGo for a host-only project:\n%s", files["devbox.json"])
@@ -278,8 +278,8 @@ func TestScaffoldFilesWithTinyGoUsesPwServeMux(t *testing.T) {
 			t.Errorf("handlers/index.go does not contain %q:\n%s", want, index)
 		}
 	}
-	if !strings.Contains(files["popcornwave.toml"], `toolchain = "tinygo"`) {
-		t.Errorf("popcornwave.toml does not record the TinyGo toolchain:\n%s", files["popcornwave.toml"])
+	if !strings.Contains(files["popcornweb.toml"], `toolchain = "tinygo"`) {
+		t.Errorf("popcornweb.toml does not record the TinyGo toolchain:\n%s", files["popcornweb.toml"])
 	}
 	if !strings.Contains(files["devbox.json"], `"tinygo@latest"`) {
 		t.Errorf("devbox.json is missing the TinyGo toolchain:\n%s", files["devbox.json"])
@@ -320,7 +320,7 @@ func TestScaffoldConfigLoadsBackForBothToolchains(t *testing.T) {
 				}
 			}
 		}
-		writeTestFile(t, filepath.Join(root, "popcornwave.toml"), scaffoldFiles(options)["popcornwave.toml"])
+		writeTestFile(t, filepath.Join(root, "popcornweb.toml"), scaffoldFiles(options)["popcornweb.toml"])
 		config, err := loadProjectConfig(root)
 		if err != nil {
 			t.Fatalf("tinygo=%v: %v", tinygo, err)
@@ -341,13 +341,13 @@ func TestScaffoldConfigLoadsBackForBothToolchains(t *testing.T) {
 // check would notice.
 func TestScaffoldedConfigCarriesTheLauncherCorner(t *testing.T) {
 	options := initOptions{Name: "fixture"}
-	project := scaffoldFiles(options)["popcornwave.toml"]
+	project := scaffoldFiles(options)["popcornweb.toml"]
 	if !strings.Contains(project, "[dev.console.launcher]") {
-		t.Errorf("popcornwave.toml does not scaffold the launcher section:\n%s", project)
+		t.Errorf("popcornweb.toml does not scaffold the launcher section:\n%s", project)
 	}
 	for _, corner := range launcherCorners {
 		if !strings.Contains(project, corner) {
-			t.Errorf("popcornwave.toml does not name the %q corner:\n%s", corner, project)
+			t.Errorf("popcornweb.toml does not name the %q corner:\n%s", corner, project)
 		}
 	}
 
@@ -360,7 +360,7 @@ func TestScaffoldedConfigCarriesTheLauncherCorner(t *testing.T) {
 			}
 		}
 	}
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), project)
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), project)
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("the scaffolded config does not load: %v", err)
@@ -823,7 +823,7 @@ func TestScaffoldNamesItsStylesheetThroughAssetURL(t *testing.T) {
 func TestScaffoldWithLoginImportsItsSessionBackend(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "fixture", Database: true, Auth: authOIDC})
 	main := files["cmd/fixture/main.go"]
-	if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
+	if !strings.Contains(main, `_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"`) {
 		t.Errorf("entry point does not register the rdb session backend:\n%s", main)
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "cmd/fixture/main.go", main, parser.AllErrors); err != nil {
@@ -905,24 +905,24 @@ func TestDynamoScaffoldNamesTheRegisteredTable(t *testing.T) {
 	}
 }
 
-// The wizard answer reaches popcornwave.toml, and the scaffold it produces is
+// The wizard answer reaches popcornweb.toml, and the scaffold it produces is
 // the same one either way: taking the second build adds a declaration, not a
 // different project.
 func TestScaffoldRecordsTheFastHTTPBuildOnlyWhenItWasTaken(t *testing.T) {
 	plain := scaffoldFiles(initOptions{Name: "fixture", Devbox: true})
-	if strings.Contains(plain["popcornwave.toml"], "fasthttp") {
-		t.Errorf("popcornwave.toml answers a question the project never took:\n%s", plain["popcornwave.toml"])
+	if strings.Contains(plain["popcornweb.toml"], "fasthttp") {
+		t.Errorf("popcornweb.toml answers a question the project never took:\n%s", plain["popcornweb.toml"])
 	}
 
 	taken := scaffoldFiles(initOptions{Name: "fixture", Devbox: true, FastHTTP: true})
-	if !strings.Contains(taken["popcornwave.toml"], "fasthttp = true") {
-		t.Errorf("popcornwave.toml does not record the fasthttp build:\n%s", taken["popcornwave.toml"])
+	if !strings.Contains(taken["popcornweb.toml"], "fasthttp = true") {
+		t.Errorf("popcornweb.toml does not record the fasthttp build:\n%s", taken["popcornweb.toml"])
 	}
 	// The key belongs to [project], beside the toolchain it sits next to in the
 	// wizard, rather than to whichever section happened to follow it.
-	project, _, found := strings.Cut(taken["popcornwave.toml"], "\n[generate]")
+	project, _, found := strings.Cut(taken["popcornweb.toml"], "\n[generate]")
 	if !found || !strings.Contains(project, "fasthttp = true") {
-		t.Errorf("fasthttp is not in the [project] section:\n%s", taken["popcornwave.toml"])
+		t.Errorf("fasthttp is not in the [project] section:\n%s", taken["popcornweb.toml"])
 	}
 	// Two things the answer adds, and nothing else. Everything a second build
 	// needs is generated except these: an entry point, which is the one file an
@@ -936,7 +936,7 @@ func TestScaffoldRecordsTheFastHTTPBuildOnlyWhenItWasTaken(t *testing.T) {
 		t.Error("a project that never took the second build got its entry point")
 	}
 	for name, source := range taken {
-		if name == "popcornwave.toml" || name == entryPoint {
+		if name == "popcornweb.toml" || name == entryPoint {
 			continue
 		}
 		if plain[name] == source {
@@ -1026,7 +1026,7 @@ func TestProjectConfigRoundTripsTheFastHTTPBuild(t *testing.T) {
 			}
 			config, err := loadProjectConfig(root)
 			if err != nil {
-				t.Fatalf("scaffolded popcornwave.toml does not load: %v", err)
+				t.Fatalf("scaffolded popcornweb.toml does not load: %v", err)
 			}
 			if config.FastHTTP != testcase.want {
 				t.Errorf("project.fasthttp read as %v, want %v", config.FastHTTP, testcase.want)

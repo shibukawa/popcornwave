@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornweb/contrib/oidc"
 )
 
 type exampleDiscoveryTransport struct{}

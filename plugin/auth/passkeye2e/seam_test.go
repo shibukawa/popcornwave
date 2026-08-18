@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/auth/authtest"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth/authtest"
 )
 
 // The guard denies an anonymous request to a protected path, which is the

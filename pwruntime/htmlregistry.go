@@ -28,7 +28,7 @@ var documentState atomic.Pointer[[]htmlbind.Wrapper]
 func RegisterHTMLDocument(wrapper htmlbind.Wrapper) {
 	chain := []htmlbind.Wrapper{wrapper}
 	if !documentState.CompareAndSwap(nil, &chain) {
-		panic("popcornwave: HTML document is already registered")
+		panic("popcornweb: HTML document is already registered")
 	}
 }
 

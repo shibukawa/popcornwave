@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Popcorn Wave HTML",
+  "name": "Popcorn Web HTML",
   "scopeName": "source.pw.html",
   "comment": "A .pw.html file: the shared declaration header of source.pw, plus component declarations whose bodies are HTML with template insertions.",
   "patterns": [

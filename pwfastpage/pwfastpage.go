@@ -10,7 +10,7 @@
 package pwfastpage
 
 import (
-	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornweb/pwfast"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

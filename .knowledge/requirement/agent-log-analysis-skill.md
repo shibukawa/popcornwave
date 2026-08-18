@@ -3,10 +3,10 @@ id: requirement:agent-log-analysis-skill
 type: requirement
 title: Agent Log Analysis Skill
 ---
-The bundled Popcorn Wave agent skill teaches an AI coding agent to inspect requirement:local-jsonl-log-capture files and produce safe DuckDB queries from a developer's natural-language question.
+The bundled Popcorn Web agent skill teaches an AI coding agent to inspect requirement:local-jsonl-log-capture files and produce safe DuckDB queries from a developer's natural-language question.
 
 ```yaml
-canonical_skill: decision:canonical-popcornwave-skill-source
+canonical_skill: decision:canonical-popcornweb-skill-source
 entry_point:
   description_triggers:
     - analyze, inspect, summarize, or debug pw dev logs
@@ -14,13 +14,13 @@ entry_point:
     - create or run a DuckDB query against local logs
   navigation: SKILL.md links one focused telemetry and log-analysis reference
 reference:
-  location: references/telemetry.md within the Popcorn Wave skill
+  location: references/telemetry.md within the Popcorn Web skill
   covers:
     - requirement:local-jsonl-log-capture location, invocation-file lifetime, and exclusions
     - data:local-jsonl-log-record stable fields, typed custom attributes, and correlation fields
     - requirement:telemetry-architecture-guide as the human-facing explanation
 workflow:
-  - locate popcornwave.toml and resolve dev.logs.directory from data:project-config
+  - locate popcornweb.toml and resolve dev.logs.directory from data:project-config
   - enumerate matching closed and active .jsonl files without changing them
   - inspect inferred names and types before assuming application-specific attributes
   - translate the user's question into DuckDB SQL using read_ndjson_auto and union_by_name true

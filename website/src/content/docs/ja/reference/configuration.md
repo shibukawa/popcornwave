@@ -54,7 +54,7 @@ TOML のキーの `.` を `-` に置き換えて `--` を付けます。
 ## 値の出どころ
 
 `APP_ENV` が実行環境を選び、それがプロジェクトローカルのファイル名を決めます。
-Popcorn Wave は次の順に読みます。
+Popcorn Web は次の順に読みます。
 
 1. `./config.{APP_ENV}.toml`
 2. `./config/config.{APP_ENV}.toml`
@@ -437,16 +437,16 @@ HSTS が付くのは検証済みの HTTPS リクエストだけです。平文�
 | `rdb.source` | `"middleware"` | `middleware` は `middleware.rdb` のプールを再利用し、`dedicated` は `session.rdb.dsn` を開く |
 | `rdb.group` | *(空)* | セッションテーブルを持つ接続グループ。空なら `middleware.rdb.write_group` |
 | `rdb.dsn` | *(空)* | 専用セッションデータベース。表示されるときにマスクされるのは資格情報だけ |
-| `rdb.table` | `"popcornwave_session"` | |
+| `rdb.table` | `"popcornweb_session"` | |
 | `redis.dsn` | *(空)* | `redis://` または `rediss://` のサーバー。表示されるときにマスクされるのは資格情報だけ |
 | `redis.key_prefix` | `"pw:session:"` | セッションストアが使用するキーの名前空間 |
 | `redis.connect_timeout` | `"5s"` | 起動時の ping と各コマンドの期限 |
 | `cookie_store.name` | `"pw_session_data"` | 封をしたレコードを運ぶクッキー |
 | `keyring.secret` | *(空)* | ブラウザが運ぶもの全部に署名し封をする base64 の秘密鍵（マスクされる） |
 | `keyring.previous_secrets` | `[]` | ローテーション中も読める引退した秘密鍵（マスクされる） |
-| `dynamo.table` | `"popcornwave_session"` | 宣言上のセッションテーブル名。実際の名前へは `middleware.dynamo` が対応づける |
+| `dynamo.table` | `"popcornweb_session"` | 宣言上のセッションテーブル名。実際の名前へは `middleware.dynamo` が対応づける |
 | `dynamo.consistent_read` | `false` | セッションを強整合で読む。読み取り容量は倍 |
-| `firestore.kind` | `"popcornwave_session"` | セッションレコードを保存する entity kind |
+| `firestore.kind` | `"popcornweb_session"` | セッションレコードを保存する entity kind |
 
 読まれるのは選んだバックエンドのキーだけです。`cookie` 以外のバックエンドは、それ自身の
 blank import でバイナリに入ります。書き忘れたときは起動時のエラーが追加すべき行を引用

@@ -90,7 +90,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func init() {
@@ -142,8 +142,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/session"
 
 	"myapp/handlers"
 )
@@ -238,9 +238,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/pwsession"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/pwsession"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 
 	"myapp/handlers"

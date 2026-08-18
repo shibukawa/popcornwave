@@ -413,7 +413,7 @@ function fresh(seed) {
 	globalThis.document.title = "";
 	elements.clear();
 	if (seed) seedMarker(seed);
-	return createUpdateRuntime({ header: "Pw", attr: "tb", build: "build-1", global: "popcornwave" });
+	return createUpdateRuntime({ header: "Pw", attr: "tb", build: "build-1", global: "popcornweb" });
 }
 
 // A gesture, as the browser would deliver it. Only what the runtime reads is

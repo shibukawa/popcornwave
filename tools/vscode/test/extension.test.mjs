@@ -107,7 +107,7 @@ test("a formatting provider is registered for each dialect", () => {
     state.providers.map((p) => p.language).sort(),
     ["pw-dynamo", "pw-html", "pw-sql"],
   );
-  assert.deepEqual(state.commands, ["popcornwave.showOutput"]);
+  assert.deepEqual(state.commands, ["popcornweb.showOutput"]);
 });
 
 test("an unformatted buffer yields one whole-document replacement", async () => {

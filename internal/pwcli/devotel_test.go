@@ -61,7 +61,7 @@ func startTestViewer(t *testing.T, config projectConfig) (*devTelemetryViewer, *
 }
 
 func TestStartDevTelemetryViewerListensOnAFreeLoopbackPort(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -81,7 +81,7 @@ func TestStartDevTelemetryViewerListensOnAFreeLoopbackPort(t *testing.T) {
 }
 
 func TestDevTelemetryViewerInjectsTheResolvedEndpoint(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -110,7 +110,7 @@ func TestDevTelemetryViewerInjectsTheResolvedEndpoint(t *testing.T) {
 // own service name or protocol choice is deliberate and must survive pw dev.
 func TestDevTelemetryViewerPreservesADeveloperEnvironmentValue(t *testing.T) {
 	t.Setenv(envOTLPService, "chosen-by-hand")
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -128,7 +128,7 @@ func TestDevTelemetryViewerPreservesADeveloperEnvironmentValue(t *testing.T) {
 // viewer, because one nothing exports to is a held port and an empty page.
 func TestStartDevTelemetryViewerSkipsAConfiguredEndpoint(t *testing.T) {
 	t.Setenv(envOTLPEndpoint, "http://127.0.0.1:4318")
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -159,7 +159,7 @@ func TestStartDevTelemetryViewerSkipsAConfiguredEndpoint(t *testing.T) {
 // The end-to-end contract: what an exporter posts to the injected endpoint is
 // what the UI reads back from the snapshot API.
 func TestDevTelemetryViewerReceivesAndServesTelemetry(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -217,7 +217,7 @@ func TestDevTelemetryViewerReceivesAndServesTelemetry(t *testing.T) {
 // viewer without the project committing an endpoint anywhere.
 func TestStartApplicationPointsTheProcessAtTheViewer(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": otelProject,
+		"popcornweb.toml": otelProject,
 		"go.mod":           "module devotelprobe\n\ngo 1.26.0\n",
 		"cmd/app/main.go": `package main
 
@@ -262,7 +262,7 @@ func main() {
 }
 
 func TestLoadProjectConfigEnablesTheViewerByDefault(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -279,7 +279,7 @@ func TestLoadProjectConfigEnablesTheViewerByDefault(t *testing.T) {
 }
 
 func TestLoadProjectConfigReadsDevOtel(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject + `
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject + `
 [dev.otel]
 enabled = false
 port = 4318
@@ -301,7 +301,7 @@ max = 500
 }
 
 func TestLoadProjectConfigRejectsABadOtelPort(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": otelProject + `
+	root := writeProject(t, map[string]string{"popcornweb.toml": otelProject + `
 [dev.otel]
 port = 70000
 `})

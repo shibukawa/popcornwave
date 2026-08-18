@@ -3,7 +3,7 @@ id: system:tinygodriver
 type: system
 title: tinygodriver
 ---
-tinygodriver is the external owner of reusable TinyGo compatibility packages consumed by Popcorn Wave.
+tinygodriver is the external owner of reusable TinyGo compatibility packages consumed by Popcorn Web.
 
 ```yaml
 module: github.com/shibukawa/tinygodriver
@@ -55,5 +55,5 @@ tls_backends:
   darwin: Secure Transport, with mbedTLS under -tags darwinstarttlswith13
   windows: Schannel
 not_consumed:
-  storage/s3: an S3 client for targets where aws-sdk-go-v2 does not build; no Popcorn Wave requirement depends on it
+  storage/s3: an S3 client for targets where aws-sdk-go-v2 does not build; no Popcorn Web requirement depends on it
 ```

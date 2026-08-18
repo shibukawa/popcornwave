@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/sqlscript"
+	"github.com/shibukawa/popcornweb/internal/sqlscript"
 )
 
 // sequenceTable holds AUTOINCREMENT counters and cannot be recreated by an

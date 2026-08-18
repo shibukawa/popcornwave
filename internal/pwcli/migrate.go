@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/configview"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/migrate"
+	"github.com/shibukawa/popcornweb/internal/configview"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/migrate"
 )
 
 // migrateActions is the accepted action set. Help and validation read the same

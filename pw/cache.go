@@ -3,7 +3,7 @@ package pw
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // The data cache an application reaches from a handler.

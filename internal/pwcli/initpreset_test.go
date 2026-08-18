@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 // Every preset has to produce a project the rest of pw init would accept. A
@@ -138,7 +138,7 @@ func TestAPIServerLinksTheAuthPlugin(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 	main := scaffoldFiles(options)["cmd/demo/main.go"]
-	if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/plugin/auth"`) {
+	if !strings.Contains(main, `_ "github.com/shibukawa/popcornweb/plugin/auth"`) {
 		t.Fatalf("the bearer verifier is not linked, so the auth configuration is decorative:\n%s", main)
 	}
 }
@@ -276,10 +276,10 @@ func TestPackagePresetWritesNoApplication(t *testing.T) {
 			t.Errorf("a package scaffolded %s", absent)
 		}
 	}
-	config := files["popcornwave.toml"]
+	config := files["popcornweb.toml"]
 	for _, want := range []string{`kind = "package"`, `module = "github.com/you/widget"`} {
 		if !strings.Contains(config, want) {
-			t.Errorf("popcornwave.toml is missing %s:\n%s", want, config)
+			t.Errorf("popcornweb.toml is missing %s:\n%s", want, config)
 		}
 	}
 	// The consumer's generated bootstrap imports what the manifest names. A

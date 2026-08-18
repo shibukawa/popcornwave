@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	statefirestore "github.com/shibukawa/popcornwave/authstate/firestore"
-	"github.com/shibukawa/popcornwave/database/firestore"
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/authstate"
+	statefirestore "github.com/shibukawa/popcornweb/authstate/firestore"
+	"github.com/shibukawa/popcornweb/database/firestore"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func open(ctx context.Context, config auth.Config, _ auth.Resources) (auth.Backe
 	if _, opened := firestore.EnsureClient(ctx); !opened {
 		return auth.Backend{}, errors.New(
 			`auth.backend = "firestore" requires middleware.firestore.enabled and the ` +
-				`github.com/shibukawa/popcornwave/database/firestore import`)
+				`github.com/shibukawa/popcornweb/database/firestore import`)
 	}
 	return auth.Backend{
 		OpenState: func(_ context.Context, namespace string) (authstate.RawStore, error) {

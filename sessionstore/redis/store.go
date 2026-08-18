@@ -1,4 +1,4 @@
-// Package redis stores Popcorn Wave login sessions in Redis or Valkey.
+// Package redis stores Popcorn Web login sessions in Redis or Valkey.
 //
 // The store owns its own key space under a configured prefix and never scans
 // or enumerates keys. Expiry is the server's: every record is written with a
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 const (

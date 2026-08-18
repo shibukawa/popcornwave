@@ -25,7 +25,7 @@ four_stores:
     dynamo: requirement:contrib-auth-state-dynamo
   allowlist:
     contract: api:auth-allowlist-store, added here because this was the only one of the four with no seam to install an implementation behind
-    was: raw SQL against popcornwave_auth_allowlist
+    was: raw SQL against popcornweb_auth_allowlist
     used_by: policy:oidc-admission registered mode
     dynamo: requirement:dynamodb-auth-stores
   credential:

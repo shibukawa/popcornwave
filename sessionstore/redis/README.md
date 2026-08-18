@@ -8,7 +8,7 @@ Importing it is what makes `session.backend = "redis"` resolve, and what puts
 the client in the binary at all:
 
 ```go
-import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 ```
 
 The import registers the backend and opens no connection. At startup the

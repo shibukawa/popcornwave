@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-A Popcorn Wave project has more than one structure. The directory tree is the
+A Popcorn Web project has more than one structure. The directory tree is the
 most visible, but it sits between two others: the tool environment that builds
 and runs the application, and the request path inside one handler.
 
@@ -22,7 +22,7 @@ identity provider, structured log capture, telemetry receiver, database tools,
 template storybook, and diagnostics.
 
 <figure>
-<svg viewBox="0 0 700 410" role="img" aria-label="The pw project tool surrounds a development cradle. Lifecycle commands consume template, SQL, and Go sources and produce the application binary. Inside pw dev, watch, generation, migration, build, and restart operate the binary while a development identity provider, telemetry, logs, database console, storybook, and doctor support it. popcornwave.toml configures pw, while runtime configuration, environment variables, and flags are read by the application binary.">
+<svg viewBox="0 0 700 410" role="img" aria-label="The pw project tool surrounds a development cradle. Lifecycle commands consume template, SQL, and Go sources and produce the application binary. Inside pw dev, watch, generation, migration, build, and restart operate the binary while a development identity provider, telemetry, logs, database console, storybook, and doctor support it. popcornweb.toml configures pw, while runtime configuration, environment variables, and flags are read by the application binary.">
   <defs>
     <marker id="pw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity="0.65"/>
@@ -85,7 +85,7 @@ template storybook, and diagnostics.
     <text x="71" y="99">assets · testdata</text>
     <text x="71" y="194">database and</text>
     <text x="71" y="211">local services</text>
-    <text x="71" y="312">popcornwave.toml</text>
+    <text x="71" y="312">popcornweb.toml</text>
     <text x="71" y="329">project/tool settings</text>
     <text x="414" y="394">config.{env}.toml · environment · application flags</text>
   </g>
@@ -119,11 +119,11 @@ look similar because both use TOML. They answer to different programs.
 
 | Input | Read by | Decides |
 | --- | --- | --- |
-| `popcornwave.toml` | `pw` | project root, main package, generation scopes, migrations, assets, and development tools |
+| `popcornweb.toml` | `pw` | project root, main package, generation scopes, migrations, assets, and development tools |
 | `config.{APP_ENV}.toml` | application binary | server, database, authentication, sessions, observability, and application settings |
 | environment variables and application flags | application binary | deployment-time overrides of runtime settings |
 
-`dev.logs` belongs in `popcornwave.toml` because it controls the process running
+`dev.logs` belongs in `popcornweb.toml` because it controls the process running
 beside the application. `server.port` belongs in `config.dev.toml` because the
 application binds it. The same distinction holds in production: the release
 binary needs runtime configuration, but it has no reason to read the project
@@ -137,7 +137,7 @@ owners, the tree grows by feature rather than by technical layer.
 
 ```text
 myapp/
-├── popcornwave.toml
+├── popcornweb.toml
 ├── config.dev.toml
 ├── cmd/myapp/main.go
 ├── templates/
@@ -175,7 +175,7 @@ A feature package has the same shape as the small scaffold:
 // webroot/admin/index.go
 package admin
 
-import "github.com/shibukawayoshiki/popcornwave/pw"
+import "github.com/shibukawayoshiki/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 
@@ -245,7 +245,7 @@ types, domain types, and mappers whose only new information is how to copy one
 shape into another. That costs review time, binary weight, human attention, and
 AI context without necessarily creating a meaningful boundary.
 
-Popcorn Wave starts with the opposite default: keep a feature internally
+Popcorn Web starts with the opposite default: keep a feature internally
 shallow, compose features with Go packages and muxes, and extract a shared
 package only after shared ownership exists. A layer must earn its place by
 holding different knowledge or reversing a real dependency.
@@ -271,7 +271,7 @@ center instead of replacing it.
 | Client-side enhancement | optional |
 
 <figure>
-<svg viewBox="0 0 700 210" role="img" aria-label="A request enters a generated typed binder and then a standard net/http handler. The handler calls generated query functions toward the database and generated template functions toward HTML output. A Popcorn Wave response helper writes the final HTTP response. The handler retains the request, response writer, context, redirects, and status decisions.">
+<svg viewBox="0 0 700 210" role="img" aria-label="A request enters a generated typed binder and then a standard net/http handler. The handler calls generated query functions toward the database and generated template functions toward HTML output. A Popcorn Web response helper writes the final HTTP response. The handler retains the request, response writer, context, redirects, and status decisions.">
   <defs>
     <marker id="handler-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity="0.65"/>
@@ -376,7 +376,7 @@ practical target.
 ### Principle: preserve common sense; generate the borders
 
 Replacing `net/http` would discard knowledge already shared by Go developers,
-libraries, debuggers, and tests. Popcorn Wave keeps its mux patterns, handler
+libraries, debuggers, and tests. Popcorn Web keeps its mux patterns, handler
 signature, request context, middleware model, redirects, and status codes.
 
 But familiarity is not a reason to hand-copy data between representations.

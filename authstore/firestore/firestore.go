@@ -7,8 +7,8 @@
 // package publishes all three kinds; the client itself belongs to
 // database/firestore, which these stores read from the request context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/firestore"
-//	import _ "github.com/shibukawa/popcornwave/authstore/firestore"
+//	import _ "github.com/shibukawa/popcornweb/database/firestore"
+//	import _ "github.com/shibukawa/popcornweb/authstore/firestore"
 //
 // A first passkey enrollment is one commit here. The bootstrap credential is
 // consumed and the credential inserted inside one transaction, so neither can
@@ -30,7 +30,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/firestore"
+	"github.com/shibukawa/popcornweb/database/firestore"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
 )
@@ -38,9 +38,9 @@ import (
 // Declared kinds. They are the names plugin/auth already owns; a kind is
 // intrinsic to the type, so nothing maps them onto another name.
 const (
-	DeclaredAllowlistKind  = "popcornwave_auth_allowlist"
-	DeclaredCredentialKind = "popcornwave_passkey_credential"
-	DeclaredBootstrapKind  = "popcornwave_auth_bootstrap"
+	DeclaredAllowlistKind  = "popcornweb_auth_allowlist"
+	DeclaredCredentialKind = "popcornweb_passkey_credential"
+	DeclaredBootstrapKind  = "popcornweb_auth_bootstrap"
 )
 
 func init() {

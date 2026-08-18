@@ -3,7 +3,7 @@ package pw
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 )
 

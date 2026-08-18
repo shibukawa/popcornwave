@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // notesHandler inserts one row through pw.Transaction and absorbs the failure

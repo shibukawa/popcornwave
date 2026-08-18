@@ -7,8 +7,8 @@ import (
 
 	"auction/internal/lobby"
 	"auction/queries"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // maxBidDollars keeps a posted figure clear of the overflow that turning

@@ -57,7 +57,7 @@ conclusion from its own side.
 
 ### The signal channel
 
-| Concern | htmlbind | Popcorn Wave | Why the line falls here |
+| Concern | htmlbind | Popcorn Web | Why the line falls here |
 | --- | --- | --- | --- |
 | The carrier: a signal is an `error` in the source's second slot | **owns** | — | It is a property of the sequence shape the module defines |
 | Classifying a yield as signal vs. fault | **owns** | — | *Cannot* be done here. See "Things that are easy to get backwards" |
@@ -76,7 +76,7 @@ conclusion from its own side.
 
 ### The scope lifecycle
 
-| Concern | htmlbind | Popcorn Wave | Why the line falls here |
+| Concern | htmlbind | Popcorn Web | Why the line falls here |
 | --- | --- | --- | --- |
 | Where an author writes a component's script | **owns** | — | `<script component>` at the top of a declaration, beside the head block |
 | That the block is read as JavaScript, not markup | **owns** | — | A raw-text parser rule, so a brace is not an interpolation |

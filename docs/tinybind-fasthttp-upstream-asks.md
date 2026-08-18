@@ -1,4 +1,4 @@
-# What Popcorn Wave needs from tinybind-go for a fasthttp build
+# What Popcorn Web needs from tinybind-go for a fasthttp build
 
 Surveyed against **tinybind-go v0.5.2** on 2026-08-10, by diffing the exported
 surface of every package.

@@ -3,7 +3,7 @@ id: data:request-context-capsule
 type: data
 title: Request Context Capsule
 ---
-Popcorn Wave stores stable request-scoped framework resources in one private value to bound context.Value lookup depth.
+Popcorn Web stores stable request-scoped framework resources in one private value to bound context.Value lookup depth.
 
 ```yaml
 visibility:

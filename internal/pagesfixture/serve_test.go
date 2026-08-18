@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pagesfixture/pages"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/testutil"
+	"github.com/shibukawa/popcornweb/internal/pagesfixture/pages"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/testutil"
 )
 
 // fixtureMux registers the tree on a mux and installs a document shell.

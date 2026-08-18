@@ -1,8 +1,8 @@
 package pwfast
 
 import (
-	"github.com/shibukawa/popcornwave/internal/requestid"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/requestid"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

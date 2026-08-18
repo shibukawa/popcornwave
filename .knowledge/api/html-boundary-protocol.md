@@ -3,11 +3,11 @@ id: api:html-boundary-protocol
 type: api
 title: HTML Boundary Wire Protocol
 ---
-system:tinybind emits boundary placeholders and allocates their identity; every completion framing and the client runtime that acts on it belong to Popcorn Wave.
+system:tinybind emits boundary placeholders and allocates their identity; every completion framing and the client runtime that acts on it belong to Popcorn Web.
 
 ```yaml
 upstream_emits:
-  placeholder: "<tb-boundary id=\"tb-N\" style=\"display:contents\">fallback</tb-boundary>", where the element name and the id prefix follow the configured boundary prefix from system:tinybind v0.3.1 and carry the Popcorn Wave brand here
+  placeholder: "<tb-boundary id=\"tb-N\" style=\"display:contents\">fallback</tb-boundary>", where the element name and the id prefix follow the configured boundary prefix from system:tinybind v0.3.1 and carry the Popcorn Web brand here
   commit: shell, merged head, and every fallback flush before slow work settles
   head: component contributions only, with nothing injected
   completion: htmlbind.Content carries BoundaryID and HTML; WriteTo writes the bare fragment and nothing else

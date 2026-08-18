@@ -59,7 +59,7 @@ func ResolveDeclared(environ []string) (value string, declared bool, err error) 
 		return Default, false, nil
 	}
 	if !Valid(raw) {
-		return "", false, fmt.Errorf("popcornwave: invalid %s %q: use lowercase letters, digits, '-' or '_'", Var, raw)
+		return "", false, fmt.Errorf("popcornweb: invalid %s %q: use lowercase letters, digits, '-' or '_'", Var, raw)
 	}
 	return raw, true, nil
 }

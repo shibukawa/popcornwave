@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/database/dynamo"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/database/dynamo"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // Importing this package registers the dynamo session backend and puts the
 // session table into the desired schema:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/dynamo"
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/database/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/dynamo"
 //
 // Registration opens nothing. The client belongs to database/dynamo, which
 // installs it into every request context, so this backend borrows one it did
@@ -32,7 +32,7 @@ func open(ctx context.Context, config pw.SessionConfig, _ pw.SessionResources) (
 	if _, opened := dynamo.EnsureClient(ctx); !opened {
 		return session.Backend{}, errors.New(
 			`session.backend = "dynamo" requires middleware.dynamo.enabled and the ` +
-				`github.com/shibukawa/popcornwave/database/dynamo import`)
+				`github.com/shibukawa/popcornweb/database/dynamo import`)
 	}
 	store := NewStore(Options{
 		Table:          config.Dynamo.Table,

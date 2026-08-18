@@ -17,7 +17,7 @@ pages:
     path: guides/deployment/container-images
     order: 2
     covers:
-      - why a Popcorn Wave build is not go build, per rule:container-build-inputs, stated before the first Dockerfile
+      - why a Popcorn Web build is not go build, per rule:container-build-inputs, stated before the first Dockerfile
       - the scaffolded Dockerfile walked stage by stage, naming what each line exists for
       - the runtime stage choices of policy:container-runtime-image: the base image, nonroot, the working directory, APP_ENV, and why no secret is copied
       - .dockerignore and what breaks when an entry is removed
@@ -47,7 +47,7 @@ edits_to_existing_pages:
     change: the command that stops before the compiler was added to the project command table, and is api:cli-generate
 localization: an English page and its Japanese counterpart for every page above, per the parity rule the documentation site already enforces
 acceptance:
-  - a reader who has never seen a Popcorn Wave project can say why COPY . . and go build fails, after the first section
+  - a reader who has never seen a Popcorn Web project can say why COPY . . and go build fails, after the first section
   - every line of the scaffolded Dockerfile is accounted for by the page
   - the TinyGo section states the SIGTERM consequence plainly rather than as a caveat
   - the Compose example appears once on the site

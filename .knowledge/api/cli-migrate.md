@@ -49,7 +49,7 @@ configuration_resolution:
     - the application's --pw-print-dsn framework action, run through the host Go toolchain
   reason: configbind owns TOML, environment, and flag precedence, so the CLI never reimplements DSN resolution
   connection_group: --pw-print-dsn resolves the migration group of policy:connection-group-selection and prints its first connection DSN
-  no_project_mode: an explicit --dir plus an explicit or environment DSN runs without popcornwave.toml, which is how a delegated child invokes it
+  no_project_mode: an explicit --dir plus an explicit or environment DSN runs without popcornweb.toml, which is how a delegated child invokes it
   child_invocation: the same command serves decision:migration-execution-split delegation from a TinyGo binary
   snapshot_action: needs no application DSN because it creates and discards its own temporary database
 behavior:

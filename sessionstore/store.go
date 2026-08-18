@@ -1,10 +1,10 @@
-// Package sessionstore keeps Popcorn Wave login sessions in a relational
+// Package sessionstore keeps Popcorn Web login sessions in a relational
 // database. It owns its own table and never inspects application tables.
 //
 // The engine is not compiled in here. One of the sibling packages describes it
 // and registers itself, so an application blank-imports the engine it runs:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/postgres"
 package sessionstore
 
 import (
@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 const (
 	// DefaultTable is the table owned by this package.
-	DefaultTable = "popcornwave_session"
+	DefaultTable = "popcornweb_session"
 
 	defaultMaxPayloadBytes = 64 << 10
 	hardMaxPayloadBytes    = 1 << 20
@@ -126,7 +126,7 @@ func NewStore(db sqlbind.SQLExecutor, options Options) (*Store, error) {
 // the next free one when it is written, so adding this capability to a project
 // that already applied migrations renumbers nothing. The name is what makes the
 // file recognizable at whatever version it ended up with.
-const MigrationName = "init_popcornwave_session"
+const MigrationName = "init_popcornweb_session"
 
 // ErrSchemaMissing reports that the owned table does not exist yet. A project
 // creates it from MigrationSQL rather than at startup.

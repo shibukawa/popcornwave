@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -23,7 +23,7 @@ func withUpdateSettings(t *testing.T) {
 		ValidatorKey:        "test-validator-key-that-is-long-enough",
 		HeaderPrefix:        "Pw",
 		DataAttributePrefix: "tb",
-		GlobalName:          "popcornwave",
+		GlobalName:          "popcornweb",
 		PathPrefix:          "/_pw/",
 		BuildID:             "test-build",
 		MaxManifestBytes:    8192,

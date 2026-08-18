@@ -6,7 +6,7 @@ title: Revoked Token Record
 One entry of the policy:token-revocation list, holding enough to refuse a token and to explain the refusal later.
 
 ```yaml
-table: popcornwave_auth_revocation, created by the rule:framework-owned-tables migration api:authentication-endpoints already publishes
+table: popcornweb_auth_revocation, created by the rule:framework-owned-tables migration api:authentication-endpoints already publishes
 fields:
   issuer: the authorization server the entry is scoped to, so the same subject value at another issuer is a different person
   kind: token or subject
@@ -19,7 +19,7 @@ plaintext_key:
   decision: the identifier is stored as written rather than hashed
   first_draft: a key_hash column, so the list would not itself be worth stealing
   why_reversed:
-    sibling: popcornwave_auth_allowlist sits in the same migration and stores issuer, claim, and value in the clear, so hashing here would make two tables holding the same kind of value disagree about whether that value is a secret
+    sibling: popcornweb_auth_allowlist sits in the same migration and stores issuer, claim, and value in the clear, so hashing here would make two tables holding the same kind of value disagree about whether that value is a secret
     operability: an operator revokes, checks, and reinstates by hand during an incident, and a hashed column makes the list unreadable exactly when someone needs to read it
     threat: the values are already in every token the issuer mints and in the allowlist beside it; a database an attacker can read has already given them more than this table adds
 excluded:

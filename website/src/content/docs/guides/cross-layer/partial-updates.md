@@ -65,17 +65,17 @@ submission when updates are disabled:
 export component RenameForm(orderID: string): html {
 <script component>
   export function setup({ el: form, teardown }) {
-    if (!window.popcornwave) return;
+    if (!window.popcornweb) return;
 
     async function submit(event) {
       event.preventDefault();
       const response = await fetch(form.action, {
         method: "POST",
-        headers: window.popcornwave.updateHeaders(),
+        headers: window.popcornweb.updateHeaders(),
         credentials: "same-origin",
         body: new FormData(form),
       });
-      await window.popcornwave.apply(response);
+      await window.popcornweb.apply(response);
     }
 
     form.addEventListener("submit", submit);
@@ -102,10 +102,10 @@ does not leave a duplicate submit listener behind.
 JavaScript can also initiate each path directly:
 
 ```js
-if (window.popcornwave) {
-  await window.popcornwave.update({ sort: "newest" });
-  await window.popcornwave.navigate("/orders/17");
-  await window.popcornwave.redraw("card-17", { orderID: 17 });
+if (window.popcornweb) {
+  await window.popcornweb.update({ sort: "newest" });
+  await window.popcornweb.navigate("/orders/17");
+  await window.popcornweb.redraw("card-17", { orderID: 17 });
 }
 ```
 

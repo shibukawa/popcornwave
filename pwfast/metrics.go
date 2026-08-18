@@ -3,8 +3,8 @@ package pwfast
 import (
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

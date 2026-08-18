@@ -30,7 +30,7 @@ route_entries:
   why_not_an_array_of_tables: three arrays read as well and need no array-of-tables support from the configuration parser, which minitoml would have had to grow for one block
   match: longest prefix, evaluated against the path after locale stripping
   unlisted_path: the default locale with no negotiation, so a project adding i18n to one subtree leaves the rest alone
-  registered_into_the_binary: the generated message package emits the route list, the labels, and prefix_default, because a served process cannot read popcornwave.toml
+  registered_into_the_binary: the generated message package emits the route list, the labels, and prefix_default, because a served process cannot read popcornweb.toml
 rules:
   - a locales list that omits default_locale is a startup error
   - a locale tag that is not well-formed BCP 47 is a startup error

@@ -3,7 +3,7 @@ id: requirement:dockerless-image-builders
 type: requirement
 title: Dockerless Image Builders
 ---
-ko and Cloud Native Buildpacks get one note on the container images page rather than a page of their own, because everything a Popcorn Wave project needs to know about them is that they own the compile step and therefore run after api:cli-generate.
+ko and Cloud Native Buildpacks get one note on the container images page rather than a page of their own, because everything a Popcorn Web project needs to know about them is that they own the compile step and therefore run after api:cli-generate.
 
 ```yaml
 support_tier:
@@ -22,5 +22,5 @@ the_note:
 recommendation: the scaffolded Dockerfile, because it is the only path where the host phase, the toolchain pin, the probe, and the configuration file are all in one reviewable file; a builder is the answer when the platform already runs one for every other service and the project is host Go
 non_goals:
   - a builder-specific scaffold, configuration file, or api:cli-doctor check
-  - a Popcorn Wave buildpack that would run the host phase, which is a maintained artifact per platform and a distribution channel requirement:cli-distribution does not have
+  - a Popcorn Web buildpack that would run the host phase, which is a maintained artifact per platform and a distribution channel requirement:cli-distribution does not have
 ```

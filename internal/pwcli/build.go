@@ -135,7 +135,7 @@ func (o buildOptions) tags() []string {
 // pile of undefined symbols rather than as the one thing that is wrong.
 func (o buildOptions) check(config projectConfig) error {
 	if o.backend == backendFastHTTP && !config.FastHTTP {
-		return fmt.Errorf("--backend %s needs project.fasthttp = true in popcornwave.toml; "+
+		return fmt.Errorf("--backend %s needs project.fasthttp = true in popcornweb.toml; "+
 			"without it nothing generates the half that build compiles", backendFastHTTP)
 	}
 	return nil
@@ -281,9 +281,9 @@ func generateBuildInputs(ctx context.Context, root string, config projectConfig,
 // accepts, and the authentication test seam builds a request context that is
 // already logged in.
 var developmentOnlyPackages = []string{
-	"github.com/shibukawa/popcornwave/contrib/devidp",
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest",
-	"github.com/shibukawa/popcornwave/plugin/auth/authtest",
+	"github.com/shibukawa/popcornweb/contrib/devidp",
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest",
+	"github.com/shibukawa/popcornweb/plugin/auth/authtest",
 }
 
 // The graph is listed under the same tags the compile uses. A development-only

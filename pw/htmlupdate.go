@@ -10,8 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/shibukawa/popcornwave/internal/safeurl"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/safeurl"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlupdate"
 )
@@ -216,7 +216,7 @@ const updatePathPrefix = pwruntime.UpdatePathPrefix
 
 // ErrUpdateKeyMissing reports updates enabled with nothing to key validators
 // with.
-var ErrUpdateKeyMissing = errors.New("popcornwave: html.update.validator_key is required when html.update.enabled is true")
+var ErrUpdateKeyMissing = errors.New("popcornweb: html.update.validator_key is required when html.update.enabled is true")
 
 // validateUpdateConfig refuses a configuration that would serve unkeyed
 // validators.
@@ -850,4 +850,4 @@ func WriteUpdateNavigate(w http.ResponseWriter, r *http.Request, url string) {
 // errUnsafeNavigation reports a navigation target this framework will not hand
 // to a browser. It is a programming error rather than a request error: the
 // handler chose the target, so the fix is in the handler.
-var errUnsafeNavigation = errors.New("popcornwave: navigation target is not a URL a browser can follow without running script")
+var errUnsafeNavigation = errors.New("popcornweb: navigation target is not a URL a browser can follow without running script")

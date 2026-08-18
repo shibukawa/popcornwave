@@ -55,7 +55,7 @@ worked_cases:
   finishing_the_api_server:
     from: the api-server preset, which requirement:api-server-scaffold points at a development issuer nobody runs
     steps: replace auth.jwt.issuer and auth.jwt.audience, turn allow_loopback_http back off, choose the policy:bearer-admission mode the deployment wants, and drop the config.dev.toml relaxation once a real authorization server exists
-    also: enabling policy:token-revocation, which is pw add database plus the popcornwave_revoked_token migration and the revocation keys
+    also: enabling policy:token-revocation, which is pw add database plus the popcornweb_revoked_token migration and the revocation keys
     honest_about: the project runs immediately and deploys nowhere, and the reader does not have to remember to remove the relaxation because a non-development build and a non-development environment each refuse it
     token_shape: the hand-written token needs iss as well as sub, because the account is derived from the pair
     names_the_mode: this is where requirement:jwt-only-api-authentication is documented, per decision:jwt-only-mode-not-scaffolded putting it in the API-server reference and not in the tutorial

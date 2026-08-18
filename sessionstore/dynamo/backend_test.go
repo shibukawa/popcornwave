@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/cloud/aws"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"

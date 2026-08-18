@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/auth/authfast"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth/authfast"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -69,7 +69,7 @@ func build() (*deployment, error) {
 		return nil, err
 	}
 	pwconfig.SetLoadOptions(configbind.LoadOptions{
-		Vendor:             "popcornwave-authfastjwt-e2e",
+		Vendor:             "popcornweb-authfastjwt-e2e",
 		Tool:               "authfastjwt-e2e",
 		ExplicitConfigPath: configPath,
 		Args:               []string{},

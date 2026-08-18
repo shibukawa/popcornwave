@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
-	"github.com/shibukawa/popcornwave/internal/pwmsg"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwmsg"
 	templates "github.com/shibukawa/tinybind-go/templates/htmlbind"
 )
 

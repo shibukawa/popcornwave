@@ -1,12 +1,12 @@
 ---
 title: Telemetry
-description: How Popcorn Wave connects application logs, traces, development diagnostics, local JSONL files, and DuckDB analysis.
+description: How Popcorn Web connects application logs, traces, development diagnostics, local JSONL files, and DuckDB analysis.
 sidebar:
   order: 7
 ---
 
 Telemetry answers two different questions. Logs explain discrete decisions and
-failures; traces show how one request moved through work and time. Popcorn Wave
+failures; traces show how one request moved through work and time. Popcorn Web
 keeps them correlated without forcing development and production to use the
 same destination.
 
@@ -25,7 +25,7 @@ package handlers
 import (
     "net/http"
 
-    "github.com/shibukawa/popcornwave/pw"
+    "github.com/shibukawa/popcornweb/pw"
 )
 
 func showAccount(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +135,7 @@ opened the client span — the callee adopts the span the header names, and a
 header written anywhere else attributes the callee's work to the wrong parent.
 
 ```go
-import "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+import "github.com/shibukawa/popcornweb/contrib/otel/otelhttp"
 
 client := otelhttp.NewClient(http.DefaultClient)
 request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -336,7 +336,7 @@ which keeps numbers and booleans useful in queries.
 DuckDB is an optional external tool; `pw` neither bundles, installs, nor runs it.
 It can query all invocations without importing them into a database. Run it
 from the project root, or adjust the glob to the configured directory. The
-Popcorn Wave agent skill includes this schema and can turn a question such as
+Popcorn Web agent skill includes this schema and can turn a question such as
 “show repeated errors from the last hour” into a query.
 
 ```sql
@@ -403,7 +403,7 @@ scan is in progress; retry if the newest record is temporarily incomplete.
 
 ## Production destinations
 
-Outside `pw dev`, Popcorn Wave does not create local log files. Production logs
+Outside `pw dev`, Popcorn Web does not create local log files. Production logs
 are structured JSON on standard output for the platform's log collector, and OTLP
 export goes to the configured endpoint. This keeps file ownership, rotation,
 retention, access control, and deletion with the deployment platform rather than
@@ -427,7 +427,7 @@ Configure levels, `stdout_format`, service identity, resource attributes, and
 OTLP endpoint/headers through TOML or the corresponding `OTEL_*` environment
 variables in
 [Application Configuration Keys](/reference/configuration/#observability). The local
-capture switch belongs to `popcornwave.toml`, because it controls the developer
+capture switch belongs to `popcornweb.toml`, because it controls the developer
 process rather than the deployed application configuration.
 
 OTLP uses a bounded queue so request handling does not wait for a collector; a

@@ -1,5 +1,5 @@
 // Package passkeytest is a test-only software authenticator for
-// [github.com/shibukawa/popcornwave/contrib/passkey].
+// [github.com/shibukawa/popcornweb/contrib/passkey].
 //
 // It answers a ceremony with the same JSON a browser posts, so a passkey flow
 // runs without a browser, hardware, or a human gesture. It reads the challenge,
@@ -24,7 +24,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
 )
 
 var (

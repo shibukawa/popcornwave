@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/testutil"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/testutil"
 )
 
 // TestPasskeyWorksOnACookieBackedSession proves the ceremony does not depend on
@@ -90,7 +90,7 @@ func TestPasskeyWorksOnACookieBackedSession(t *testing.T) {
 	// The session is in the browser, not the database: no row backs it.
 	var sessions int
 	if err := server.DB.QueryRowContext(server.Context(),
-		"SELECT COUNT(*) FROM popcornwave_session").Scan(&sessions); err != nil {
+		"SELECT COUNT(*) FROM popcornweb_session").Scan(&sessions); err != nil {
 		t.Fatalf("count sessions: %v", err)
 	}
 	if sessions != 0 {
@@ -101,7 +101,7 @@ func TestPasskeyWorksOnACookieBackedSession(t *testing.T) {
 	// are consumed rather than left behind.
 	var ceremonies int
 	if err := server.DB.QueryRowContext(server.Context(),
-		"SELECT COUNT(*) FROM popcornwave_authstate WHERE namespace = 'auth-passkey'").Scan(&ceremonies); err != nil {
+		"SELECT COUNT(*) FROM popcornweb_authstate WHERE namespace = 'auth-passkey'").Scan(&ceremonies); err != nil {
 		t.Fatalf("count ceremony records: %v", err)
 	}
 	if ceremonies != 0 {

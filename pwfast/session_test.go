@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

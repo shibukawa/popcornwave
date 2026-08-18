@@ -1,6 +1,6 @@
 # Change request: caching a settled async boundary, and one property to keep in the `val` error design
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.5.10
 **Date:** 2026-08-14
 **Status:** open
@@ -23,11 +23,11 @@ record before either side starts:
 | Narrowing the `@cache` refusal from `await` to `live` | tinybind |
 | Capturing the settled subtree, storing it, replaying it in place | tinybind |
 | Never storing a boundary that failed | tinybind |
-| Render-mode selection, which reads `HasAwaitBlock` and must tolerate a hit opening no boundary | **Popcorn Wave** |
-| The `render boundary` span, which a hit makes disappear from the trace | **Popcorn Wave** |
-| The cache hit and miss counters, which would stop distinguishing a markup hit from one that skipped a fetch | **Popcorn Wave** |
-| `html.cache.max_entries`, an entry count over entries that would now vary hugely in size | **Popcorn Wave** |
-| Where a newly-reportable load failure is rendered, and retiring the generated call that reports one today | **Popcorn Wave** |
+| Render-mode selection, which reads `HasAwaitBlock` and must tolerate a hit opening no boundary | **Popcorn Web** |
+| The `render boundary` span, which a hit makes disappear from the trace | **Popcorn Web** |
+| The cache hit and miss counters, which would stop distinguishing a markup hit from one that skipped a fetch | **Popcorn Web** |
+| `html.cache.max_entries`, an entry count over entries that would now vary hugely in size | **Popcorn Web** |
+| Where a newly-reportable load failure is rendered, and retiring the generated call that reports one today | **Popcorn Web** |
 
 The fourth of ours is the one we expect to cost real work rather than a
 paragraph: an entry cap chosen when an entry was a markup fragment does not

@@ -102,26 +102,26 @@ func (c SecurityHeadersConfig) Validate() error {
 		"permissions_policy":                  c.PermissionsPolicy,
 	} {
 		if !validHeaderValue(value) {
-			return fmt.Errorf("popcornwave: %s contains an invalid header value", name)
+			return fmt.Errorf("popcornweb: %s contains an invalid header value", name)
 		}
 	}
 	frame := strings.ToUpper(c.FrameOptions)
 	if frame != "" && frame != "OFF" && frame != "DENY" && frame != "SAMEORIGIN" {
-		return fmt.Errorf("popcornwave: unsupported frame_options %q", c.FrameOptions)
+		return fmt.Errorf("popcornweb: unsupported frame_options %q", c.FrameOptions)
 	}
 	if c.ReferrerPolicy != "" {
 		switch strings.ToLower(c.ReferrerPolicy) {
 		case "no-referrer", "same-origin", "strict-origin", "strict-origin-when-cross-origin":
 		default:
-			return fmt.Errorf("popcornwave: unsupported referrer_policy %q", c.ReferrerPolicy)
+			return fmt.Errorf("popcornweb: unsupported referrer_policy %q", c.ReferrerPolicy)
 		}
 	}
 	if c.HSTS.Enabled {
 		if c.HSTS.MaxAge <= 0 {
-			return fmt.Errorf("popcornwave: HSTS max age must be positive")
+			return fmt.Errorf("popcornweb: HSTS max age must be positive")
 		}
 		if c.HSTS.Preload && (!c.HSTS.IncludeSubdomains || c.HSTS.MaxAge < 365*24*time.Hour) {
-			return fmt.Errorf("popcornwave: HSTS preload requires include_subdomains and a max age of at least one year")
+			return fmt.Errorf("popcornweb: HSTS preload requires include_subdomains and a max age of at least one year")
 		}
 	}
 	return nil

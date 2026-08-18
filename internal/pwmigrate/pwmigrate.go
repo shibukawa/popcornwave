@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/pressly/goose/v3"
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	// pw serves any project, so unlike an application binary it links every
 	// engine rather than the one a single project selected.
-	_ "github.com/shibukawa/popcornwave/database/mysql"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 )
 
 // DefaultDir is the project-relative migration directory.
@@ -139,7 +139,7 @@ func StreamTable(stem string) string {
 	if stem == "" {
 		return ""
 	}
-	return "popcornwave_migrations_" + stem
+	return "popcornweb_migrations_" + stem
 }
 
 // newStreamProvider builds a provider over one stream. An empty stem is the

@@ -12,7 +12,7 @@ what_is_automatic:
   boundaries: every layout and page of a rendered chain, because a layout chain is already the shape a partial update wants
   not_a_boundary: an ordinary component call, so a five-hundred-row list does not put five hundred entries in every request
   never_a_boundary: the document shell, since a delta reuses the existing document
-  identity: written by generation onto each boundary root element, under the data attribute prefix api:cli-generate sets to the Popcorn Wave brand rather than the system:tinybind default
+  identity: written by generation onto each boundary root element, under the data attribute prefix api:cli-generate sets to the Popcorn Web brand rather than the system:tinybind default
   one_spelling: from system:tinybind v0.3.1 a render option names the async placeholder element and the boundary identifiers from that same prefix, so a document no longer carries the framework's attributes beside the module's element names
   runtime_agreement: the prefix reaches the browser as configuration, so requirement:unified-update-runtime is not rebuilt for it
   single_root: a boundary must render exactly one root element; a component that cannot is simply not a boundary and still compiles

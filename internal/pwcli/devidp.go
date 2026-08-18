@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
 )
 
 // Environment variables the development identity provider injects into the

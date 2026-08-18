@@ -3,7 +3,7 @@ id: decision:update-runtime-convergence
 type: decision
 title: Update Runtime Convergence
 ---
-system:tinybind v0.3.0 ships htmlupdate, a complete update transport with its own browser runtime, header namespace, and endpoint prefix, duplicating what Popcorn Wave already owns; adopt it as the transport and merge the two browser runtimes into one asset under the existing Popcorn Wave names rather than retiring either side.
+system:tinybind v0.3.0 ships htmlupdate, a complete update transport with its own browser runtime, header namespace, and endpoint prefix, duplicating what Popcorn Web already owns; adopt it as the transport and merge the two browser runtimes into one asset under the existing Popcorn Web names rather than retiring either side.
 
 ```yaml
 source: user convergence decision 2026-08-01
@@ -23,7 +23,7 @@ decision:
   transport: htmlupdate is the implementation, wrapped by api:html-update-options; pw writes no delta encoder, no manifest codec, and no redraw router of its own
   header_namespace: one Pw prefix, so the render header is Pw-Render and the hint headers are Pw-Manifest and Pw-Build
   one_header_many_modes: the live token joins the same header as a mode value rather than keeping a header of its own, because the modes are mutually exclusive readings of one question
-  runtime_asset: the two scripts merge into one popcornwave-runtime.js, served by requirement:unified-update-runtime from the reserved prefix
+  runtime_asset: the two scripts merge into one popcornweb-runtime.js, served by requirement:unified-update-runtime from the reserved prefix
   endpoints: htmlupdate mounts under the pw reserved prefix, so requirement:framework-script-assets keeps one routing, caching, and access rule
 why_coexistence_works:
   negotiate_is_strict: htmlupdate resolves anything that is not its own mode token to a complete document, so an unrecognized value is inert rather than an error
@@ -76,7 +76,7 @@ rejected:
     what_stays_the_module_s: every Go half, and everything the compiler emits; the transport decision above is unchanged
   adopt_upstream_names:
     what: serve under X-Tinybind and /_tb
-    why_not: the reserved prefix, the immutable revision URL, and the framework-owned asset rule are Popcorn Wave contracts a dependency name must not leak into
+    why_not: the reserved prefix, the immutable revision URL, and the framework-owned asset rule are Popcorn Web contracts a dependency name must not leak into
   two_runtimes_on_one_page:
     why_not: two boundary id spaces, two script tags, and two build identities on one document, with nothing deciding which one owns a given region
 sequencing:

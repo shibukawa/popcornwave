@@ -36,8 +36,8 @@ build_mode:
   server_sql_backends: the standard-Go pgx and go-sql-driver backends, which need no C toolchain
   consequence: every target cross-compiles from one linux runner with no C toolchain
 acceptance:
-  - nix run github:shibukawa/popcornwave#pw prints usage on a clean machine
-  - nix profile install github:shibukawa/popcornwave installs pw into the profile
+  - nix run github:shibukawa/popcornweb#pw prints usage on a clean machine
+  - nix profile install github:shibukawa/popcornweb installs pw into the profile
   - brew install shibukawa/tap/pw installs pw on darwin arm64 and amd64
   - both channels report the released tag through api:cli-version
   - a released archive extracts exactly the data:release-artifact contents with no directory prefix

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel"
 )
 
 func TestAlwaysOffRecordsNothingAndStillPropagates(t *testing.T) {

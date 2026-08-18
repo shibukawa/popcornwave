@@ -5,7 +5,7 @@ package oidc
 import (
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 )
 
 func FuzzIDTokenParsing(f *testing.F) {

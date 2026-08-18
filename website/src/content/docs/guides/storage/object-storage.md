@@ -34,7 +34,7 @@ registered configuration struct like any other — see
 ```go
 package storage
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 type Config struct {
 	Endpoint string `help:"S3 endpoint URL; empty selects the AWS regional endpoint"`
@@ -74,7 +74,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"github.com/shibukawa/tinygodriver/storage/s3"
 )
 

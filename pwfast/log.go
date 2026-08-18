@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // The logging names pw publishes, under the same spelling, so a rewritten

@@ -6,7 +6,7 @@ title: Test Identity Provider
 testutil starts an in-process requirement:contrib-devidp beside an api:test-run server and pre-selects the logged-in user, so flow:oidc-account-login runs in a test without a browser.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/testutil
+package: github.com/shibukawa/popcornweb/testutil
 surface:
   - WithIdentityProvider(options ...IdPOption) RunOption
   - WithLoginUser(subject string) IdPOption

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	otellog "github.com/shibukawa/popcornwave/contrib/otel/log"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	otellog "github.com/shibukawa/popcornweb/contrib/otel/log"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 func TestExportTraceAndStandaloneLogJSON(t *testing.T) {

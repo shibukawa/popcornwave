@@ -8,7 +8,7 @@ import (
 
 	"htmx_fragment/handlers"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {

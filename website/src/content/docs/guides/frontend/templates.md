@@ -24,7 +24,7 @@ and [`pw generate`](/pw/project/generate/) is that same work stopping short of
 the compiler, for a build that TinyGo or your own `go build` drives — or for
 running it once by hand.
 
-The scan is not the whole module. `popcornwave.toml` names directories per
+The scan is not the whole module. `popcornweb.toml` names directories per
 purpose, and `.pw.html` belongs to the `templates` purpose:
 
 ```toml

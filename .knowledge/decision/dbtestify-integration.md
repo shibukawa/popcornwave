@@ -3,7 +3,7 @@ id: decision:dbtestify-integration
 type: decision
 title: dbtestify Integration Boundary
 ---
-Popcorn Wave delegates seed and assertion logic to the system:dbtestify core package and requires upstream API additions instead of reimplementing or vendoring that logic.
+Popcorn Web delegates seed and assertion logic to the system:dbtestify core package and requires upstream API additions instead of reimplementing or vendoring that logic.
 
 ```yaml
 status: accepted
@@ -46,20 +46,20 @@ upstream_changes:
     preserved: DumpDiffCLICallback keeps its colored os.Stdout behavior
     reason: assertion failures must reach TestingT output instead of os.Stdout
 consequences:
-  - popcornwave gains build dependencies on the dbtestify core package and goccy/go-yaml only
-  - popcornwave gains no CGo requirement and no pgx or mysql driver dependency
+  - popcornweb gains build dependencies on the dbtestify core package and goccy/go-yaml only
+  - popcornweb gains no CGo requirement and no pgx or mysql driver dependency
   - pool ownership stays with api:rdb-middleware and api:test-run
   - dataset semantics stay defined by system:dbtestify and documented by data:seed-dataset
 rejected:
-  separate_popcornwave_module:
+  separate_popcornweb_module:
     idea: isolate seeding in its own Go module to contain dbtestify dependencies
     reason: api:cli-seed and api:test-run options must live in the framework module to stay first class
   accept_dependencies_as_is:
     idea: depend on unmodified dbtestify core
     reason: breaks CGo-free builds and contradicts decision:sqlite-backend-selection
 local_boundary:
-  package: github.com/shibukawa/popcornwave/internal/dbseed
-  role: the only place popcornwave imports dbtestify, shared by api:cli-seed and api:test-seed
+  package: github.com/shibukawa/popcornweb/internal/dbseed
+  role: the only place popcornweb imports dbtestify, shared by api:cli-seed and api:test-seed
   surface: DefaultDir, Extension, Resolve, Dialect, Executor, ResolveDialect, Apply, Assert, FromSQL, FromRuntime
   executor_selection: >
     FromSQL keeps a *sql.DB pool shaped so Seed opens its own per-dataset

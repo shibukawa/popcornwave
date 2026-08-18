@@ -16,7 +16,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
-	"github.com/shibukawa/popcornwave/internal/assetverify"
+	"github.com/shibukawa/popcornweb/internal/assetverify"
 )
 
 // The build writes three directories under dist. Only the first is served; the

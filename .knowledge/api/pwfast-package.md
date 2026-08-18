@@ -6,7 +6,7 @@ title: pwfast Runtime Package
 pwfast is the pw surface over a fasthttp request, the second half decision:transport-source-transform imports in place of pw when it rewrites a handler.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/pwfast
+package: github.com/shibukawa/popcornweb/pwfast
 serves: requirement:pw-call-registration, whose second-package clause this is
 status: implemented 2026-08-10, against tinybind-go v0.5.1
 shape:
@@ -63,7 +63,7 @@ chain_completed_2026_08_10:
     uri_normalisation: fasthttp normalises the request URI before a handler sees it, so a dot-segment path never reaches the asset check and misses the mount instead
     header_case: the two canonicalise header names differently, Etag against ETag, which is why the shared test seam reads them case-insensitively
 identity_endpoints_2026_08_11:
-  where: popcornwave/plugin/auth/authfast, not here, because they belong to the plugin that owns the decisions rather than to the transport runtime
+  where: popcornweb/plugin/auth/authfast, not here, because they belong to the plugin that owns the decisions rather than to the transport runtime
   what_moved_instead: plugin/auth grew auth.Exchange, a transport seam, and every endpoint body was rewritten against it; both transports now drive one implementation of the login
   this_half_supplies: pwfast.GuardPolicy, which RuntimeOptions already took, plus the Extra frame slot the authentication step is positioned in
   no_second_login: two implementations of when a transaction cookie is consumed, or of which failures answer 403 rather than 400, would be two chances to leave a hole in one of them

@@ -10,7 +10,7 @@ person their own memos needs an answer to a question the application currently
 cannot ask: who is this?
 
 Login is the part of a framework that usually arrives as three routes, a
-protocol library, and a week of reading. Popcorn Wave serves the routes itself.
+protocol library, and a week of reading. Popcorn Web serves the routes itself.
 What is left for the application is a column, a filter, and a decision about
 which paths require a session — which is what this chapter is. Thirty minutes,
 including the wizard.
@@ -44,10 +44,10 @@ written before anything is:
 
     create  devidp.toml
     create  handlers/accounts.go
-    create  migrations/00003_init_popcornwave_session.sql
-    create  migrations/00004_init_popcornwave_auth.sql
+    create  migrations/00003_init_popcornweb_session.sql
+    create  migrations/00004_init_popcornweb_auth.sql
     append  config.dev.toml
-    append  popcornwave.toml
+    append  popcornweb.toml
     edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
@@ -89,8 +89,8 @@ and `pw init --session` offers it from the start.
 When the configuration and the imports disagree, startup says so:
 
 ```
-popcornwave: auth.session: session.backend = "rdb" needs its plugin;
-add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+popcornweb: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 That is the `edit cmd/memoapp/main.go` line. Accept the screen and the file
@@ -107,11 +107,11 @@ import (
 	"memoapp/handlers"
 
 	// new: this is what actually provides session.backend = "rdb".
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 	// new: where the single-use login records go.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {
@@ -165,7 +165,7 @@ Listing the two paths this application actually has keeps `/healthz` and the
 other operational endpoints public, which is what a load balancer needs them to
 be.
 
-In `popcornwave.toml`, what `pw add auth` wrote is already what you want:
+In `popcornweb.toml`, what `pw add auth` wrote is already what you want:
 
 ```toml
 [dev.idp]
@@ -301,8 +301,8 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth" // new
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth" // new
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // home lists the signed-in account's memos.

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 // SpanContextFromFields builds a remote span context from the raw traceparent

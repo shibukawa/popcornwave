@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // Importing any engine package registers the rdb session backend, because an
 // engine package imports this one:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 //
 // Registration opens nothing. The database is borrowed from the RDB middleware
 // when session.backend selects this backend at startup.

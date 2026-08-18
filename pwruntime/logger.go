@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 // Level is the severity of a log record.

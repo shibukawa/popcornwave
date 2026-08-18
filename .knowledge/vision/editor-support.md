@@ -3,7 +3,7 @@ id: vision:editor-support
 type: vision
 title: Editor Support Vision
 ---
-Popcorn Wave ships editor support for its own source dialects, so a .pw.html, .pw.sql, or .pw.dynamo file reads and edits as a known language instead of as plain text.
+Popcorn Web ships editor support for its own source dialects, so a .pw.html, .pw.sql, or .pw.dynamo file reads and edits as a known language instead of as plain text.
 
 ```yaml
 status: proposed
@@ -40,6 +40,6 @@ non_goals:
   - Go language support, which gopls already owns
   - a debugger, a profiler, or a telemetry surface; requirement:dev-telemetry-viewer stays a browser tool
   - editor-only diagnostics that api:cli-doctor and api:cli-generate cannot also produce
-  - code actions before stage 3, and any layout rule of Popcorn Wave's own; requirement:template-formatting keeps the layout upstream
+  - code actions before stage 3, and any layout rule of Popcorn Web's own; requirement:template-formatting keeps the layout upstream
 placement: decision:extension-in-repository
 ```

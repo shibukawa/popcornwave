@@ -216,8 +216,8 @@ func TestAddAuthWritesFrameworkMigrationsAtTheNextFreeVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{
-		"migrations/00008_init_popcornwave_session.sql",
-		"migrations/00009_init_popcornwave_auth.sql",
+		"migrations/00008_init_popcornweb_session.sql",
+		"migrations/00009_init_popcornweb_auth.sql",
 		"handlers/accounts.go",
 		"devidp.toml",
 	} {
@@ -231,13 +231,13 @@ func TestAddAuthWritesFrameworkMigrationsAtTheNextFreeVersion(t *testing.T) {
 	// The roster is useless to pw dev without the section that points at it, and
 	// the port has to be pinned for the same reason pw init pins it: the
 	// scaffolded resolver builds an account ID out of the issuer.
-	project, err := os.ReadFile(filepath.Join(root, "popcornwave.toml"))
+	project, err := os.ReadFile(filepath.Join(root, "popcornweb.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"[dev.idp]", `config = "devidp.toml"`, "port = 18080"} {
 		if !strings.Contains(string(project), want) {
-			t.Fatalf("popcornwave.toml is missing %q:\n%s", want, project)
+			t.Fatalf("popcornweb.toml is missing %q:\n%s", want, project)
 		}
 	}
 	// The entry point is edited rather than described, so nothing about this
@@ -313,7 +313,7 @@ func TestAddRedisAndTailwindEditDevbox(t *testing.T) {
 		}
 	}
 	if !state.config.Tailwind.Enabled {
-		t.Fatal("popcornwave.toml did not enable Tailwind")
+		t.Fatal("popcornweb.toml did not enable Tailwind")
 	}
 	entry, err := os.ReadFile(filepath.Join(root, defaultTailwindInput))
 	if err != nil {
@@ -436,15 +436,15 @@ func TestAddDatabasePerEngine(t *testing.T) {
 	}
 	// The selected engine is imported by the entry point, and pw add plans that
 	// edit rather than carrying every driver in the framework.
-	if entry := plan.edits["cmd/fixture/main.go"]; !strings.Contains(entry, `_ "github.com/shibukawa/popcornwave/database/postgres"`) {
+	if entry := plan.edits["cmd/fixture/main.go"]; !strings.Contains(entry, `_ "github.com/shibukawa/popcornweb/database/postgres"`) {
 		t.Fatalf("the entry point does not link the engine:\n%s", entry)
 	}
 	if !strings.Contains(strings.Join(plan.summary(), "\n"), "edit    cmd/fixture/main.go") {
 		t.Fatalf("the review screen does not name the entry point:\n%s", strings.Join(plan.summary(), "\n"))
 	}
-	// Generation reads the engine from popcornwave.toml, so pw add has to
+	// Generation reads the engine from popcornweb.toml, so pw add has to
 	// record it there as pw init does.
-	if project := plan.edits["popcornwave.toml"]; !strings.Contains(project, `database = "postgres"`) {
+	if project := plan.edits["popcornweb.toml"]; !strings.Contains(project, `database = "postgres"`) {
 		t.Fatalf("plan does not record the engine:\n%s", project)
 	}
 
@@ -461,13 +461,13 @@ func TestAddDatabasePerEngine(t *testing.T) {
 		if _, wrote := enginePlan.creates["queries/users.pw.sql"]; !wrote {
 			t.Fatalf("%s plan wrote no query example", engine)
 		}
-		if project := enginePlan.edits["popcornwave.toml"]; !strings.Contains(project, `database = "`+engine+`"`) {
+		if project := enginePlan.edits["popcornweb.toml"]; !strings.Contains(project, `database = "`+engine+`"`) {
 			t.Fatalf("%s plan does not record the engine:\n%s", engine, project)
 		}
 	}
 }
 
-// TestSetProjectDatabase covers the popcornwave.toml edit directly, including
+// TestSetProjectDatabase covers the popcornweb.toml edit directly, including
 // the shapes a hand-edited project can present.
 func TestSetProjectDatabase(t *testing.T) {
 	for _, testcase := range []struct {
@@ -519,7 +519,7 @@ func TestAddWizardReviewListsTheFiles(t *testing.T) {
 		"create  migrations/00001_init.sql",
 		"create  queries/users.pw.sql",
 		"append  config.dev.toml",
-		"edit    popcornwave.toml",
+		"edit    popcornweb.toml",
 		"then    pw migrate up",
 	} {
 		if !strings.Contains(joined, want) {
@@ -756,8 +756,8 @@ func TestAddAuthReachesTheScaffoldedEntryPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		`_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`,
-		`_ "github.com/shibukawa/popcornwave/authstate/sqlite"`,
+		`_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"`,
+		`_ "github.com/shibukawa/popcornweb/authstate/sqlite"`,
 		"handlers.RegisterAccounts()",
 	} {
 		if !strings.Contains(string(added), want) {
@@ -771,7 +771,7 @@ func TestAddAuthReachesTheScaffoldedEntryPoint(t *testing.T) {
 	}
 	// A second run must not stack a duplicate import or a second call.
 	second, err := withBlankImports(string(added),
-		blankImport{"github.com/shibukawa/popcornwave/sessionstore/sqlite", "again"})
+		blankImport{"github.com/shibukawa/popcornweb/sessionstore/sqlite", "again"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -797,8 +797,8 @@ func TestAddImagesReachesTheScaffoldedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(plan.appends["popcornwave.toml"], "[assets.images]") {
-		t.Errorf("popcornwave.toml append = %q", plan.appends["popcornwave.toml"])
+	if !strings.Contains(plan.appends["popcornweb.toml"], "[assets.images]") {
+		t.Errorf("popcornweb.toml append = %q", plan.appends["popcornweb.toml"])
 	}
 	devbox := plan.edits["devbox.json"]
 	for _, pkg := range imageDevboxPackages {

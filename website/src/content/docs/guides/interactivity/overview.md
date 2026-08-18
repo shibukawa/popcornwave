@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave renders on the server. It includes no hydration layer,
+Popcorn Web renders on the server. It includes no hydration layer,
 client-side router, or client state store, so interactions such as opening a
 menu, editing a row in place, or smoothing a page transition use browser APIs
 or an application-chosen library.

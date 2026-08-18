@@ -65,8 +65,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: popcornwave-vsix
-          path: tools/vscode/popcornwave.vsix
+          name: popcornweb-vsix
+          path: tools/vscode/popcornweb.vsix
 
   publish:
     # A vscode-v* tag publishes the extension. The CLI's own v* tags do not,
@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v5
         with:
-          name: popcornwave-vsix
+          name: popcornweb-vsix
           path: tools/vscode
 
       - uses: actions/setup-node@v5
@@ -85,13 +85,13 @@ jobs:
           node-version: 22
 
       - name: Publish to the Visual Studio Marketplace
-        run: npx --yes @vscode/vsce publish --packagePath popcornwave.vsix
+        run: npx --yes @vscode/vsce publish --packagePath popcornweb.vsix
         working-directory: tools/vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX
-        run: npx --yes ovsx publish popcornwave.vsix
+        run: npx --yes ovsx publish popcornweb.vsix
         working-directory: tools/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}

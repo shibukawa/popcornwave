@@ -15,7 +15,7 @@ ui:
     children:
       - kind: header
         id: identity
-        label: project name, with Popcorn Wave and the framework version under it
+        label: project name, with Popcorn Web and the framework version under it
       - kind: text
         id: source-pointer
         label: the file and template this page is rendered from, so the first edit is obvious
@@ -44,13 +44,13 @@ ui:
         children:
           - kind: link
             id: docs-home
-            target: https://shibukawa.github.io/popcornwave/
+            target: https://shibukawa.github.io/popcornweb/
           - kind: link
             id: docs-guides
             label: the guide for the capability set this project selected
           - kind: link
             id: repository
-            target: https://github.com/shibukawa/popcornwave
+            target: https://github.com/shibukawa/popcornweb
       - kind: region
         id: authentication-controls
         state: present only for a mode that serves a login, holding the sign-in, sign-out, and passkey controls api:cli-init already scaffolds

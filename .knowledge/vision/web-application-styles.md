@@ -3,7 +3,7 @@ id: vision:web-application-styles
 type: vision
 title: Classic and Modern Web Styles
 ---
-Popcorn Wave supports classic handler-based web applications and an opt-in server-driven modern UI on one net/http foundation. Modern facilities extend rather than replace classic mode.
+Popcorn Web supports classic handler-based web applications and an opt-in server-driven modern UI on one net/http foundation. Modern facilities extend rather than replace classic mode.
 
 ```yaml
 principles:

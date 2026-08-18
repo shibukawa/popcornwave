@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/sessionstore"
 
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 // TestExampleFrameworkMigrationsMatchOwners keeps the migration files carried by
@@ -73,7 +73,7 @@ func migrationName(fileName string) (string, bool) {
 // mustSessionMigration and mustAuthMigration are the SQLite migrations the
 // scaffold writes, which is the dialect these fixtures use.
 func mustSessionMigration() string {
-	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornweb_session")
 	if err != nil {
 		panic(err)
 	}

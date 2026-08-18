@@ -3,7 +3,7 @@ id: requirement:cloudflare-workers-hosting
 type: requirement
 title: Cloudflare Workers Hosting
 ---
-Popcorn Wave targets Cloudflare Workers through a fetch-event adapter to net/http while keeping its application handler unchanged.
+Popcorn Web targets Cloudflare Workers through a fetch-event adapter to net/http while keeping its application handler unchanged.
 
 ```yaml
 priority: next candidate after the four targets of decision:serverless-target-scope
@@ -14,14 +14,14 @@ host_contract:
   packaging: Wasm module plus JavaScript entry loaded by Wrangler
 current_candidate:
   package: github.com/syumai/workers
-  status: experimental upstream and currently does not build with the Popcorn Wave application graph
+  status: experimental upstream and currently does not build with the Popcorn Web application graph
   important_distinction: this path is Cloudflare JavaScript-hosted Wasm, not the component-model WASI HTTP path deferred by decision:wasi-http-deferred
 blocked:
   fact: no supported artifact is emitted today
   unknown_until_reproduced: the first incompatible package, compiler diagnostic, and whether host Go Wasm and TinyGo fail at the same boundary
   policy: do not add an unverified dependency, generated entry point, or deploy command that claims support
 unblock_probe:
-  application: one minimal Popcorn Wave handler wrapped by pw.Middlewares and github.com/syumai/workers Serve
+  application: one minimal Popcorn Web handler wrapped by pw.Middlewares and github.com/syumai/workers Serve
   matrix:
     - current project Go with GOOS=js GOARCH=wasm using the upstream worker-go template
     - decision:tinygo-042-baseline or later using the upstream worker-tinygo template

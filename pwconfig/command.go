@@ -56,7 +56,7 @@ func ParseFrameworkAction(args []string) ([]string, error) {
 		switch {
 		case arg == "--generate-config":
 			if index+1 >= len(args) {
-				return nil, fmt.Errorf("popcornwave: --generate-config requires toml or env")
+				return nil, fmt.Errorf("popcornweb: --generate-config requires toml or env")
 			}
 			index++
 			action = frameworkAction{kind: frameworkActionGenerateConfig, value: args[index]}
@@ -68,7 +68,7 @@ func ParseFrameworkAction(args []string) ([]string, error) {
 				// application's own arguments: a silent pass-through would make
 				// a toolchain that asked the wrong build look like a toolchain
 				// with a broken database configuration.
-				return nil, fmt.Errorf("popcornwave: --pw-print-dsn needs a build with -tags=pwdev; it prints the database password, so a release build does not carry it")
+				return nil, fmt.Errorf("popcornweb: --pw-print-dsn needs a build with -tags=pwdev; it prints the database password, so a release build does not carry it")
 			}
 			action = frameworkAction{kind: frameworkActionPrintDSN}
 		default:
@@ -76,7 +76,7 @@ func ParseFrameworkAction(args []string) ([]string, error) {
 			continue
 		}
 		if selected.kind != frameworkActionNone {
-			return nil, fmt.Errorf("popcornwave: multiple framework actions were requested")
+			return nil, fmt.Errorf("popcornweb: multiple framework actions were requested")
 		}
 		selected = action
 	}
@@ -84,7 +84,7 @@ func ParseFrameworkAction(args []string) ([]string, error) {
 		switch selected.value {
 		case "toml", "env":
 		default:
-			return nil, fmt.Errorf("popcornwave: unknown config format %q (want toml or env)", selected.value)
+			return nil, fmt.Errorf("popcornweb: unknown config format %q (want toml or env)", selected.value)
 		}
 	}
 	frameworkActionState.Lock()
@@ -111,7 +111,7 @@ func RefusePendingFrameworkAction() error {
 	if name == "" {
 		return nil
 	}
-	return fmt.Errorf("popcornwave: %s is answered inside pw.Run; an application that owns its server with pw.Middlewares does not carry it", name)
+	return fmt.Errorf("popcornweb: %s is answered inside pw.Run; an application that owns its server with pw.Middlewares does not carry it", name)
 }
 
 // selectedFrameworkActionName reports the selected action by its CLI spelling,
@@ -154,6 +154,6 @@ func RunFrameworkAction() (bool, error) {
 	case frameworkActionHealthcheck:
 		return true, runHealthcheckProbe(action.healthcheck)
 	default:
-		return true, fmt.Errorf("popcornwave: unsupported framework action")
+		return true, fmt.Errorf("popcornweb: unsupported framework action")
 	}
 }

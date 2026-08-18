@@ -3,7 +3,7 @@ id: policy:container-runtime-image
 type: policy
 title: Container Runtime Image
 ---
-The runtime stage of a Popcorn Wave image carries the application binary, its environment configuration file, and nothing else, so the image has no shell, no package manager, and no build tool to be reached through.
+The runtime stage of a Popcorn Web image carries the application binary, its environment configuration file, and nothing else, so the image has no shell, no package manager, and no build tool to be reached through.
 
 ```yaml
 base:

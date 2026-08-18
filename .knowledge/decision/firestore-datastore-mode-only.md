@@ -3,7 +3,7 @@ id: decision:firestore-datastore-mode-only
 type: decision
 title: The Firestore Store Is Datastore Mode Only, And Says So At Startup
 ---
-Every Popcorn Wave surface is named `firestore` after the product, and the one thing the name does not say — that the database must have been created in Datastore mode — is checked at startup rather than left to a runtime error.
+Every Popcorn Web surface is named `firestore` after the product, and the one thing the name does not say — that the database must have been created in Datastore mode — is checked at startup rather than left to a runtime error.
 
 ```yaml
 status: accepted

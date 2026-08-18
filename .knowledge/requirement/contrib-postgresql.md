@@ -3,7 +3,7 @@ id: requirement:contrib-postgresql
 type: requirement
 title: PostgreSQL Driver Consumption
 ---
-Popcorn Wave consumes the system:tinygodriver pgx-based PostgreSQL driver, whose handle comes from a connector rather than from a registered database/sql driver name.
+Popcorn Web consumes the system:tinygodriver pgx-based PostgreSQL driver, whose handle comes from a connector rather than from a registered database/sql driver name.
 
 ```yaml
 package: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11
@@ -33,7 +33,7 @@ escape_hatch:
     request path, so this hatch now covers only the migration and seeding
     handles; requirement:native-pgx-escape-hatch restores it for a request
 inherited: type coverage, prepared statements, transactions, column metadata, and SQLSTATE errors come from pgx on both paths
-popcorn_wave_scope:
+popcorn_web_scope:
   - pin the tested system:tinygodriver version per requirement:tinygodriver-adoption
   - link the package only where the DSN scheme selects it, so a SQLite project does not carry pgx
   - add no wire protocol, pool, or dialect implementation
@@ -45,7 +45,7 @@ acceptance:
   - requirement:test-data-seeding seeds and asserts through the postgres system:dbtestify dialect
   - credentials never reach logs, errors, config views, or process arguments
 non_goals:
-  - a Popcorn Wave PostgreSQL protocol implementation
+  - a Popcorn Web PostgreSQL protocol implementation
   - exposing pgx types in the framework public API
   - Unix domain sockets or IPv6 under TinyGo
 protocol: https://www.postgresql.org/docs/current/protocol.html

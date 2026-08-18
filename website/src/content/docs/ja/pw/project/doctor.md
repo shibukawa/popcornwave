@@ -10,7 +10,7 @@ pw doctor
 pw doctor --env=prod
 ```
 
-Popcorn Wave のアプリケーションが「何を動かすか」は、単一のファイルには書かれて
+Popcorn Web のアプリケーションが「何を動かすか」は、単一のファイルには書かれて
 いません。設定ファイルはセッションバックエンド、データベース、認証プロバイダを
 **選び**ます。それを実装するコードがバイナリに入っているかどうかを決めるのは
 import です。プラグインはブランクインポートで自分を登録するからです。片方ずつは
@@ -67,7 +67,7 @@ $ pw doctor --env=prod
 
 読むのは次のものです。
 
-- `popcornwave.toml`、マイグレーションディレクトリ、`devbox.json`、`go.mod`、
+- `popcornweb.toml`、マイグレーションディレクトリ、`devbox.json`、`go.mod`、
   生成物、そしてリポジトリが追跡・無視しているもの
 - その環境が選ぶ設定ファイルを型付きデフォルトにマージした結果と、各キーを
   勝ち取った層
@@ -81,7 +81,7 @@ $ pw doctor --env=prod
 ```
 features
   database             on  sqlite
-  session              on  rdb  not linked: github.com/shibukawa/popcornwave/sessionstore/sqlite
+  session              on  rdb  not linked: github.com/shibukawa/popcornweb/sessionstore/sqlite
   authentication       off
   security headers     on
   query diagnostics    on  auto

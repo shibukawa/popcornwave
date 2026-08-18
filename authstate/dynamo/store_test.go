@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/cloud/aws"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"

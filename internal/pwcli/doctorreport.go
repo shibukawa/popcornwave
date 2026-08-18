@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/term"
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -132,7 +132,7 @@ func resolveFeatures(config environmentConfig, graph importGraph, state projectS
 		}
 	}
 	features = append(features, query)
-	tailwind := doctorFeature{Name: "tailwind", State: "off", DecidedBy: "popcornwave.toml assets.tailwind.enabled"}
+	tailwind := doctorFeature{Name: "tailwind", State: "off", DecidedBy: "popcornweb.toml assets.tailwind.enabled"}
 	if state.config.Tailwind.Enabled {
 		tailwind.State, tailwind.Detail = "on", state.config.Tailwind.Output
 	}

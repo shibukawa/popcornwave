@@ -26,7 +26,7 @@ selection:
   key: observability.boot_log
   auto: tree when stderr is a character device, otherwise record
   tree: banner, configuration grouped as a tree, and the listening URL, written to stderr
-  record: one api:logger record named "popcornwave started"
+  record: one api:logger record named "popcornweb started"
   off: nothing
 tree:
   grouping: dotted keys nest by section; values align with their siblings

@@ -6,7 +6,7 @@ title: Authentication Runtime Config
 The `[auth]` binding selects OIDC and passkey bootstrap, login, linking, registration, and recovery policy through shared dotted prefixes.
 
 ```yaml
-registration: popcornwave/plugin/auth registers this binding when imported
+registration: popcornweb/plugin/auth registers this binding when imported
 fields:
   enabled: bool
   backend: rdb or dynamo, default rdb, selecting the storage of all four framework-owned authentication stores, per decision:auth-backend-selection
@@ -19,7 +19,7 @@ fields:
   registration.policy: disabled, oidc, invite, administrator, or open
   recovery.policy: oidc, administrator, or application
   recent_auth_max_age: duration
-  session.ttl: absolute session lifetime, moved here by decision:session-lifetime-owned-by-auth; the auth.session prefix is its own binding, whose struct lives in popcornwave/sessionconfig so pw can enforce it without importing this package
+  session.ttl: absolute session lifetime, moved here by decision:session-lifetime-owned-by-auth; the auth.session prefix is its own binding, whose struct lives in popcornweb/sessionconfig so pw can enforce it without importing this package
   session.idle_timeout: optional inactivity lifetime, never later than session.ttl
   session.renewal_interval: how often an active session is touched
   shared_device: bool, default false, per policy:shared-device-mode
@@ -110,7 +110,7 @@ mode_validation:
     - every passkey.origins entry must have passkey.rp_id as its registrable suffix
     - recent_auth_max_age must be positive whenever enrollment is reachable
 implemented:
-  package: popcornwave/plugin/auth registered through api:framework-extension
+  package: popcornweb/plugin/auth registered through api:framework-extension
   mode: oidc_only, oidc_passkey, and passkey_only
   endpoints: login_path begins authorization, callback_path completes it, logout_path revokes the local session and ends the provider session
   logout_method: POST only, same-origin checked, because a logout reachable by link or prefetch is a denial-of-service surface
@@ -121,7 +121,7 @@ implemented:
 binding_implemented:
   fields: registration, recovery, recent_auth_max_age, bootstrap, and the whole passkey prefix are bound and validated
   validation: mode_validation above is enforced, so a passkey mode is refused for a bad relying-party registration before anything serves
-  tables: popcornwave_passkey_credential and popcornwave_auth_bootstrap exist under rule:framework-owned-tables
+  tables: popcornweb_passkey_credential and popcornweb_auth_bootstrap exist under rule:framework-owned-tables
   modes: all three browser modes serve; there is no remaining implementation gate
   jwt_only: designed, per requirement:jwt-only-api-authentication; the whole jwt prefix and its mode_validation entry are specified and not yet bound
   reason: the rules outlive the implementation status, so they were written and tested before the endpoints that needed them

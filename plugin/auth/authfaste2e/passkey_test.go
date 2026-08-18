@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest"
 )
 
 // A whole passkey enrollment and login, over fasthttp.

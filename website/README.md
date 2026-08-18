@@ -1,7 +1,7 @@
-# Popcorn Wave documentation site
+# Popcorn Web documentation site
 
 [Astro Starlight](https://starlight.astro.build/) site published to
-<https://shibukawa.github.io/popcornwave/> by
+<https://shibukawa.github.io/popcornweb/> by
 [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) on every push to
 `main` that touches `website/`.
 
@@ -40,7 +40,7 @@ within the group.
 ```markdown
 ---
 title: Middleware
-description: Composing middleware around a Popcorn Wave application.
+description: Composing middleware around a Popcorn Web application.
 sidebar:
   order: 3
 ---
@@ -67,7 +67,7 @@ the deployment base:
 At build time,
 [`src/plugins/satteri-base-links.mjs`](src/plugins/satteri-base-links.mjs)
 adds the configured `base`. Content therefore never hard-codes
-`/popcornwave/`.
+`/popcornweb/`.
 
 The plugin cannot reach `hero.actions` because those links come from the two
 `index.mdx` frontmatter blocks.
@@ -80,9 +80,9 @@ content.
 [`starlight-llms-txt`](https://github.com/delucis/starlight-llms-txt) publishes
 three plain-text views of the English docs for LLM and agent consumers:
 
-- `/popcornwave/llms.txt` — index
-- `/popcornwave/llms-small.txt` — abridged
-- `/popcornwave/llms-full.txt` — everything
+- `/popcornweb/llms.txt` — index
+- `/popcornweb/llms-small.txt` — abridged
+- `/popcornweb/llms-full.txt` — everything
 
 ## Changing the deployed URL
 

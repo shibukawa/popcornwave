@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 func TestDevLogCaptureSelectsOneInvocationFileWithoutCreatingIt(t *testing.T) {

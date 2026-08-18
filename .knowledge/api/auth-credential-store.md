@@ -6,7 +6,7 @@ title: Passkey Credential Store
 A passkey login resolves a credential before it knows an account, so plugin/auth reads and writes data:passkey-credential through a store seam that AccountResolver cannot serve.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 problem:
   - flow:passkey-login receives a credential ID and must find the owning account from it
   - AccountResolver answers the opposite question, from a verified identity to an account
@@ -21,7 +21,7 @@ surface:
   - auth.SetBootstrapStore(store) issues, verifies, and consumes data:account-bootstrap-credential
 default:
   when: no store is installed
-  backing: popcornwave_passkey_credential and popcornwave_auth_bootstrap under rule:framework-owned-tables
+  backing: popcornweb_passkey_credential and popcornweb_auth_bootstrap under rule:framework-owned-tables
   reason: atomically persisting a sign counter is protocol correctness rather than application domain, and an application that gets it wrong shows no symptom until a cloned authenticator is used
   precedent: AccountResolver also carries a framework default, so an application enables a mode before writing storage code
   override: installing a store means the framework creates and verifies no table for that capability

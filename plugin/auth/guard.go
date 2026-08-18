@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Rules are the resolved path-protection policy, in a form that names no

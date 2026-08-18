@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/oauth"
-	"github.com/shibukawa/popcornwave/contrib/oidc"
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
+	"github.com/shibukawa/popcornweb/contrib/oidc"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 const (

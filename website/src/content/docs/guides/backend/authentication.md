@@ -8,7 +8,7 @@ sidebar:
 Browser login usually adds routes, session resolution, and a trail of protocol
 code. An API server has a different problem: it receives a bearer token on each
 request and must verify the issuer, audience, signature, lifetime, and access
-policy before a handler runs. Popcorn Wave supports both shapes without making
+policy before a handler runs. Popcorn Web supports both shapes without making
 the application register protocol endpoints or repeat verification middleware.
 
 This page is the reference: keys, endpoints, ceremonies, storage. Which mode a
@@ -25,8 +25,8 @@ An entry point and a configuration file:
 // storage imports are the SQLite ones: the sessions, and the single-use
 // records a login ceremony consumes.
 import (
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 func main() {
@@ -436,7 +436,7 @@ honor. Revocation is that list, and it applies to
 :::note[What it requires]
 The list is a relational table, so revocation needs `middleware.rdb`,
 `auth.backend = "rdb"`, and the framework migration that creates
-`popcornwave_auth_revocation`. A deployment on `admission = "authenticated"`
+`popcornweb_auth_revocation`. A deployment on `admission = "authenticated"`
 with `revocation.mode = "off"` needs no database at all; turning revocation on
 is what creates the requirement.
 :::
@@ -505,8 +505,8 @@ package admin
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 const issuer = "https://issuer.example" // the auth.jwt.issuer this server verifies
@@ -573,7 +573,7 @@ A real provider should not be required to exercise a login flow during local
 development. `pw dev` can run a development provider instead:
 
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [dev.idp]
 enabled = true
 ```

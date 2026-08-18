@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 // OTLP aggregation temporality values.

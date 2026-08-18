@@ -3,7 +3,7 @@ id: decision:tinygo-storage-direction
 type: decision
 title: TinyGo Storage Direction
 ---
-Popcorn Wave selects native embedded SQLite as its default relational store, adds PostgreSQL and MySQL once their drivers gained TinyGo TLS, and keeps Redis-compatible servers as first-class shared state.
+Popcorn Web selects native embedded SQLite as its default relational store, adds PostgreSQL and MySQL once their drivers gained TinyGo TLS, and keeps Redis-compatible servers as first-class shared state.
 
 ```yaml
 status: accepted

@@ -57,7 +57,7 @@ type Page struct {
 
 // frameworkPrefix is the naming rule framework-owned tables follow, so an
 // application reading its own schema can tell at a glance which it does not own.
-const frameworkPrefix = "popcornwave_"
+const frameworkPrefix = "popcornweb_"
 
 // Tables lists what the connected database holds.
 func (c *Connection) Tables(ctx context.Context) ([]Table, error) {

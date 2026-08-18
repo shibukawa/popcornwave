@@ -32,25 +32,25 @@ row() {
   printf '%-28s %14s %14s\n' "$label" "$std" "$pw"
 }
 
-printf '%-28s %14s %14s\n' 'BUILD' 'net/http+pgx' 'Popcorn Wave'
+printf '%-28s %14s %14s\n' 'BUILD' 'net/http+pgx' 'Popcorn Web'
 row 'host go' \
   "$(build std-go stdhttp . go build)" \
-  "$(build pw-go popcornwave ./cmd/popcornwave go build)"
+  "$(build pw-go popcornweb ./cmd/popcornweb go build)"
 row 'host go -ldflags="-s -w"' \
   "$(build std-go-s stdhttp . go build -ldflags=-s\ -w)" \
-  "$(build pw-go-s popcornwave ./cmd/popcornwave go build -ldflags=-s\ -w)"
+  "$(build pw-go-s popcornweb ./cmd/popcornweb go build -ldflags=-s\ -w)"
 row 'tinygo native' \
   "$(build std-tg stdhttp . tinygo build)" \
-  "$(build pw-tg popcornwave ./cmd/popcornwave tinygo build)"
+  "$(build pw-tg popcornweb ./cmd/popcornweb tinygo build)"
 row 'tinygo native -no-debug' \
   "$(build std-tgn stdhttp . tinygo build -no-debug)" \
-  "$(build pw-tgn popcornwave ./cmd/popcornwave tinygo build -no-debug)"
+  "$(build pw-tgn popcornweb ./cmd/popcornweb tinygo build -no-debug)"
 row 'tinygo wasip1' \
   "$(build std-wa stdhttp . tinygo build -target=wasip1)" \
-  "$(build pw-wa popcornwave ./cmd/popcornwave tinygo build -target=wasip1)"
+  "$(build pw-wa popcornweb ./cmd/popcornweb tinygo build -target=wasip1)"
 row 'tinygo wasip1 -no-debug' \
   "$(build std-wan stdhttp . tinygo build -target=wasip1 -no-debug)" \
-  "$(build pw-wan popcornwave ./cmd/popcornwave tinygo build -target=wasip1 -no-debug)"
+  "$(build pw-wan popcornweb ./cmd/popcornweb tinygo build -target=wasip1 -no-debug)"
 
 echo
 echo "First error line of each failing build:"

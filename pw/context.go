@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func Config[T any](ctx context.Context) T {

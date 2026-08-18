@@ -6,9 +6,9 @@ title: Admission Allowlist Store
 The pre-registration lookup of policy:oidc-admission becomes a store seam, so it can be answered by something other than a SQL table.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 problem:
-  - the registered admission mode reads popcornwave_auth_allowlist through SQL built in plugin/auth, with no interface between
+  - the registered admission mode reads popcornweb_auth_allowlist through SQL built in plugin/auth, with no interface between
   - it is the only one of the four framework-owned authentication stores with no seam, so requirement:dynamodb-auth-backend cannot supply an implementation without one
   - an application that already knows who may enter, from a directory or an entitlement service, has no way to answer the question today
 surface:
@@ -25,7 +25,7 @@ entry:
   provisioning: administrator tooling, outside this seam; the framework reads and never writes
 default:
   when: no store is installed
-  backing: popcornwave_auth_allowlist under rule:framework-owned-tables, selected by decision:auth-backend-selection
+  backing: popcornweb_auth_allowlist under rule:framework-owned-tables, selected by decision:auth-backend-selection
   override: installing a store means the framework creates and verifies no table for this capability, matching api:auth-credential-store
   unused_modes: nothing reads this store unless oidc.admission is registered, so the conditional verification of rule:framework-owned-tables applies to it as well
 rules:
@@ -37,7 +37,7 @@ rules:
   - the store answers admission only, and never authorization
 implemented:
   built: 2026-08-05, replacing the raw SQL in plugin/auth
-  default: sqlAllowlist over popcornwave_auth_allowlist, one statement per login
+  default: sqlAllowlist over popcornweb_auth_allowlist, one statement per login
   verification: the table is verified only under the registered admission mode and only when no store is installed
 related:
   - policy:oidc-admission

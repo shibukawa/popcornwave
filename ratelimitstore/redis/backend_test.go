@@ -11,7 +11,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/pwratelimit"
+	"github.com/shibukawa/popcornweb/pwratelimit"
 )
 
 func TestNewCounterValidatesTheKeySpace(t *testing.T) {

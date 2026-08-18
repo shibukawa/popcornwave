@@ -26,7 +26,7 @@ packaging.
    it converts what the project asked to convert, writes the `*.br`, `*.zstd`
    and `*.gz` sidecars, and emits the manifest that decides every cache header;
 4. rejects the build if `project.main` depends on a development-only package;
-5. runs `go build` on `project.main` from `popcornwave.toml`.
+5. runs `go build` on `project.main` from `popcornweb.toml`.
 
 Steps 1 through 4 are exactly [`pw generate`](/pw/project/generate/). This
 command is defined as that one plus the compiler, so the two cannot drift apart

@@ -3,14 +3,14 @@ id: system:tinygodriver-dynamodb
 type: system
 title: tinygodriver DynamoDB Client
 ---
-The TinyGo-buildable DynamoDB client Popcorn Wave configures and hands to generated code; it speaks the DynamoDB JSON protocol directly instead of through aws-sdk-go-v2.
+The TinyGo-buildable DynamoDB client Popcorn Web configures and hands to generated code; it speaks the DynamoDB JSON protocol directly instead of through aws-sdk-go-v2.
 
 ```yaml
 package: github.com/shibukawa/tinygodriver/nosql/dynamodb
 part_of: system:tinygodriver
 minimum_version: v1.1.3, the release that introduced nosql/dynamodb
 upstream_catalog: the tinygodriver repository ships its own concepts for the client, attribute value, retry policy, connection policy, JSON codec, and local endpoint; read them there rather than restating them
-recorded_here: only the facts a Popcorn Wave concept depends on
+recorded_here: only the facts a Popcorn Web concept depends on
 constructor: New(opts ...Option) (*Client, error)
 credentials:
   default: environment, through WithCredentialsFromEnv
@@ -36,7 +36,7 @@ describe_table_reports_less_than_it_receives:
 errors:
   wrapper: "*dynamodb.Error with Op, Table, StatusCode, RequestID, Unwrap, Retryable"
   sentinels_used_by_pw: [ErrTableNotFound, ErrResourceNotFound, ErrTableInUse, ErrValidation, ErrBadCredentials, ErrNoRegion]
-  passthrough: system:tinybind dynamobind wraps with %w or not at all, so a Popcorn Wave caller matches these directly
+  passthrough: system:tinybind dynamobind wraps with %w or not at all, so a Popcorn Web caller matches these directly
 transport:
   http_client: WithHTTPClient replaces the whole client, which is the seam decision:dynamodb-observability-seam uses
   close: Close releases pooled TLS handles, and is skipped for a client built with WithHTTPClient because its owner may still use it

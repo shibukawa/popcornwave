@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/shibukawa/popcornwave/internal/pwtestbridge"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pwtestbridge"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // SnapshotTestConfigs copies the registered configuration for testutil. It is a
@@ -33,7 +33,7 @@ func SnapshotTestConfigs() (pwtestbridge.Configs, error) {
 // an application binary.
 func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, options pwtestbridge.Options) (pwtestbridge.Prepared, error) {
 	if handler == nil {
-		return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: nil test handler")
+		return pwtestbridge.Prepared{}, fmt.Errorf("popcornweb: nil test handler")
 	}
 	server := testConfigValue[ServerConfig](configs)
 	security := testConfigValue[SecurityConfig](configs)
@@ -61,14 +61,14 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 	// application's own transactions, so it is checked before opening a pool.
 	if options.Transaction {
 		if !middleware.RDB.Enabled {
-			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires middleware.rdb.enabled")
+			return pwtestbridge.Prepared{}, fmt.Errorf("popcornweb: test transaction requires middleware.rdb.enabled")
 		}
 		target, err := pwconfig.Target(testConnection.DSN)
 		if err != nil {
 			return pwtestbridge.Prepared{}, err
 		}
 		if !pwruntime.SupportsSavepoint(target.Dialect) {
-			return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: test transaction requires a driver with savepoint support, got %q", target.Dialect)
+			return pwtestbridge.Prepared{}, fmt.Errorf("popcornweb: test transaction requires a driver with savepoint support, got %q", target.Dialect)
 		}
 	}
 	var dbClose func() error
@@ -95,7 +95,7 @@ func PrepareTestRuntime(handler http.Handler, configs pwtestbridge.Configs, opti
 			}
 			if targetErr != nil {
 				_ = connection.Close()
-				return pwtestbridge.Prepared{}, fmt.Errorf("popcornwave: open tooling database: %w", targetErr)
+				return pwtestbridge.Prepared{}, fmt.Errorf("popcornweb: open tooling database: %w", targetErr)
 			}
 			closers = append(closers, db.Close)
 		}
@@ -182,7 +182,7 @@ func testDatabaseConnection(config RDBConfig) (RDBConnectionConfig, error) {
 			return connection, nil
 		}
 	}
-	return RDBConnectionConfig{}, fmt.Errorf("popcornwave: migration group %q has no connection", group)
+	return RDBConnectionConfig{}, fmt.Errorf("popcornweb: migration group %q has no connection", group)
 }
 
 func testConfigValue[T any](configs pwtestbridge.Configs) T {

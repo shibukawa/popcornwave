@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // The configuration is the shared leaf's, beside the other settings both
@@ -65,7 +65,7 @@ var stores = struct {
 // RegisterStore registers factory under name. A storage plugin calls it from
 // init, so a blank import is what puts a backend in a binary:
 //
-//	import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/ratelimitstore/redis"
 //
 // The in-process counter is built in, because it adds no dependency and a
 // limiter that needs one before it starts is one nobody switches on.

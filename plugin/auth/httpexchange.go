@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // HTTPExchange carries the authentication endpoints over net/http.
@@ -71,7 +71,7 @@ func (x *httpExchange) Write(status int, body []byte) {
 	_, _ = x.writer.Write(body)
 }
 
-// Problem and Redirect go through popcornwave/pwextension rather than through
+// Problem and Redirect go through popcornweb/pwextension rather than through
 // the runtime directly. That is what keeps this package linkable without it:
 // the runtime publishes both answers, and a build that has no runtime in it
 // gets the document without the error page rather than nothing at all.

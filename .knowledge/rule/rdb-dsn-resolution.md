@@ -8,7 +8,7 @@ The rdb DSN scheme resolves to an opener and a dialect, not to a database/sql dr
 ```yaml
 source: each data:database-connection-set element dsn, in the form scheme://rest
 registry:
-  package: github.com/shibukawa/popcornwave/database
+  package: github.com/shibukawa/popcornweb/database
   form: an engine package registers its dialect, schemes, opener, and handoff form from init, per decision:import-registered-session-plugins
   native_opener: an engine may additionally register a native opener that bypasses database/sql; requirement:pgx-native-execution defines the capability and its selection
   linking:

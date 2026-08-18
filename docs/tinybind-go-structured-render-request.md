@@ -1,6 +1,6 @@
 # Change request: expose a render's statics and dynamics separately
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.2
 **Date:** 2026-08-08
 **Status:** open

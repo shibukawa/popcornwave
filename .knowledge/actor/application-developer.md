@@ -3,7 +3,7 @@ id: actor:application-developer
 type: actor
 title: Application Developer
 ---
-The application developer creates and operates a typed HTTP service with the Popcorn Wave CLI and standard Go source.
+The application developer creates and operates a typed HTTP service with the Popcorn Web CLI and standard Go source.
 
 ```yaml
 responsibilities:

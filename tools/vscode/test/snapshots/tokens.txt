@@ -628,7 +628,7 @@
 11	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 11	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 11	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-11	"Async Render · Popcorn Wave"	meta.embedded.block.html
+11	"Async Render · Popcorn Web"	meta.embedded.block.html
 11	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 11	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 11	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -777,7 +777,7 @@
 11	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 11	"span"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 11	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-12	"            Popcorn Wave + SQLite"	meta.embedded.block.html
+12	"            Popcorn Web + SQLite"	meta.embedded.block.html
 13	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 13	"span"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 13	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -1029,7 +1029,7 @@
 9	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-9	"Hello World · Popcorn Wave"	meta.embedded.block.html
+9	"Hello World · Popcorn Web"	meta.embedded.block.html
 9	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -2310,7 +2310,7 @@
 9	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-9	"htmx Fragments · Popcorn Wave"	meta.embedded.block.html
+9	"htmx Fragments · Popcorn Web"	meta.embedded.block.html
 9	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -2855,7 +2855,7 @@
 11	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 11	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 11	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-11	"Live Render · Popcorn Wave"	meta.embedded.block.html
+11	"Live Render · Popcorn Web"	meta.embedded.block.html
 11	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 11	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 11	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -3601,7 +3601,7 @@
 9	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-9	"OIDC login · Popcorn Wave"	meta.embedded.block.html
+9	"OIDC login · Popcorn Web"	meta.embedded.block.html
 9	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
@@ -4450,7 +4450,7 @@
 9	"<"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html
-9	"OIDC login · Popcorn Wave"	meta.embedded.block.html
+9	"OIDC login · Popcorn Web"	meta.embedded.block.html
 9	"</"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.begin.html
 9	"title"	meta.embedded.block.html meta.tag.html entity.name.tag.html
 9	">"	meta.embedded.block.html meta.tag.html punctuation.definition.tag.end.html

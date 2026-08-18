@@ -6,9 +6,9 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func buildRuntimeHandler(handler http.Handler, server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, resources pwruntime.Resources, tracing bool, publicFS ...fs.FS) (http.Handler, error) {

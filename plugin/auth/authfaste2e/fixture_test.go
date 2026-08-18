@@ -15,21 +15,21 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/auth/authfast"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth/authfast"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/sessionstore"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 
 	// Storage is opt-in by blank import: the sessions, the single-use ceremony
 	// records, and the driver the DSN names.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -115,7 +115,7 @@ func build() (*deployment, error) {
 		return nil, err
 	}
 	pw.SetConfigLoadOptions(configbind.LoadOptions{
-		Vendor:             "popcornwave-authfast-e2e",
+		Vendor:             "popcornweb-authfast-e2e",
 		Tool:               "authfast-e2e",
 		ExplicitConfigPath: configPath,
 		Args:               []string{},
@@ -328,7 +328,7 @@ func applyFrameworkMigrations(directory, database string) error {
 	if err := os.MkdirAll(migrations, 0o750); err != nil {
 		return err
 	}
-	sessionMigration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	sessionMigration, err := sessionstore.MigrationSQL("sqlite", "popcornweb_session")
 	if err != nil {
 		return err
 	}

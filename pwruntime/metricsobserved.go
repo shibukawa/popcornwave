@@ -3,8 +3,8 @@ package pwruntime
 import (
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 // RegisterCacheMetrics registers the data result cache observables.

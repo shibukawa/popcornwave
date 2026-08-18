@@ -11,7 +11,7 @@ HTTP で到達します。ただしそのクライアントは Go の `http.Clie
 [ダイアログは開かず](/ja/guides/interactivity/browser-controls/)、
 [フラグメントがページに収まる](/ja/guides/interactivity/fragments/)こともない。
 テストしたい振る舞いにブラウザ側の半分が含まれるなら、テストがブラウザを動かすしか
-ありません。その層が [Playwright](https://playwright.dev/) です。そして Popcorn Wave
+ありません。その層が [Playwright](https://playwright.dev/) です。そして Popcorn Web
 は途中まで迎えに来ています。`pwdev` ビルドモードではアプリケーション自身がシードと
 アサーションのエンドポイントを提供するので、ブラウザスイートは、他のテストがすでに
 使っているのと同じデータセットファイルを通してデータベースを初期化し、検証できます。
@@ -26,7 +26,7 @@ HTTP で到達します。ただしそのクライアントは Go の `http.Clie
 ## Playwright を開発サーバーに向ける
 
 スイートの雛形は `npm init playwright@latest` が作ります。差し替える価値があるのは
-設定です。Popcorn Wave アプリケーションを動かすならこうなります。
+設定です。Popcorn Web アプリケーションを動かすならこうなります。
 
 ```ts
 // playwright.config.ts

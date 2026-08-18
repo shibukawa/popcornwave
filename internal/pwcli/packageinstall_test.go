@@ -18,7 +18,7 @@ func writeWidgetPackage(t *testing.T, dir string) {
 	}
 	writeTestFile(t, filepath.Join(dir, "go.mod"), "module example.com/widget\n\ngo 1.26.0\n")
 	writeTestFile(t, filepath.Join(dir, "widget.go"), "package widget\n")
-	writeTestFile(t, filepath.Join(dir, "popcornwave.toml"), `[project]
+	writeTestFile(t, filepath.Join(dir, "popcornweb.toml"), `[project]
 name = "widget"
 kind = "package"
 
@@ -58,7 +58,7 @@ require example.com/widget v0.0.0
 replace example.com/widget => `+packageDir+`
 `)
 	writeTestFile(t, filepath.Join(root, "cmd", "app", "main.go"), "package main\n\nfunc main() {}\n")
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), `[project]
 name = "app"
 main = "./cmd/app"
 
@@ -158,7 +158,7 @@ func TestUndeclaredModuleIsAnOrdinaryDependency(t *testing.T) {
 	root := t.TempDir()
 	consumingProject(t, root, packageDir)
 	// Remove the declaration, keeping the go.mod requirement.
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), `[project]
 name = "app"
 main = "./cmd/app"
 
@@ -191,7 +191,7 @@ func TestDeclaredPackageMissingFromTheModuleGraphIsNamed(t *testing.T) {
 	}
 	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/app\n\ngo 1.26.0\n")
 	writeTestFile(t, filepath.Join(root, "cmd", "app", "main.go"), "package main\n\nfunc main() {}\n")
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), `[project]
 name = "app"
 main = "./cmd/app"
 
@@ -275,11 +275,11 @@ templates = []
 queries = []
 config = []
 `
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), original)
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), original)
 	if err := appendPackageDeclaration(root, "example.com/widget"); err != nil {
 		t.Fatal(err)
 	}
-	updated, err := os.ReadFile(filepath.Join(root, "popcornwave.toml"))
+	updated, err := os.ReadFile(filepath.Join(root, "popcornweb.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

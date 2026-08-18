@@ -3,7 +3,7 @@ id: decision:backend-analysis-ownership
 type: decision
 title: The Analysis Engine Is Upstream, The Vocabulary Is Here
 ---
-system:tinybind owns one typed analysis of handler bodies and the emitter it feeds; Popcorn Wave owns the vocabulary that analysis is run against and the diagnostics it produces, connected by the adapter mechanism requirement:httpbinder-extensible-route-analysis already defines.
+system:tinybind owns one typed analysis of handler bodies and the emitter it feeds; Popcorn Web owns the vocabulary that analysis is run against and the diagnostics it produces, connected by the adapter mechanism requirement:httpbinder-extensible-route-analysis already defines.
 
 ```yaml
 status: proposed

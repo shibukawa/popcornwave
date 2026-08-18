@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/apidoc"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/internal/apidoc"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -157,7 +157,7 @@ type RuntimeOptions struct {
 // # The authentication frames
 //
 // They are not here, and their absence is now a choice rather than a gap.
-// popcornwave/plugin/auth/authfast supplies them, as frames positioned by their
+// popcornweb/plugin/auth/authfast supplies them, as frames positioned by their
 // own slots and a guard policy this takes as an argument, because there is no
 // extension registry on this transport: an imported capability cannot install a
 // frame here, and every frame this chain gains from a plugin is one the
@@ -175,14 +175,14 @@ type RuntimeOptions struct {
 // installed.
 func Middlewares(handler fasthttp.RequestHandler, options RuntimeOptions) (fasthttp.RequestHandler, error) {
 	if handler == nil {
-		return nil, errors.New("popcornwave: nil handler")
+		return nil, errors.New("popcornweb: nil handler")
 	}
 	settings, ok := pwruntime.ResolvedChainSettings()
 	if !ok {
 		// Composing from zero values would produce a chain with no recovery
 		// frame, no request ID and no security headers, which serves requests
 		// and looks like a chain. Refusing names the actual problem.
-		return nil, errors.New("popcornwave: no chain settings published; the runtime that binds configuration has not run")
+		return nil, errors.New("popcornweb: no chain settings published; the runtime that binds configuration has not run")
 	}
 	trusted := options.TrustedProxies
 	if len(trusted) == 0 {
@@ -317,7 +317,7 @@ func writePanicProblem(r *fasthttp.RequestCtx, err error) {
 // way, which is what a test and an embedding application both need.
 func ListenAndServe(ctx context.Context, address string, handler fasthttp.RequestHandler, options RuntimeOptions) error {
 	if ctx == nil {
-		return errors.New("popcornwave: nil context")
+		return errors.New("popcornweb: nil context")
 	}
 	wrapped, err := Middlewares(handler, options)
 	if err != nil {

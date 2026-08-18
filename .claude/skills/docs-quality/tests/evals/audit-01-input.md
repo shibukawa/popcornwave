@@ -6,7 +6,7 @@ sidebar:
   badge: advanced
 ---
 
-Popcorn Wave provides rate limiting. Rate limiting is a middleware that limits
+Popcorn Web provides rate limiting. Rate limiting is a middleware that limits
 requests. This page explains rate limiting.
 
 ## Options

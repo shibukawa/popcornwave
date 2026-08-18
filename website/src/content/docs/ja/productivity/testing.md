@@ -6,7 +6,7 @@ sidebar:
 ---
 
 高速なテストも、デプロイするアプリケーションを実際に検証してこそ役立ちます。
-`github.com/shibukawa/popcornwave/testutil` は、本物のルート、ミドルウェアスタック、
+`github.com/shibukawa/popcornweb/testutil` は、本物のルート、ミドルウェアスタック、
 設定バインディングを、登録済み設定の隔離されたコピーに対して起動します。テストは
 手で組み立てた近似物を呼ぶのではなく、そのアプリケーションへ HTTP で到達します。
 
@@ -208,7 +208,7 @@ func TestArchiveRemovesTheMember(t *testing.T) {
 1 回の実行で、最初の 1 テーブルだけでなく、ずれたテーブルがすべて出ます。
 
 ```
-Popcorn Wave database does not match:
+Popcorn Web database does not match:
 after_archive.yaml:
 Table: member
 - Expected
@@ -285,7 +285,7 @@ truncate してから挿入するのは既定であって、唯一の選択肢�
 
 ### 行のタグは解析されるが、絞り込まない
 
-行には `_tag` のリストを書けますし、dbtestify の CLI はそれで絞り込みます。Popcorn Wave
+行には `_tag` のリストを書けますし、dbtestify の CLI はそれで絞り込みます。Popcorn Web
 は include も exclude もフィルタを公開していないため、タグが何と書いてあろうとファイル内
 のすべての行が適用されます。部分集合が必要なら、ファイルを分けてください。
 

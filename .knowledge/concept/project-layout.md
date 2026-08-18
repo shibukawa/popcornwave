@@ -7,7 +7,7 @@ The starter project keeps handlers, templates, SQL, and their generated Go files
 
 ```yaml
 layout:
-  popcornwave.toml: data:project-config
+  popcornweb.toml: data:project-config
   config.dev.toml: policy:config-file-resolution project-local runtime configuration
   config.prod.toml: requirement:environment-switching production configuration, carrying no secret
   config/: optional policy:config-file-resolution project-local runtime configuration directory
@@ -31,7 +31,7 @@ layout:
   public.go: api:cli-init scaffolded embedded PublicFS accessor
   tinygohelper.go: TinyGo-only netdev registration scaffolded for TinyGo projects
   cmd/myapp/main.go: concept:application-entry-point
-  cmd/myapp/popcornwave_bootstrap_pw_gen.go: generated registration-package linker
+  cmd/myapp/popcornweb_bootstrap_pw_gen.go: generated registration-package linker
   handlers/index.go: package mux and Handlers accessor, written by api:cli-init or by api:cli-new for a new handler package
   handlers/home_handler.go: route registration, request types, and net/http handler
   handlers/home.pw.html: typed HTML source
@@ -49,7 +49,7 @@ layout:
   queries/users_pw_gen.go: generated context-based query functions
   migrations/: data:migration-source handwritten versioned SQL, only in a project with the database capability
   migrations/00001_init.sql: initial application schema as migration version 1
-  migrations/{version}_init_popcornwave_{capability}.sql: rule:framework-owned-tables tables, written by api:cli-init or api:cli-add at the next free version
+  migrations/{version}_init_popcornweb_{capability}.sql: rule:framework-owned-tables tables, written by api:cli-init or api:cli-add at the next free version
   testdata/seed/: data:seed-dataset files shared by api:cli-seed and api:test-seed
   templates/document.pw.html: requirement:nested-html-templates document shell
   templates/document_pw_gen.go: generated document Fragment and Wrapper
@@ -65,7 +65,7 @@ ownership:
     - public.go
     - tinygohelper.go
   handwritten:
-    - popcornwave.toml
+    - popcornweb.toml
     - config.{env}.toml or config/config.{env}.toml
     - go.mod
     - .gitignore
@@ -98,7 +98,7 @@ rules:
   - classic page templates provide leaf content and do not duplicate the document shell
   - public/.keep preserves an otherwise empty public directory and is never externally reachable
   - generated public/**/*.zstd sidecars are ignored by version control
-  - Popcorn Wave never rewrites scaffolded public.go after initialization
+  - Popcorn Web never rewrites scaffolded public.go after initialization
   - public.go init registers its embedded fs.FS without main.go wiring
   - tinygohelper.go carries the //go:build tinygo constraint so host Go builds skip it
   - tinygohelper.go blank-imports system:tinygodriver netdev; without it TinyGo binaries abort with "Netdev not set"

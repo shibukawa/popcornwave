@@ -14,7 +14,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzip"
 	"github.com/klauspost/compress/zstd"
-	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornweb/middlewares"
 )
 
 // writeNestedTestFile writes a file and the directories above it.
@@ -351,7 +351,7 @@ func TestScaffoldIncludesPublicEmbed(t *testing.T) {
 		}
 	}
 	for _, fragment := range []string{
-		`"github.com/shibukawa/popcornwave/middlewares"`,
+		`"github.com/shibukawa/popcornweb/middlewares"`,
 		"func init()",
 		"middlewares.RegisterPublicFS(PublicFS())",
 	} {

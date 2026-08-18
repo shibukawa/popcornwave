@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/assetverify"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/assetverify"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"sync"
 )
 
@@ -62,7 +62,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 		embedded = registeredPublicFS()
 	}
 	if embedded == nil && !publicDevelopment {
-		return nil, fmt.Errorf("popcornwave: server.public.enabled requires a registered public filesystem")
+		return nil, fmt.Errorf("popcornweb: server.public.enabled requires a registered public filesystem")
 	}
 	// The embedded tree is immutable, so a name resolves to the same bytes,
 	// media type, and validator on every request. The local tree can change

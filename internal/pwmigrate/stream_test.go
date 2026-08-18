@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 )
 
 func streamTarget(t *testing.T) *Target {
@@ -34,7 +34,7 @@ func streamFS(statements ...string) fstest.MapFS {
 func TestStreamTableCarriesTheFrameworkPrefix(t *testing.T) {
 	// An application reading its own schema can tell at a glance which tables it
 	// does not own, which is the same rule every framework table follows.
-	if table := StreamTable("widget"); table != "popcornwave_migrations_widget" {
+	if table := StreamTable("widget"); table != "popcornweb_migrations_widget" {
 		t.Fatalf("table = %q", table)
 	}
 	// The application's own stream keeps goose's default table, so an existing
@@ -75,7 +75,7 @@ func TestApplyStreamsKeepsSeparateLedgers(t *testing.T) {
 		}
 	}
 	// Each stream keeps its own version table, named after its stem.
-	for _, table := range []string{"popcornwave_migrations_one", "popcornwave_migrations_two"} {
+	for _, table := range []string{"popcornweb_migrations_one", "popcornweb_migrations_two"} {
 		var name string
 		if err := target.DB.QueryRowContext(ctx,
 			"select name from sqlite_master where type='table' and name=?", table).Scan(&name); err != nil {

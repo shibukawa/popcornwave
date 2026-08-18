@@ -1,6 +1,6 @@
 package templates
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 // The framework renders one of these when a request fails and the client would
 // rather have a page than a problem document. It also renders one in place of a

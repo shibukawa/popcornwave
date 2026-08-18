@@ -160,7 +160,7 @@ func buildSourceDeployment(ctx context.Context, root, stage string, config proje
 		return deploymentManifest{}, fmt.Errorf("copy %s: %w", externalPublicDir, err)
 	}
 	packageDir, packageName := stage, "function"
-	entrypoint := "PopcornWave"
+	entrypoint := "PopcornWeb"
 	if options.target == targetVercelGo {
 		packageDir, packageName = filepath.Join(stage, "api"), "handler"
 		entrypoint = "Handler"
@@ -175,7 +175,7 @@ func buildSourceDeployment(ctx context.Context, root, stage string, config proje
 	if err != nil {
 		return deploymentManifest{}, fmt.Errorf("format generated function entrypoint: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(packageDir, "popcornwave_serverless.go"), wrapper, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(packageDir, "popcornweb_serverless.go"), wrapper, 0o644); err != nil {
 		return deploymentManifest{}, err
 	}
 	if options.target == targetVercelGo {
@@ -341,9 +341,9 @@ func copyTransformedMain(root, destination, packageName, mainPackage, backend st
 			return err
 		}
 		file.Name.Name = packageName
-		runtimePath, runtimeName := "github.com/shibukawa/popcornwave/pw", "pw"
+		runtimePath, runtimeName := "github.com/shibukawa/popcornweb/pw", "pw"
 		if backend == backendFastHTTP {
-			runtimePath, runtimeName = "github.com/shibukawa/popcornwave/pwfast", "pwfast"
+			runtimePath, runtimeName = "github.com/shibukawa/popcornweb/pwfast", "pwfast"
 		}
 		for _, imported := range file.Imports {
 			path, err := strconv.Unquote(imported.Path.Value)
@@ -396,16 +396,16 @@ func sourceFunctionWrapper(packageName, target, backend string) string {
 	frameworkImport, registration := "", ""
 	if target == targetGoogleCloudRunFunctions {
 		frameworkImport = "\n\t\"github.com/GoogleCloudPlatform/functions-framework-go/functions\""
-		registration = "\nfunc init() { functions.HTTP(\"PopcornWave\", Handler) }\n"
+		registration = "\nfunc init() { functions.HTTP(\"PopcornWeb\", Handler) }\n"
 	}
 	capture := `func captureApplication(_ func(context.Context, http.Handler, ...pw.Option) error, ctx context.Context, handler http.Handler, options ...pw.Option) error {
 	wrapped, err := pw.Middlewares(handler, options...)
 	if err == nil { applicationHandler = wrapped }
 	return err
 }`
-	backendImports := "\n\t\"github.com/shibukawa/popcornwave/pw\""
+	backendImports := "\n\t\"github.com/shibukawa/popcornweb/pw\""
 	if backend == backendFastHTTP {
-		backendImports = "\n\t\"github.com/shibukawa/popcornwave/pwfast\"\n\t\"github.com/shibukawa/tinygodriver/fasthttp\""
+		backendImports = "\n\t\"github.com/shibukawa/popcornweb/pwfast\"\n\t\"github.com/shibukawa/tinygodriver/fasthttp\""
 		capture = `func captureApplication(_ func(context.Context, fasthttp.RequestHandler, ...pwfast.Option) error, ctx context.Context, handler fasthttp.RequestHandler, options ...pwfast.Option) error {
 	wrapped, _, err := pwfast.Start(ctx, handler, options...)
 	if err == nil { applicationHandler = pwfast.NetHTTPHandler(wrapped) }
@@ -481,7 +481,7 @@ func normalizeApplicationModule(root, path string) (string, string, error) {
 }
 
 func writeFunctionModule(stage, applicationModule, goVersion, applicationGoMod string, withFunctionsFramework bool) error {
-	source := "module " + applicationModule + "/popcornwave-serverless\n\ngo " + goVersion + "\n\nrequire " + applicationModule + " v0.0.0\n"
+	source := "module " + applicationModule + "/popcornweb-serverless\n\ngo " + goVersion + "\n\nrequire " + applicationModule + " v0.0.0\n"
 	if withFunctionsFramework {
 		source += "require github.com/GoogleCloudPlatform/functions-framework-go " + functionsFrameworkVersion + "\n"
 	}

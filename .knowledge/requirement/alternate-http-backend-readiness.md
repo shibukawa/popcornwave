@@ -10,7 +10,7 @@ status: proposed
 not_a_commitment:
   planned: no fasthttp backend is scheduled for a release
   committed: keeping the option cheap, because losing it is paid silently over every handler written meanwhile, while keeping it is one rule
-  published_position: the why-popcorn-wave page says fasthttp is a different boundary and this framework will not sit under a net/http-shaped compatibility layer; readiness does not contradict it, because this is about what application code names, not about shipping an adapter
+  published_position: the why-popcorn-web page says fasthttp is a different boundary and this framework will not sit under a net/http-shaped compatibility layer; readiness does not contradict it, because this is about what application code names, not about shipping an adapter
 what_a_swap_actually_costs:
   handler_shape: fasthttp dispatches func(*fasthttp.RequestCtx), one value carrying both directions, so a two-parameter net/http handler has no shape-preserving translation
   context: '*fasthttp.RequestCtx implements context.Context itself, so nothing wraps it and r.Context() has no counterpart there'
@@ -75,7 +75,7 @@ prerequisites:
       session: Manager.AttachTo, RotateOn and DestroyOn, plus Jar.LoadFrom
       pwruntime: StoreAuthentication, the write half of the reader that was already portable
       guard: auth.Rules, the resolved protection policy as a value, which pwfast.GuardPolicy already had the shape for
-    fasthttp_half: popcornwave/plugin/auth/authfast, about two hundred lines, of which the exchange is most
+    fasthttp_half: popcornweb/plugin/auth/authfast, about two hundred lines, of which the exchange is most
     all_three_modes_serve: oidc, passkey and jwt_only, each covered by an end-to-end binary against a real provider and a real database
     agreement_test: both listeners are asked the same question over one runtime and the answers are compared, which found a real divergence in Redirect
     still_mixed: authfast links plugin/auth and therefore pw, because the session manager and the extension registry have not moved; the configuration layer, which this entry named as the blocker, is done — see configuration_layer_moved_2026_08_11
@@ -174,7 +174,7 @@ prerequisites:
     why_a_leaf_rather_than_a_copy: a document naming the runtime is rendered by whichever half is running and an application's template names that URL once, so two runtimes each embedding their own copy would be two revisions of one asset and a page rendered by one build would load a script the other does not serve
     what_each_transport_keeps: reading a path off a request and writing the response, plus closing the reserved namespace so an unclaimed path there never reaches application routing
     build_modes_still_differ: the development set adds a module and an import and therefore lands on a different revision, which is published rather than branched on — a deployed build publishes nothing and both transports land on one revision
-    proved_by: both binaries of examples/live_render name /_pw/15d90b93c185664b/popcornwave-runtime.js and serve the same 20310 bytes at it, and a stale revision answers 404 on each
+    proved_by: both binaries of examples/live_render name /_pw/15d90b93c185664b/popcornweb-runtime.js and serve the same 20310 bytes at it, and a stale revision answers 404 on each
   command_line_2026_08_11:
     was: the second build took no command line at all — every flag was an unknown flag, --generate-config did nothing, the health probe was unreachable, and an application's own subcommand could not be named
     why: the argument filter that lifts the framework's words off the line was a pw hook, and a build without pw installed none

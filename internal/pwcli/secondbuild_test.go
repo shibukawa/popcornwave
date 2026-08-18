@@ -21,7 +21,7 @@ func writeSecondBuildProject(t *testing.T) string {
 		}
 	}
 	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\nfasthttp = true\n\n[generate]\n"+
 			"handlers = []\ntemplates = []\nqueries = []\nconfig = []\npages = [\"pages\"]\n")
 	writeTestFile(t, filepath.Join(root, "cmd", "fixture", "main.go"), "package main\n\nfunc main() {}\n")
@@ -83,7 +83,7 @@ func TestDroppingTheDeclarationSweepsTheSecondBuild(t *testing.T) {
 		t.Fatalf("the second build was not generated: %v", err)
 	}
 
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
 			"handlers = []\ntemplates = []\nqueries = []\nconfig = []\npages = [\"pages\"]\n")
 	generateIn(t, root)

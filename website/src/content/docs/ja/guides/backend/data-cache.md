@@ -58,7 +58,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // Quote は上流が返すものであり、1エントリが持つものです。

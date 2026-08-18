@@ -3,7 +3,7 @@ id: api:logger
 type: api
 title: Context-Bound Logger API
 ---
-Popcorn Wave exposes an immutable logger bound to the context used by api:request-context-accessors.
+Popcorn Web exposes an immutable logger bound to the context used by api:request-context-accessors.
 
 ```yaml
 acquire:

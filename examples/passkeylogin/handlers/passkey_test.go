@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/testutil"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/testutil"
 )
 
 // TestPasskeyEnrollmentAndLogin drives the whole oidc_passkey story this sample

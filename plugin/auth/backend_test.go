@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 // memoryState is the smallest RawStore that satisfies the contract, so a

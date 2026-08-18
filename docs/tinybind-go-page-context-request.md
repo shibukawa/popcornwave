@@ -1,6 +1,6 @@
 # Change request: let a page reach the request context
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.3.5
 **Date:** 2026-08-05
 **Status:** not yet raised
@@ -33,7 +33,7 @@ workaround for the first three has a bug of its own waiting at the end of it.
 
 ## Why this matters downstream
 
-Popcorn Wave puts the database handle and the authenticated session on the
+Popcorn Web puts the database handle and the authenticated session on the
 request context. That is our design, not the module's, and we are not asking the
 module to know about either. What we need is the context itself; everything on
 it is ours to look up.
@@ -268,7 +268,7 @@ A tree with one route, `pages/page.pw.html` beside a `page.go` declaring
 `func Load(w http.ResponseWriter, r *http.Request)`:
 
 ```
-pages/routes_pw_gen.go:6:2: "github.com/shibukawa/popcornwave/pw" imported and not used
+pages/routes_pw_gen.go:6:2: "github.com/shibukawa/popcornweb/pw" imported and not used
 ```
 
 Adding any second route on another rung fixes it, which is what makes this easy

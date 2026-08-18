@@ -1,6 +1,6 @@
 package handlers
 
-import "github.com/shibukawa/popcornwave/pwconfig"
+import "github.com/shibukawa/popcornweb/pwconfig"
 
 // SeedCommand is this application's own subcommand: typed CLI-only input,
 // named on the command line and parsed like any other binding.

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // Importing this package registers the redis session backend:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 //
 // Registration opens no connection. The client is dialed when session.backend
 // selects this backend at startup.

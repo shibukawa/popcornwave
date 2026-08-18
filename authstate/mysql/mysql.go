@@ -1,8 +1,8 @@
 // Package mysql registers the MySQL dialect of the authentication state store.
 //
-//	import _ "github.com/shibukawa/popcornwave/authstate/mysql"
+//	import _ "github.com/shibukawa/popcornweb/authstate/mysql"
 //
-// The database connection itself comes from popcornwave/database/mysql, which
+// The database connection itself comes from popcornweb/database/mysql, which
 // an application imports separately.
 package mysql
 
@@ -10,7 +10,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 // Dialect is the registered engine name, which is also what a mysql:// DSN

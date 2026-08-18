@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Firestore には、アプリケーションのエンティティだけでなく、フレームワークのセッションや
-認証レコードも保存できます。Popcorn Wave が使うのは Datastore API です。データベースは
+認証レコードも保存できます。Popcorn Web が使うのは Datastore API です。データベースは
 必ず **Datastore mode** で作成してください。Firestore Native mode は別の API であり、
 起動時に拒否されます。
 
@@ -32,8 +32,8 @@ import (
 	"context"
 	"log"
 
-	_ "github.com/shibukawa/popcornwave/database/firestore"
-	"github.com/shibukawa/popcornwave/pw"
+	_ "github.com/shibukawa/popcornweb/database/firestore"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {
@@ -52,7 +52,7 @@ gcloud beta emulators datastore start --host-port=127.0.0.1:8081
 ```toml
 [middleware.firestore]
 enabled = true
-project_id = "demo-popcornwave"
+project_id = "demo-popcornweb"
 endpoint = "127.0.0.1:8081"
 ```
 
@@ -151,10 +151,10 @@ max_idle_conns = 16
 
 ```go
 import (
-	_ "github.com/shibukawa/popcornwave/authstate/firestore"
-	_ "github.com/shibukawa/popcornwave/authstore/firestore"
-	_ "github.com/shibukawa/popcornwave/database/firestore"
-	_ "github.com/shibukawa/popcornwave/sessionstore/firestore"
+	_ "github.com/shibukawa/popcornweb/authstate/firestore"
+	_ "github.com/shibukawa/popcornweb/authstore/firestore"
+	_ "github.com/shibukawa/popcornweb/database/firestore"
+	_ "github.com/shibukawa/popcornweb/sessionstore/firestore"
 )
 ```
 

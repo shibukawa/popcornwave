@@ -3,7 +3,7 @@ package pw
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

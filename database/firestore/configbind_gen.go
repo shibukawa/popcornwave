@@ -17,7 +17,7 @@ func init() {
 
 func registerConfigDefinition0() {
 	configbind.Register[Config](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/database/firestore.Config",
+		TypeName: "github.com/shibukawa/popcornweb/database/firestore.Config",
 		Prefix:   "middleware.firestore",
 		Doc:      "Config is the [middleware.firestore] runtime binding. It is registered when this package is imported, so a project that does not use Firestore gains no key",
 		KnownKeys: []string{

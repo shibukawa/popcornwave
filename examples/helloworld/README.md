@@ -1,6 +1,6 @@
 # Hello World
 
-A classic Popcorn Wave example generated with:
+A classic Popcorn Web example generated with:
 
 ```bash
 pw init helloworld --tailwind
@@ -12,7 +12,7 @@ counter, and an application-owned configuration binding rendered into the page.
 The module always uses the repository checkout through:
 
 ```go
-replace github.com/shibukawa/popcornwave => ../../
+replace github.com/shibukawa/popcornweb => ../../
 ```
 
 Initialize the configured SQLite database, then run the application:

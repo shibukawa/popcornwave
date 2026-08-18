@@ -4,7 +4,7 @@
 
 package fastfixture
 
-import pwfast "github.com/shibukawa/popcornwave/pwfast"
+import pwfast "github.com/shibukawa/popcornweb/pwfast"
 
 // RegisterRoutes installs every route this package declares.
 //

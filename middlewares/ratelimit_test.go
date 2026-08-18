@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func enabledRateLimit() RateLimitConfig {

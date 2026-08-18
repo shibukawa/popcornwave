@@ -1,6 +1,6 @@
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 

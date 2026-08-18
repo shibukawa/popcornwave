@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/skills"
+	"github.com/shibukawa/popcornweb/skills"
 )
 
 // Agent skill answers of pw init. The framework ships a usage guideline an AI
@@ -40,10 +40,10 @@ func skillsRoot(value string) string {
 // agentSkillDir is the directory the placed skill lives in under
 // <root>/skills/. It is the skill's name rather than the repository folder it
 // is authored in, because the directory name is how an agent addresses a skill.
-const agentSkillDir = "popcornwave"
+const agentSkillDir = "popcornweb"
 
-// embeddedSkillDir is where the same tree lives inside skills.PopcornWave.
-const embeddedSkillDir = "popcornwave-skill"
+// embeddedSkillDir is where the same tree lives inside skills.PopcornWeb.
+const embeddedSkillDir = "popcornweb-skill"
 
 // agentSkillFiles is the bundled framework skill, keyed by project-relative
 // path under the chosen agent directory. A project that declined the skill
@@ -54,14 +54,14 @@ func agentSkillFiles(options initOptions) map[string]string {
 		return nil
 	}
 	files := map[string]string{}
-	err := fs.WalkDir(skills.PopcornWave, embeddedSkillDir, func(source string, entry fs.DirEntry, err error) error {
+	err := fs.WalkDir(skills.PopcornWeb, embeddedSkillDir, func(source string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if entry.IsDir() {
 			return nil
 		}
-		content, err := skills.PopcornWave.ReadFile(source)
+		content, err := skills.PopcornWeb.ReadFile(source)
 		if err != nil {
 			return err
 		}

@@ -3,7 +3,7 @@
 #   docker build -t auction .
 #   docker run --rm -p 8080:8080 auction
 #
-# A Popcorn Wave build is not "go build". The generated Go, the stylesheet, and
+# A Popcorn Web build is not "go build". The generated Go, the stylesheet, and
 # the embedded asset tree under dist/ are build outputs that version control
 # does not carry, so the builder stage runs "pw build" — generate, CSS, assets,
 # then compile — rather than invoking the compiler itself. A Dockerfile that
@@ -23,7 +23,7 @@ RUN go mod download
 # pw generates the code the framework reads, so its version has to match the
 # framework this project depends on. go.mod is the one place that records it.
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 # The standalone Tailwind executable, pinned to the version devbox.json holds.
 # TARGETARCH is set by BuildKit; the release assets spell amd64 as x64.
@@ -42,7 +42,7 @@ COPY . .
 # A developer may add a workspace-local replacement while working on Popcorn
 # Wave. Such a parent path is outside this Docker build context, so normalize
 # the copied module file and build against the version pinned in go.mod.
-RUN go mod edit -dropreplace=github.com/shibukawa/popcornwave \
+RUN go mod edit -dropreplace=github.com/shibukawa/popcornweb \
     && go mod tidy
 
 # CGO_ENABLED=0 is what makes the binary static enough for the runtime base

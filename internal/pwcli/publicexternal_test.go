@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
 )
 
 // writeExternal puts a file in the second authored tree.

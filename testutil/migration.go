@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/popcornwave/database/sqlite"
-	"github.com/shibukawa/popcornwave/migrate"
+	"github.com/shibukawa/popcornweb/database"
+	"github.com/shibukawa/popcornweb/database/sqlite"
+	"github.com/shibukawa/popcornweb/migrate"
 )
 
 // snapshotCache keeps one snapshot per migration source tree for the lifetime of

@@ -85,7 +85,7 @@ func planInputs(ctx context.Context) (*dynamodb.Client, TableResolver, error) {
 	handle, err := Handle(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf(
-			"popcornwave/database/dynamo: no client available; import the package and enable middleware.dynamo: %w", err)
+			"popcornweb/database/dynamo: no client available; import the package and enable middleware.dynamo: %w", err)
 	}
 	return handle.Client(), tableNaming(handle), nil
 }
@@ -191,7 +191,7 @@ func applyPlan(ctx context.Context, client *dynamodb.Client, plan []TableChange)
 	}
 	if len(blocked) > 0 {
 		return Result{}, fmt.Errorf(
-			"popcornwave/database/dynamo: %d table(s) cannot be reconciled, and DynamoDB cannot alter a key schema:\n  %s",
+			"popcornweb/database/dynamo: %d table(s) cannot be reconciled, and DynamoDB cannot alter a key schema:\n  %s",
 			len(blocked), strings.Join(blocked, "\n  "))
 	}
 
@@ -263,7 +263,7 @@ func verify(ctx context.Context, client *dynamodb.Client, resolver TableResolver
 		}
 	}
 	if len(problems) > 0 {
-		return fmt.Errorf("popcornwave/database/dynamo: schema does not match this build:\n  %s",
+		return fmt.Errorf("popcornweb/database/dynamo: schema does not match this build:\n  %s",
 			strings.Join(problems, "\n  "))
 	}
 	return nil

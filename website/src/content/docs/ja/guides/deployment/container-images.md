@@ -1,6 +1,6 @@
 ---
 title: コンテナイメージ
-description: Popcorn Wave のイメージが COPY と go build では作れない理由と、生成された Dockerfile の各行が何のためにあるのか。
+description: Popcorn Web のイメージが COPY と go build では作れない理由と、生成された Dockerfile の各行が何のためにあるのか。
 sidebar:
   order: 2
 ---
@@ -13,14 +13,14 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /out/myapp ./cmd/myapp
 ```
 
-Popcorn Wave のプロジェクトでは、これは失敗します。しかも失敗の仕方が親切では
+Popcorn Web のプロジェクトでは、これは失敗します。しかも失敗の仕方が親切では
 ありません。テンプレートが宣言したレンダラ、`.pw.sql` が名付けたクエリ関数、
 ページツリーを繋ぐ登録 — コンパイラは未定義シンボルとしてそれらを並べますが、
 どれもリポジトリに無いファイルのものです。
 
 それらはビルド生成物です。`pw generate` がソースの隣に `_pw_gen.go` として書き、
 `pw init` がそのパターンを `.gitignore` に入れます。Tailwind が出力する CSS も、
-`public.go` が埋め込む `dist/` 以下のアセットツリーも同じです。Popcorn Wave の
+`public.go` が埋め込む `dist/` 以下のアセットツリーも同じです。Popcorn Web の
 ビルドにはコンパイラの前に**ホストフェーズ**があり、いきなり `go build` に進む
 Dockerfile はそこを飛ばしています。
 
@@ -37,7 +37,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 COPY . .
 
@@ -87,7 +87,7 @@ pw が生成するコードは、特定バージョンのフレームワーク�
 
 ```dockerfile
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 ```
 
 `go.mod` のフレームワークを上げれば、ビルダーもついてきます。更新すべき二箇所目は
@@ -223,7 +223,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 COPY . .
 

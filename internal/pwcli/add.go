@@ -158,7 +158,7 @@ func newAddWizard(state projectState, missing []string, defaults addOptions) wiz
 	return wizardModel[addOptions]{
 		steps:    addWizardSteps(state, missing, defaults),
 		defaults: defaults,
-		title:    "Popcorn Wave  add capability",
+		title:    "Popcorn Web  add capability",
 		confirm:  "add",
 		plan:     func(options addOptions) []string { return addReview(state, options) },
 		theme:    newWizardTheme(),

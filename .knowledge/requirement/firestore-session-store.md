@@ -11,7 +11,7 @@ motivation:
   - api:session-store is a four-operation key-value contract, which is what this store is
   - the DynamoDB backend already proved the shape; what differs here is entirely the write model, per decision:firestore-conditional-writes
 plugin:
-  import: popcornwave/sessionstore/firestore
+  import: popcornweb/sessionstore/firestore
   backend_name: firestore
   config_prefix: session.firestore
   registration: api:session-backend-plugin; the import registers the factory under the backend name, so session.backend selects it
@@ -20,7 +20,7 @@ plugin:
   raw_store: it implements session.RawStore over already encoded payloads, so it never sees the application payload type; the host adds it back with session.Typed
   config_keys: none of its own, since decision:dynamodb-session-read-consistency has no counterpart and there is no consistency to choose
 kind:
-  name: popcornwave_session, the same declared name rule:framework-owned-tables gives the relational table and the DynamoDB table
+  name: popcornweb_session, the same declared name rule:framework-owned-tables gives the relational table and the DynamoDB table
   literal: no resolution step, per decision:firestore-namespace-isolation
   key: datastore.NameKey with the record key hash as the name; no ancestor, so every session is its own entity group and two sessions never contend
   no_creation_step: the kind exists once the first session is written, per decision:firestore-no-schema-application

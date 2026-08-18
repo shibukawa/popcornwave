@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
 )
 
 func TestParseMigrateArgs(t *testing.T) {
@@ -142,7 +142,7 @@ func TestMigrateWithoutProjectRuns(t *testing.T) {
 		dir:    directory,
 		dsn:    "sqlite://" + t.TempDir() + "/app.db",
 	}
-	missing := project{err: errors.New("popcornwave.toml not found")}
+	missing := project{err: errors.New("popcornweb.toml not found")}
 	if err := executeMigrate(t.Context(), missing, options, &stdout, &stderr); err != nil {
 		t.Fatalf("migrate without a project: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestMigrateWithoutProjectRuns(t *testing.T) {
 }
 
 func TestMigrateWithoutProjectNeedsExplicitInputs(t *testing.T) {
-	missing := project{err: errors.New("popcornwave.toml not found")}
+	missing := project{err: errors.New("popcornweb.toml not found")}
 	var stdout, stderr strings.Builder
 	if err := executeMigrate(t.Context(), missing, migrateOptions{action: "up"}, &stdout, &stderr); err == nil {
 		t.Fatal("missing project and missing --dir were accepted")

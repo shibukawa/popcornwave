@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/internal/apidoc"
+	"github.com/shibukawa/popcornweb/internal/apidoc"
 )
 
 // Supported server.api_doc values. An empty value disables the endpoint.

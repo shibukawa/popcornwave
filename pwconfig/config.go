@@ -30,9 +30,9 @@ package pwconfig
 import (
 	"time"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // ServerConfig controls the primary HTTP listener and operational endpoints.
@@ -262,7 +262,7 @@ const (
 )
 
 // The [session] binding. Every type is a true alias of the one declared in
-// sessionconfig, so pw and popcornwave/plugin/auth name one type from two
+// sessionconfig, so pw and popcornweb/plugin/auth name one type from two
 // packages without depending on each other, and the reflect.Type keyed
 // configuration registry resolves both names to one entry.
 //

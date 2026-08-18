@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	"github.com/shibukawa/popcornwave/internal/dbseed"
+	"github.com/shibukawa/popcornweb/database"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
 )
 
 // TestNativeSeedAndAssert runs the dataset contract on the native PostgreSQL

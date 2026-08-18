@@ -7,7 +7,7 @@ A classic-only build remains a small practical TinyGo target with complete HTTP 
 
 ```yaml
 criteria:
-  - works without the Popcorn Wave browser runtime
+  - works without the Popcorn Web browser runtime
   - uses standard requests and complete responses
   - interoperates with net/http handlers and middleware
   - supports typed binding, configuration, errors, templates, and OpenAPI

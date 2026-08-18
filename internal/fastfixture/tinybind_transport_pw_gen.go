@@ -5,7 +5,7 @@
 package fastfixture
 
 import (
-	pw "github.com/shibukawa/popcornwave/pwfast"
+	pw "github.com/shibukawa/popcornweb/pwfast"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

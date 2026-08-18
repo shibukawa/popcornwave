@@ -11,7 +11,7 @@ import (
 	"time"
 
 	kzstd "github.com/klauspost/compress/zstd"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 
@@ -227,7 +227,7 @@ func TestAsyncTimeoutBoundsTheBufferedBranch(t *testing.T) {
 func TestFrameworkScriptIsImmutableAndRevisioned(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	url := RuntimeScriptURL()
-	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/popcornwave-runtime.js") {
+	if !strings.HasPrefix(url, "/_pw/") || !strings.HasSuffix(url, "/popcornweb-runtime.js") {
 		t.Fatalf("url = %q", url)
 	}
 	if !serveFrameworkScript(recorder, httptest.NewRequest(http.MethodGet, url, nil)) {

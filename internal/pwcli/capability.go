@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // Capability names one framework feature a project can carry. api:cli-init
@@ -228,24 +228,24 @@ func (p projectState) carries(name string) (string, bool, error) {
 		return p.configSectionEvidence("[auth]")
 	case capabilityTailwind:
 		if p.config.Tailwind.Enabled {
-			return "popcornwave.toml", true, nil
+			return "popcornweb.toml", true, nil
 		}
 		return "", false, nil
 	case capabilityImages:
 		if p.config.Assets.Images {
-			return "popcornwave.toml", true, nil
+			return "popcornweb.toml", true, nil
 		}
 		return "", false, nil
 	case capabilityDiscovered:
 		// The purpose is the capability: a tree nothing generates from is not
 		// installed, whatever the directory holds.
 		if len(p.config.Generate.Pages) > 0 {
-			return "popcornwave.toml", true, nil
+			return "popcornweb.toml", true, nil
 		}
 		return "", false, nil
 	case capabilityRegistered:
 		if len(p.config.Generate.Handlers) > 0 {
-			return "popcornwave.toml", true, nil
+			return "popcornweb.toml", true, nil
 		}
 		return "", false, nil
 	}

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate/memory"
-	"github.com/shibukawa/popcornwave/contrib/oauth"
+	"github.com/shibukawa/popcornweb/authstate/memory"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
 )
 
 // authAgeFixture serves discovery, JWKS, and a token endpoint whose ID Token

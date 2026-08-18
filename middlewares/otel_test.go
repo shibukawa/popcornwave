@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 type middlewareCollector struct{ spans []trace.SpanData }

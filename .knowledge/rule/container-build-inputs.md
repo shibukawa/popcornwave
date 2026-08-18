@@ -3,13 +3,13 @@ id: rule:container-build-inputs
 type: rule
 title: Container Build Inputs
 ---
-A container build of a Popcorn Wave application runs the decision:host-tools-target-runtime host phase inside the image before any compiler reads the sources, because the files that phase writes are the ones policy:generated-artifacts keeps out of version control.
+A container build of a Popcorn Web application runs the decision:host-tools-target-runtime host phase inside the image before any compiler reads the sources, because the files that phase writes are the ones policy:generated-artifacts keeps out of version control.
 
 ```yaml
-why_it_is_a_rule: the Dockerfile every Go reader already knows how to write is COPY . . followed by go build, and that build fails on a Popcorn Wave project for reasons the compiler diagnostic does not name
+why_it_is_a_rule: the Dockerfile every Go reader already knows how to write is COPY . . followed by go build, and that build fails on a Popcorn Web project for reasons the compiler diagnostic does not name
 missing_without_the_host_phase:
   generated_go: "{source-base}_pw_gen.go beside every .pw.html, .pw.sql, and registered handler, excluded by the api:cli-init .gitignore rule"
-  bootstrap: cmd/{name}/popcornwave_bootstrap_pw_gen.go, without which no registration package is linked
+  bootstrap: cmd/{name}/popcornweb_bootstrap_pw_gen.go, without which no registration package is linked
   embedded_asset_tree: dist/public, which public.go names in a go:embed directive, so its absence is a compile error rather than an empty tree
   generated_css: public/generated/app.css for a project with requirement:tailwind-css-integration
 required_order:

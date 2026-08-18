@@ -26,7 +26,7 @@ context の値ではなくプロセスのハンドルとして持ち回ります
 
 ```go
 // cmd/myapp/main.go
-import _ "github.com/shibukawa/popcornwave/database/dynamo"
+import _ "github.com/shibukawa/popcornweb/database/dynamo"
 ```
 
 ```toml
@@ -85,7 +85,7 @@ type Note struct {
 ここでは `note`——で、デプロイに関する情報はソースに一切現れません。
 
 生成は使われ方に従います。実際に呼ばれている方向のコーデックだけが出るので、読み取りを消せば
-生成コードもその分縮みます。ディレクトリは `popcornwave.toml` の `generate.dynamo` に並べる
+生成コードもその分縮みます。ディレクトリは `popcornweb.toml` の `generate.dynamo` に並べる
 必要があり、これは `pw add dynamo` が書きます。どのディレクトリにも属さない `.pw.dynamo` は、
 黙って飛ばされるのではなく、パスを名指しして 1 度だけ報告されます。
 
@@ -238,7 +238,7 @@ TTL、保持期間、オートスケーリング、タグ、レプリケーシ�
 | filter と update の式 | 宣言できるのはキー条件、件数、方向、整合性まで |
 | シングルテーブル設計 | 1 つの構造体が 1 つのテーブルを持つ。`tinybind` がそう決めている |
 
-どれも Popcorn Wave の選択ではありません。下のレイヤーが今できることの縁であり、そちらが
+どれも Popcorn Web の選択ではありません。下のレイヤーが今できることの縁であり、そちらが
 動けばこちらも動きます。
 
 ## この上のセッション

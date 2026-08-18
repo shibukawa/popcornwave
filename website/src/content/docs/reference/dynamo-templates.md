@@ -16,7 +16,7 @@ keys, and how schema is applied, see [DynamoDB](/guides/storage/dynamodb/).
 
 ## Where generation looks
 
-Both live in a directory listed under `generate.dynamo` in `popcornwave.toml`,
+Both live in a directory listed under `generate.dynamo` in `popcornweb.toml`,
 which `pw add dynamo` writes. A `.pw.dynamo` outside every listed directory is
 reported by path rather than silently skipped.
 
@@ -335,5 +335,5 @@ Query checks:
 | Optimistic locking and TTL | there is no `version` tag and no `ttl` tag; both are the caller's to manage |
 | Transactions, PartiQL, Streams, DAX | the driver excludes them |
 
-None of these is a Popcorn Wave choice. They are the edge of what the layer
+None of these is a Popcorn Web choice. They are the edge of what the layer
 below does.

@@ -63,7 +63,7 @@ storage:
   consequence: choosing the registered admission mode or enabling revocation later is what adds the database, and requirement:preset-customization-docs says so where the reader decides it
   alternative_not_taken: DynamoDB, which requirement:dynamodb-auth-backend now makes viable for a browser login; jwt_only stores nothing it could hold, since the token carries the identity and no ceremony creates an account
   session: cookie, the backend that stores nothing, because the mode takes no session for authentication and provisioning storage nothing reads would be a table to explain
-  enabling_revocation: pw add database, then the auth.jwt revocation keys and the popcornwave_revoked_token migration, which requirement:preset-customization-docs owns
+  enabling_revocation: pw add database, then the auth.jwt revocation keys and the popcornweb_revoked_token migration, which requirement:preset-customization-docs owns
 starter_handler:
   shows: one registered route reading data:request-authentication and answering a typed response
   does_not_show: an authorization decision, which policy:bearer-admission leaves to the application and which a scaffold cannot guess

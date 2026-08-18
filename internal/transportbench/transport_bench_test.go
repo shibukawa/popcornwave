@@ -36,9 +36,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -58,7 +58,7 @@ type payload struct {
 
 var sample = payload{
 	ID:    4711,
-	Name:  "Popcorn Wave",
+	Name:  "Popcorn Web",
 	Email: "hello@example.test",
 	Tags:  []string{"framework", "go", "html"},
 }
@@ -136,7 +136,7 @@ func BenchmarkAPIWithDatabaseWait(b *testing.B) {
 }
 
 // BenchmarkHTMLPage renders a document shell around a leaf, which is the
-// framework's own heaviest ordinary path and the one most Popcorn Wave routes
+// framework's own heaviest ordinary path and the one most Popcorn Web routes
 // take.
 func BenchmarkHTMLPage(b *testing.B) {
 	previous := pwruntime.SwapHTMLDocument([]htmlbind.Wrapper{
@@ -144,7 +144,7 @@ func BenchmarkHTMLPage(b *testing.B) {
 	})
 	b.Cleanup(func() { pwruntime.SwapHTMLDocument(previous) })
 
-	leaf := staticFragment(`<main><h1>Popcorn Wave</h1><p>A page with a shell around it.</p></main>`)
+	leaf := staticFragment(`<main><h1>Popcorn Web</h1><p>A page with a shell around it.</p></main>`)
 	run(b, memory,
 		func(w http.ResponseWriter, r *http.Request) { pw.WriteHTML(w, r, leaf) },
 		func(r *fasthttp.RequestCtx) { pwfast.WriteHTML(r, leaf) })

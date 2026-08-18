@@ -4,7 +4,7 @@
 // counter is correct on one of them and enforces N times the configured limit
 // on N of them.
 //
-//	import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/ratelimitstore/redis"
 package redis
 
 import (
@@ -15,7 +15,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/pwratelimit"
+	"github.com/shibukawa/popcornweb/pwratelimit"
 )
 
 // Importing this package registers the redis counter store. Registration opens

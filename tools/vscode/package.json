@@ -1,18 +1,18 @@
 {
-  "name": "popcornwave",
-  "displayName": "Popcorn Wave",
-  "description": "Syntax highlighting and canonical formatting for Popcorn Wave .pw.html, .pw.sql, and .pw.dynamo sources.",
+  "name": "popcornweb",
+  "displayName": "Popcorn Web",
+  "description": "Syntax highlighting and canonical formatting for Popcorn Web .pw.html, .pw.sql, and .pw.dynamo sources.",
   "version": "0.3.0",
   "publisher": "shibukawa",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shibukawa/popcornwave.git",
+    "url": "https://github.com/shibukawa/popcornweb.git",
     "directory": "tools/vscode"
   },
-  "homepage": "https://github.com/shibukawa/popcornwave/tree/main/tools/vscode",
+  "homepage": "https://github.com/shibukawa/popcornweb/tree/main/tools/vscode",
   "bugs": {
-    "url": "https://github.com/shibukawa/popcornwave/issues"
+    "url": "https://github.com/shibukawa/popcornweb/issues"
   },
   "engines": {
     "vscode": "^1.75.0",
@@ -23,7 +23,7 @@
     "Formatters"
   ],
   "keywords": [
-    "popcornwave",
+    "popcornweb",
     "tinybind",
     "go",
     "tinygo"
@@ -40,7 +40,7 @@
       {
         "id": "pw-html",
         "aliases": [
-          "Popcorn Wave HTML",
+          "Popcorn Web HTML",
           "pw-html"
         ],
         "extensions": [
@@ -51,7 +51,7 @@
       {
         "id": "pw-sql",
         "aliases": [
-          "Popcorn Wave SQL",
+          "Popcorn Web SQL",
           "pw-sql"
         ],
         "extensions": [
@@ -62,7 +62,7 @@
       {
         "id": "pw-dynamo",
         "aliases": [
-          "Popcorn Wave DynamoDB",
+          "Popcorn Web DynamoDB",
           "pw-dynamo"
         ],
         "extensions": [
@@ -119,9 +119,9 @@
     ],
     "commands": [
       {
-        "command": "popcornwave.showOutput",
+        "command": "popcornweb.showOutput",
         "title": "Show Output",
-        "category": "Popcorn Wave"
+        "category": "Popcorn Web"
       }
     ],
     "configurationDefaults": {
@@ -143,9 +143,9 @@
     "test": "node --test test/",
     "build:wasm": "sh wasm/build.sh",
     "check:wasm": "node test/check-wasm-fresh.mjs",
-    "package": "vsce package --out popcornwave.vsix",
-    "publish:vsce": "vsce publish --packagePath popcornwave.vsix",
-    "publish:ovsx": "ovsx publish popcornwave.vsix"
+    "package": "vsce package --out popcornweb.vsix",
+    "publish:vsce": "vsce publish --packagePath popcornweb.vsix",
+    "publish:ovsx": "ovsx publish popcornweb.vsix"
   },
   "devDependencies": {
     "@vscode/vsce": "^3.2.1",

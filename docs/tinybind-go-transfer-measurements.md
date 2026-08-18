@@ -1,6 +1,6 @@
 # Measurements: what a navigation costs
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.6
 **Answers:** "Transfer size per delivery, before and after, on real pages. That number should decide whether the deferred step above gets built."
 

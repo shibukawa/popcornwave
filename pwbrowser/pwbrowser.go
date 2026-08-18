@@ -38,7 +38,7 @@ func RuntimeSource() string { return minifiedRuntimeSource }
 const Prefix = "/_pw/"
 
 // RuntimeName is the module a document loads.
-const RuntimeName = "popcornwave-runtime.js"
+const RuntimeName = "popcornweb-runtime.js"
 
 // state is the module set this process serves. A runtime with modules of its
 // own publishes them before anything reads a URL; nothing does at init time,

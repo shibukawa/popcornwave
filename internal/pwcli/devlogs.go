@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 // devLogCapture is the one invocation file selected by pw dev. The file stays

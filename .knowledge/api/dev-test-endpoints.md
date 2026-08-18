@@ -6,7 +6,7 @@ title: Development Test Data Endpoints
 The pwdev application serves dataset seeding and assertion over its own listener so an external test process (decision:browser-suite-seeding) reaches the running pool without a subprocess or a second connection.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/pw (devtest_mode_dev.go, pwdev build tag)
+package: github.com/shibukawa/popcornweb/pw (devtest_mode_dev.go, pwdev build tag)
 surface:
   - POST /_pw/test/seed/{dataset}   -> 204, or 404 unknown dataset, 400 invalid name, 500 apply failure
   - GET  /_pw/test/assert/{dataset} -> 204 match, 409 with text/plain per-table diff, 404/400/500 as above

@@ -3,7 +3,7 @@ package pwobservability
 import (
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 func TestResolveSamplerDefaultsByEnvironment(t *testing.T) {

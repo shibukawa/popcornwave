@@ -3,7 +3,7 @@ id: api:cli-session-schema
 type: api
 title: pw session schema
 ---
-The CLI prints, checks, or applies only the selected RDB session plugin schema; application migrations remain outside Popcorn Wave.
+The CLI prints, checks, or applies only the selected RDB session plugin schema; application migrations remain outside Popcorn Web.
 
 ```yaml
 status: not implemented; rule:framework-owned-tables carries plugin schema as migration files instead

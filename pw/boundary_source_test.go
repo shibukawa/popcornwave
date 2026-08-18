@@ -23,7 +23,7 @@ import (
 //
 // It lives in boundary.js rather than in a Go string literal so a formatter, a
 // linter, and an editor can all read it, and that file lives in
-// popcornwave/pwbrowser beside the asset it is minified into — both transports
+// popcornweb/pwbrowser beside the asset it is minified into — both transports
 // serve that asset, so its source belongs where the asset does rather than in
 // either runtime.
 //

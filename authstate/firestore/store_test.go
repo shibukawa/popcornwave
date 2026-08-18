@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/internal/firestoretest"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/internal/firestoretest"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/cloud/google"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"

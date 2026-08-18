@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/routetree"
 )
 
@@ -66,7 +66,7 @@ func TestTheFastPageEmitterWritesTheSecondTransportsTree(t *testing.T) {
 	for _, want := range []string{
 		"pwfastpage.Router",
 		"*fasthttp.RequestCtx",
-		"github.com/shibukawa/popcornwave/pwfastpage",
+		"github.com/shibukawa/popcornweb/pwfastpage",
 	} {
 		if !strings.Contains(registry, want) {
 			t.Errorf("the registry does not name %q:\n%s", want, registry)

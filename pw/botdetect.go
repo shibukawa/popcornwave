@@ -3,7 +3,7 @@ package pw
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/internal/botdetect"
+	"github.com/shibukawa/popcornweb/internal/botdetect"
 )
 
 // botUserAgents is the shared token list, named here because this package's

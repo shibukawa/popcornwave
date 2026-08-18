@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -28,7 +28,7 @@ func loadObservability(t *testing.T, toml string, environ ...string) Observabili
 		t.Fatal(err)
 	}
 	if _, err := configbind.Load(configbind.LoadOptions{
-		Vendor: "popcornwave-test", Tool: "pw-test", FileName: "config.toml",
+		Vendor: "popcornweb-test", Tool: "pw-test", FileName: "config.toml",
 		ExplicitConfigPath: path, Args: []string{}, Environ: environ,
 	}); err != nil {
 		t.Fatalf("load: %v", err)
@@ -46,7 +46,7 @@ func loadResult(t *testing.T, toml string, environ ...string) *configbind.LoadRe
 		t.Fatal(err)
 	}
 	result, err := configbind.Load(configbind.LoadOptions{
-		Vendor: "popcornwave-test", Tool: "pw-test", FileName: "config.toml",
+		Vendor: "popcornweb-test", Tool: "pw-test", FileName: "config.toml",
 		ExplicitConfigPath: path, Args: []string{}, Environ: environ,
 	})
 	if err != nil {

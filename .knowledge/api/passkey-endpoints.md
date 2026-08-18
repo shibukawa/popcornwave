@@ -6,7 +6,7 @@ title: Passkey Endpoints
 The runtime mounts passkey login, enrollment, and bootstrap endpoints for the modes that select them, so an application registers no ceremony route and writes no WebAuthn code.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 relying_party: requirement:contrib-passkey, configured from the passkey fields of data:authentication-runtime-config
 implemented:
   modes: every mode serves; oidc_only mounts nothing here, oidc_passkey mounts four endpoints, passkey_only mounts five

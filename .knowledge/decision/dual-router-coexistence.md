@@ -3,7 +3,7 @@ id: decision:dual-router-coexistence
 type: decision
 title: Dual Router Coexistence
 ---
-Popcorn Wave keeps the registered router as its general surface and adds the discovered router as a specialized one, and a project may carry either or both because the two share one mux without negotiating.
+Popcorn Web keeps the registered router as its general surface and adds the discovered router as a specialized one, and a project may carry either or both because the two share one mux without negotiating.
 
 ```yaml
 status: accepted

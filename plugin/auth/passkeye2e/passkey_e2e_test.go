@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest"
 )
 
 // TestOIDCPasskeyStory walks the whole oidc_passkey path: an OIDC login

@@ -3,7 +3,7 @@ id: system:vscode
 type: system
 title: Visual Studio Code
 ---
-Visual Studio Code is the first editor Popcorn Wave targets; its extension contract decides what vision:editor-support can deliver without a server and what needs one.
+Visual Studio Code is the first editor Popcorn Web targets; its extension contract decides what vision:editor-support can deliver without a server and what needs one.
 
 ```yaml
 extension_points_used:

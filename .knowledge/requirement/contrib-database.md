@@ -3,7 +3,7 @@ id: requirement:contrib-database
 type: requirement
 title: TinyGo Database Drivers
 ---
-system:tinygodriver provides portable SQLite, PostgreSQL, and MySQL drivers; Popcorn Wave consumes database/sql without retaining driver implementations.
+system:tinygodriver provides portable SQLite, PostgreSQL, and MySQL drivers; Popcorn Web consumes database/sql without retaining driver implementations.
 
 ```yaml
 packages:

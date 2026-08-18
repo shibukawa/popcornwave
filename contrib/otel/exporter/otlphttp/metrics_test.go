@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 // TestExportMetricsEncodesTheOTLPShape asserts the field names and the string

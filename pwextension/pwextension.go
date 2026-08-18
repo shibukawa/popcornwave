@@ -37,7 +37,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Middleware is the standard net/http middleware shape used by framework
@@ -83,16 +83,16 @@ var state = struct {
 // configuration and code.
 func Register(extension Extension) {
 	if strings.TrimSpace(extension.Name) == "" {
-		panic("popcornwave: empty extension name")
+		panic("popcornweb: empty extension name")
 	}
 	if extension.Setup == nil {
-		panic("popcornwave: extension " + extension.Name + " has no setup")
+		panic("popcornweb: extension " + extension.Name + " has no setup")
 	}
 	state.Lock()
 	defer state.Unlock()
 	for _, existing := range state.registered {
 		if existing.Name == extension.Name {
-			panic("popcornwave: duplicate extension " + extension.Name)
+			panic("popcornweb: duplicate extension " + extension.Name)
 		}
 	}
 	state.registered = append(state.registered, extension)

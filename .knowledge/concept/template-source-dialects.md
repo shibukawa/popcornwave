@@ -1,12 +1,12 @@
 ---
 id: concept:template-source-dialects
 type: concept
-title: Popcorn Wave Source Dialects
+title: Popcorn Web Source Dialects
 ---
 Three branded source kinds share one declaration header grammar and differ only in the body parser the declared output type selects; an editor that models the shared half models all three.
 
 ```yaml
-owner: system:tinybind, which owns the grammar; Popcorn Wave owns only the file suffixes and the generation purposes
+owner: system:tinybind, which owns the grammar; Popcorn Web owns only the file suffixes and the generation purposes
 kinds:
   .pw.html:
     root_keyword: component

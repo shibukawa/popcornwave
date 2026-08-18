@@ -11,7 +11,7 @@ application's responsibility. That distinction matters: an absent defense is
 far easier to address when you know it is absent.
 
 The request path below shows where each check runs. It also makes the boundary
-clear: Popcorn Wave can reject an unsafe request, but it cannot decide who
+clear: Popcorn Web can reject an unsafe request, but it cannot decide who
 should be allowed to perform an application-specific action.
 
 ## What a request passes through

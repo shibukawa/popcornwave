@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Popcorn Wave DynamoDB",
+  "name": "Popcorn Web DynamoDB",
   "scopeName": "source.pw.dynamo",
   "comment": "A .pw.dynamo file: the shared declaration header of source.pw, plus statement declarations whose bodies are a clause list. The body is deliberately not SQL, so no source.sql scope appears anywhere in this grammar.",
   "patterns": [

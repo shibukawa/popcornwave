@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/pwdata"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwdata"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // startDevelopmentData serves the data pane beside the application.

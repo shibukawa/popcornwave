@@ -6,7 +6,7 @@ title: Authentication Endpoints
 The runtime mounts login, callback, and logout from data:authentication-runtime-config, so an application registers no authentication route and writes no protocol code.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 registration:
   mechanism: importing the package installs session, authentication, and guard extensions through api:framework-extension
   precedent: decision:import-registered-session-plugins
@@ -76,7 +76,7 @@ transport_seam_2026_08_11:
   currency: net/http's cookie and header vocabulary, exactly as Carrier's is, because http.Cookie describes a cookie rather than implementing one
   halves:
     net_http: auth.HTTPExchange, and the extension registration is unchanged
-    fasthttp: popcornwave/plugin/auth/authfast, which supplies the exchange, the frame, and the pwfast.GuardPolicy the chain installs
+    fasthttp: popcornweb/plugin/auth/authfast, which supplies the exchange, the frame, and the pwfast.GuardPolicy the chain installs
   entry_points:
     setup: auth.Setup for a runtime that owns startup; authfast.Setup wraps it
     installed: auth.Endpoints and authfast.Installed for a process whose startup already ran on the other runtime, so one runtime serves two listeners rather than two runtimes serving one application

@@ -38,7 +38,7 @@ generation_checks:
 generated:
   per_declaration: one exported function, plus a constant key condition and a constant attribute-name map
   values: built per call from the typed parameters through the same encoders the codec uses
-  file: one per package, named through the generator DynamoQueryName option so the output carries the Popcorn Wave suffix rather than the tinybind default
+  file: one per package, named through the generator DynamoQueryName option so the output carries the Popcorn Web suffix rather than the tinybind default
 call_site_shape:
   form: "records.ReadingsSince(ctx, sensor, from)"
   signature: context, the declared parameters, then variadic driver query options; the generated names and values are appended last, so a caller option cannot replace the condition
@@ -59,9 +59,9 @@ acceptance:
   - renaming a dynamo tag without editing the declaration fails api:cli-generate rather than the first request
   - a declaration naming a non-key attribute fails with the clause named
   - a .pw.dynamo outside every generate.dynamo entry is reported once, naming the path and the key
-  - generated output carries the Popcorn Wave file suffix, with no post-generation rename
+  - generated output carries the Popcorn Web file suffix, with no post-generation rename
 non_goals:
-  - a Popcorn Wave query language of its own; the declaration is system:tinybind's
+  - a Popcorn Web query language of its own; the declaration is system:tinybind's
   - filter or update expression generation, which is upstream's to add
   - single-table dispatch, which system:tinybind declines outright
 ```

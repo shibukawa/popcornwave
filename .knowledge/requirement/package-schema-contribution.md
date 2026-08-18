@@ -15,7 +15,7 @@ chosen: one stream per package, per decision:declared-package-installation
 stream:
   source: a migration directory inside the module, named by data:component-package-manifest
   versioning: the package's own numbering, independent of the project's and of every other package's
-  ledger: a version table per stream, named popcornwave_migrations_{stem} under the rule:framework-owned-tables prefix
+  ledger: a version table per stream, named popcornweb_migrations_{stem} under the rule:framework-owned-tables prefix
   engine: the same system:goose provider api:migration-runner already constructs, with the table name selected per stream
 ordering:
   rule: every package stream applies before the application stream, and a package's stream applies after the streams of the packages it imports

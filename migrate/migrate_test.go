@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/migrate"
+	"github.com/shibukawa/popcornweb/migrate"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -38,7 +38,7 @@ func migrationDir(t *testing.T) string {
 func requirePWOnPath(t *testing.T) {
 	t.Helper()
 	binDir := t.TempDir()
-	build := exec.Command("go", "build", "-o", filepath.Join(binDir, "pw"), "github.com/shibukawa/popcornwave/cmd/pw")
+	build := exec.Command("go", "build", "-o", filepath.Join(binDir, "pw"), "github.com/shibukawa/popcornweb/cmd/pw")
 	build.Env = os.Environ()
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build pw for the delegated path: %v\n%s", err, output)

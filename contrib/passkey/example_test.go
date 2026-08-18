@@ -3,7 +3,7 @@ package passkey_test
 import (
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
 )
 
 func ExampleNew() {

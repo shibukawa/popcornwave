@@ -6,7 +6,7 @@ title: Typed Cookie Jar
 One typed browser cookie, read and written through the same API whichever protection policy:cookie-value-protection mode it carries, for state that lives outside the session.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/session
+package: github.com/shibukawa/popcornweb/session
 relation_to_the_registry:
   inside_the_session: api:session-registry is the declared surface, and a client-tier slot is a jar the framework constructs and destroys with the session
   outside_the_session: a jar constructed directly, for a cookie that must outlive a logout or belongs to no session at all

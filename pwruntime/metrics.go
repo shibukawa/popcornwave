@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 // MetricScope names the instrumentation scope of framework instruments, matching
 // the scope its spans already carry.
-const MetricScope = "github.com/shibukawa/popcornwave"
+const MetricScope = "github.com/shibukawa/popcornweb"
 
 // Metrics is the resolved framework instrument set installed by pw.
 //

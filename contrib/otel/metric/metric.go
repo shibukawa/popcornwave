@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel"
 )
 
 // Temporality selects what an exported point covers.

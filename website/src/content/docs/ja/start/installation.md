@@ -1,6 +1,6 @@
 ---
 title: インストール
-description: pw コマンドを Homebrew、Nix、リリースアーカイブ、Go ツールチェインのいずれかで導入し、Popcorn Wave を Go モジュールに追加する。
+description: pw コマンドを Homebrew、Nix、リリースアーカイブ、Go ツールチェインのいずれかで導入し、Popcorn Web を Go モジュールに追加する。
 sidebar:
   order: 1
 ---
@@ -24,7 +24,7 @@ Linux です。更新は `brew upgrade` で行えます。
 ### Nix
 
 ```sh
-nix run github:shibukawa/popcornwave#pw -- version
+nix run github:shibukawa/popcornweb#pw -- version
 ```
 
 これは何もインストールせずに `pw` を実行します。`PATH` に置きたい場合は、flake の
@@ -41,14 +41,14 @@ flake は Go、`gopls`、TinyGo を含む `devShells.default` も公開してい
 ### リリースアーカイブ
 
 タグごとに、ターゲット別のアーカイブと `checksums.txt` が
-[リリースページ](https://github.com/shibukawa/popcornwave/releases)に公開されます。
+[リリースページ](https://github.com/shibukawa/popcornweb/releases)に公開されます。
 展開するとディレクトリの階層無しで `pw` が出てくるので、チェックサムを検証してバイナリを
 `PATH` に置けば終わりです。Windows をカバーするのは、このチャネルだけです。
 
 ### Go ツールチェイン
 
 ```sh
-go install github.com/shibukawa/popcornwave/cmd/pw@latest
+go install github.com/shibukawa/popcornweb/cmd/pw@latest
 ```
 
 これも動きますし、サポートも続きます。最後に挙げているのは、モジュールが要求する Go
@@ -88,21 +88,21 @@ Commands:
 
 ## ライブラリ
 
-Popcorn Wave は **Go 1.26 以降**が必要です。
+Popcorn Web は **Go 1.26 以降**が必要です。
 
 新しいプロジェクトでは、[`pw init`](/ja/pw/project/init/) がフレームワークを require 済みの
 `go.mod` を書き出すため、手動の `go get` は不要です。既存モジュールには 1 つだけ手順を
 追加します。
 
 ```sh
-go get github.com/shibukawa/popcornwave
+go get github.com/shibukawa/popcornweb
 ```
 
 アプリケーションコードは、安定したアプリケーション向け API である
 [`pw`](/ja/guides/frontend/handlers/) パッケージをインポートします。
 
 ```go
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 ```
 
 ## Devbox（任意）

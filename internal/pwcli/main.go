@@ -124,5 +124,5 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  production want: an artifact that ships its own sources rehearses nothing.")
 	fmt.Fprintln(w, doctorUsage)
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Documentation: https://shibukawa.github.io/popcornwave/")
+	fmt.Fprintln(w, "Documentation: https://shibukawa.github.io/popcornweb/")
 }

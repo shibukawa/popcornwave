@@ -6,7 +6,7 @@ title: Telemetry Architecture Guide
 The documentation provides one end-to-end telemetry page at `website/src/content/docs/guides/architecture/telemetry.md` and a Japanese peer under the Architecture navigation group.
 
 ```yaml
-audience: application developers instrumenting, running, debugging, or operating a Popcorn Wave application
+audience: application developers instrumenting, running, debugging, or operating a Popcorn Web application
 purpose:
   - explain how logs, traces, query diagnostics, correlation, sinks, and development tools fit together
   - provide the starting page that the current scattered references lack

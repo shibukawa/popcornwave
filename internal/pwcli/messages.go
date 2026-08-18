@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwmsg"
+	"github.com/shibukawa/popcornweb/internal/pwmsg"
 )
 
 // messagesGeneratedName is the file the message package is written to. It
@@ -53,7 +53,7 @@ func planMessages(root string, config projectConfig, changes []fileChange, stdou
 		return nil, messagePlan{}, fmt.Errorf("pw: %w", err)
 	}
 	// The routing declaration is generated into the message package because a
-	// served process cannot read popcornwave.toml, and the mode of a route
+	// served process cannot read popcornweb.toml, and the mode of a route
 	// decides both what a link carries and what the response varies on.
 	catalog.Routing = pwmsg.Routing{
 		Labels:        config.I18n.Labels,

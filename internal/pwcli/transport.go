@@ -40,7 +40,7 @@ func transportRefusal(directory string, err error) error {
 	if names := frameworkRefusals(refusals); len(names) > 0 {
 		message += "\n" + strings.Join(names, "\n") +
 			"\nThose name framework entries with no registered call pattern, which is a defect in " +
-			"Popcorn Wave rather than in this application: no edit to a handler can supply one. " +
+			"Popcorn Web rather than in this application: no edit to a handler can supply one. " +
 			"Please report it.\n"
 	}
 	return errors.New(message)

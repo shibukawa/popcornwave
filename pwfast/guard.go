@@ -1,7 +1,7 @@
 package pwfast
 
 import (
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

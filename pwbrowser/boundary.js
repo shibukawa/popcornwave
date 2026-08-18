@@ -1,4 +1,4 @@
-// Popcorn Wave boundary runtime.
+// Popcorn Web boundary runtime.
 
 const modeHeader = "Pw-Response-Mode";
 const liveMode = "live";
@@ -658,7 +658,7 @@ export function releaseScopesIn(root) {
 			record.release();
 		} catch (error) {
 			// A failing teardown must not stop the swap it is making room for.
-			console.error("Popcorn Wave: scope teardown failed", error);
+			console.error("Popcorn Web: scope teardown failed", error);
 		}
 	}
 }
@@ -716,7 +716,7 @@ function elementBag(element) {
 					teardowns[i]();
 				} catch (error) {
 					// One failing teardown must not keep the others from running.
-					console.error("Popcorn Wave: scope teardown failed", error);
+					console.error("Popcorn Web: scope teardown failed", error);
 				}
 			}
 			teardowns.length = 0;
@@ -745,7 +745,7 @@ function readScopeProps(element) {
 		const parsed = JSON.parse(raw);
 		return parsed && typeof parsed === "object" ? parsed : {};
 	} catch (error) {
-		console.error("Popcorn Wave: component parameters are unreadable", error);
+		console.error("Popcorn Web: component parameters are unreadable", error);
 		return {};
 	}
 }
@@ -775,7 +775,7 @@ function pageActions() {
 			const parsed = JSON.parse(meta.getAttribute("content") || "");
 			if (parsed && typeof parsed === "object") addresses = parsed;
 		} catch (error) {
-			console.error("Popcorn Wave: the page action set is unreadable", error);
+			console.error("Popcorn Web: the page action set is unreadable", error);
 		}
 	}
 	const namespace = {};
@@ -799,7 +799,7 @@ export function setActionCaller(caller) {
 
 function callAction(url, input) {
 	if (!actionCaller) {
-		return Promise.reject(new Error("Popcorn Wave: updates are disabled, so an action cannot be called"));
+		return Promise.reject(new Error("Popcorn Web: updates are disabled, so an action cannot be called"));
 	}
 	return actionCaller(url, input);
 }
@@ -830,7 +830,7 @@ function bindHandlers(root, handlers) {
 			const event = pair.slice(0, separator);
 			const handler = handlers[pair.slice(separator + 1)];
 			if (typeof handler !== "function") {
-				console.error("Popcorn Wave: no handler named", pair.slice(separator + 1));
+				console.error("Popcorn Web: no handler named", pair.slice(separator + 1));
 				continue;
 			}
 			element.addEventListener(event, handler);
@@ -871,7 +871,7 @@ function loadScopeModule(source, element, record) {
 	try {
 		url = new URL(source, document.baseURI);
 	} catch (error) {
-		console.error("Popcorn Wave: scope module URL is unusable", source);
+		console.error("Popcorn Web: scope module URL is unusable", source);
 		mounted.delete(element);
 		return;
 	}
@@ -879,7 +879,7 @@ function loadScopeModule(source, element, record) {
 	// against the application — it is what keeps a templating mistake or an
 	// injected value from becoming a script host of somebody else's choosing.
 	if (url.origin !== location.origin) {
-		console.error("Popcorn Wave: refusing a cross-origin scope module", url.href);
+		console.error("Popcorn Web: refusing a cross-origin scope module", url.href);
 		mounted.delete(element);
 		return;
 	}
@@ -891,7 +891,7 @@ function loadScopeModule(source, element, record) {
 	return pending.then(async (module) => {
 		const setup = module && module.setup;
 		if (typeof setup !== "function") {
-			console.error("Popcorn Wave: scope module exports no setup function", url.href);
+			console.error("Popcorn Web: scope module exports no setup function", url.href);
 			mounted.delete(element);
 			return;
 		}
@@ -912,10 +912,10 @@ function loadScopeModule(source, element, record) {
 			bindHandlers(element, handlers);
 		} catch (error) {
 			scope.release();
-			console.error("Popcorn Wave: scope setup failed", url.href, error);
+			console.error("Popcorn Web: scope setup failed", url.href, error);
 		}
 	}, (error) => {
-		console.error("Popcorn Wave: scope module failed to load", url.href, error);
+		console.error("Popcorn Web: scope module failed to load", url.href, error);
 		mounted.delete(element);
 	});
 }
@@ -974,7 +974,7 @@ function runEnter(definition, handle, hash) {
 	} catch (error) {
 		// A page whose setup threw is still on screen, and the rest of the
 		// runtime has to keep working over it.
-		console.error("Popcorn Wave: page enter failed", hash, error);
+		console.error("Popcorn Web: page enter failed", hash, error);
 	}
 }
 
@@ -987,7 +987,7 @@ function leavePage(hash) {
 		try {
 			definition.leave(state.handle);
 		} catch (error) {
-			console.error("Popcorn Wave: page leave failed", hash, error);
+			console.error("Popcorn Web: page leave failed", hash, error);
 		}
 	}
 	// After the author's own cleanup, so a leave handler can still reach what its
@@ -1097,7 +1097,7 @@ export function dispatchSignal(name, payload) {
 		} catch (error) {
 			// A notification must not stop what it was told about. A bug in a
 			// toast handler cannot be allowed to stop deliveries from landing.
-			console.error("Popcorn Wave: signal handler failed", name, error);
+			console.error("Popcorn Web: signal handler failed", name, error);
 		}
 	}
 	return dispatched;
@@ -1256,7 +1256,7 @@ function reloadGuardKey() {
 function reloadOnce(reason) {
 	try {
 		if (sessionStorage.getItem(reloadGuardKey())) {
-			console.error("Popcorn Wave: " + reason + "; reload already attempted");
+			console.error("Popcorn Web: " + reason + "; reload already attempted");
 			return;
 		}
 		sessionStorage.setItem(reloadGuardKey(), "1");
@@ -1264,7 +1264,7 @@ function reloadOnce(reason) {
 		// Storage can be unavailable in a private or partitioned context. A
 		// missing guard is worth less than a stuck screen, so recover anyway.
 	}
-	console.warn("Popcorn Wave: " + reason + "; reloading");
+	console.warn("Popcorn Web: " + reason + "; reloading");
 	stopLive();
 	location.reload();
 }

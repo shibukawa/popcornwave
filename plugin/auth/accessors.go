@@ -3,11 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
-	"github.com/shibukawa/popcornwave/pwsession"
+	"github.com/shibukawa/popcornweb/pwsession"
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // sessionSlotKey names this package's slot inside a session record.

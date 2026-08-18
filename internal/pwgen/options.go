@@ -3,11 +3,11 @@ package pwgen
 import "github.com/shibukawa/tinybind-go/generator"
 
 const (
-	pwPackage          = "github.com/shibukawa/popcornwave/pw"
-	pwConfigPackage    = "github.com/shibukawa/popcornwave/pwconfig"
-	pwRuntimePackage   = "github.com/shibukawa/popcornwave/pwruntime"
-	pwDynamoPackage    = "github.com/shibukawa/popcornwave/database/dynamo"
-	pwFirestorePackage = "github.com/shibukawa/popcornwave/database/firestore"
+	pwPackage          = "github.com/shibukawa/popcornweb/pw"
+	pwConfigPackage    = "github.com/shibukawa/popcornweb/pwconfig"
+	pwRuntimePackage   = "github.com/shibukawa/popcornweb/pwruntime"
+	pwDynamoPackage    = "github.com/shibukawa/popcornweb/database/dynamo"
+	pwFirestorePackage = "github.com/shibukawa/popcornweb/database/firestore"
 	// pwAttributePrefix mirrors pw.UpdateAttributePrefix. It is repeated rather
 	// than imported because this package is a host-side tool and pw is the
 	// runtime; a test asserts the two agree.
@@ -27,7 +27,7 @@ const (
 // Options builds the generator configuration. sqlDialect names the target
 // database for .pw.sql sources; it is required whenever the run discovers one,
 // because a silently assumed dialect emits placeholders the engine rejects.
-// The Popcorn Wave source suffixes. They are the generator's discovery globs
+// The Popcorn Web source suffixes. They are the generator's discovery globs
 // and the formatter's, so they live here rather than in either caller.
 const (
 	HTMLTemplatePattern   = "*.pw.html"
@@ -279,7 +279,7 @@ func Options(sqlDialect string) (generator.Options, error) {
 		return generator.Options{}, err
 	}
 	// Nothing this project generates is an input to what it reads. TinyBind
-	// recognizes its own header and no other, so the Popcorn Wave prefix is
+	// recognizes its own header and no other, so the Popcorn Web prefix is
 	// registered here: without it a generated page registry is analyzed as if a
 	// developer had written it, and its page registrations become documented API
 	// routes.

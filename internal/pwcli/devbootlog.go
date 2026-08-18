@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/bootblock"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/bootblock"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinybind-go/minitoml"

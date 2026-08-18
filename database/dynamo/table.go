@@ -35,10 +35,10 @@ var tableState struct {
 // configuration one: two definitions of one table cannot both be right.
 func RegisterTable(declared string, factory TableFactory) {
 	if strings.TrimSpace(declared) == "" {
-		panic("popcornwave/database/dynamo: empty declared table name")
+		panic("popcornweb/database/dynamo: empty declared table name")
 	}
 	if factory == nil {
-		panic("popcornwave/database/dynamo: table " + declared + " has no definition")
+		panic("popcornweb/database/dynamo: table " + declared + " has no definition")
 	}
 	tableState.Lock()
 	defer tableState.Unlock()
@@ -46,7 +46,7 @@ func RegisterTable(declared string, factory TableFactory) {
 		tableState.factories = make(map[string]TableFactory)
 	}
 	if _, taken := tableState.factories[declared]; taken {
-		panic("popcornwave/database/dynamo: table " + declared + " is already registered")
+		panic("popcornweb/database/dynamo: table " + declared + " is already registered")
 	}
 	tableState.factories[declared] = factory
 }

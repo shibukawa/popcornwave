@@ -3,7 +3,7 @@ id: requirement:unified-update-runtime
 type: requirement
 title: Unified Update Runtime
 ---
-One browser asset, popcornwave-runtime.js, carries every client capability the framework owns, so a document declares one module reference whether it streams boundaries, keeps a live connection, applies a navigation delta, redraws a region, or applies an action response.
+One browser asset, popcornweb-runtime.js, carries every client capability the framework owns, so a document declares one module reference whether it streams boundaries, keeps a live connection, applies a navigation delta, redraws a region, or applies an action response.
 
 ```yaml
 source: decision:update-runtime-convergence
@@ -38,7 +38,7 @@ conformance:
   run_by: a Go test that skips when node is absent, so the toolchain is not a build dependency of a Go library
   parse_guard: the merged asset is parsed as a module, because a load-time throw leaves a page with no updates, no boundaries, and nothing in the console saying why
 delivery:
-  path: the revision-stamped reserved path of requirement:framework-script-assets, under the name popcornwave-runtime.js
+  path: the revision-stamped reserved path of requirement:framework-script-assets, under the name popcornweb-runtime.js
   revision: a digest over the merged bytes, so an upstream upgrade that changes the runtime changes the URL with no constant to bump
   caching: public, max-age one year, immutable, which stays honest because a revision segment never serves different bytes
   form: an ES module referenced with type=module, so it defers by default and never blocks parsing

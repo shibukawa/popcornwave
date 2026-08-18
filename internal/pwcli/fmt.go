@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/templates/templatefmt"
 )
 
@@ -58,7 +58,7 @@ func parseFmtOptions(args []string) (fmtOptions, error) {
 	return options, nil
 }
 
-// formatOptions carries the Popcorn Wave suffixes into templatefmt, so a
+// formatOptions carries the Popcorn Web suffixes into templatefmt, so a
 // branded source formats on the same terms it generates. No SQL dialect is
 // involved: layout is a token-stream pass and the placeholder style is a
 // generation concern.

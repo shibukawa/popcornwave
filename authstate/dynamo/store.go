@@ -5,8 +5,8 @@
 // client itself belongs to database/dynamo, which this package reads from the
 // request context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/dynamo"
-//	import _ "github.com/shibukawa/popcornwave/authstate/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/database/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/authstate/dynamo"
 //
 // Nothing here sweeps expired records. Take decides expiry from the stored
 // deadline, so correctness never waits for a deletion; removing the bytes is
@@ -23,14 +23,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/database/dynamo"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/database/dynamo"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
 // DeclaredTable is the name source uses. A deployment maps it onto its own
 // through middleware.dynamo, like any other table.
-const DeclaredTable = "popcornwave_authstate"
+const DeclaredTable = "popcornweb_authstate"
 
 // Attribute names. keyAttribute is named once and used by both the table
 // definition and the item, so the two cannot drift.

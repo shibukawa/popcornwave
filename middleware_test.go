@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	petitweb "github.com/shibukawa/popcornwave"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	petitweb "github.com/shibukawa/popcornweb"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func TestRequestIDAndContextAccessors(t *testing.T) {

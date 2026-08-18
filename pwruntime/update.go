@@ -149,7 +149,7 @@ func RegisterReloadable(components ...UpdateReloadable) error {
 	defer reloadableState.Unlock()
 	for _, component := range components {
 		if err := reloadableState.registry.Register(component); err != nil {
-			err = fmt.Errorf("popcornwave: reloadable component: %w", err)
+			err = fmt.Errorf("popcornweb: reloadable component: %w", err)
 			if reloadableState.failure == nil {
 				reloadableState.failure = err
 			}

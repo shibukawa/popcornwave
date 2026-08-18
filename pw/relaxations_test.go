@@ -3,7 +3,7 @@ package pw
 import (
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 // The relaxations that follow the answer: an insecure session cookie is a

@@ -11,7 +11,7 @@ extensions that authenticate requests and guard protected paths.
 | `pw.SlotGuard` | rejects unauthenticated requests to protected paths |
 
 ```go
-import _ "github.com/shibukawa/popcornwave/plugin/auth"
+import _ "github.com/shibukawa/popcornweb/plugin/auth"
 ```
 
 Nothing is installed unless `auth.enabled` is true, so an imported but disabled
@@ -35,16 +35,16 @@ the [authentication guide](../../website/src/content/docs/guides/backend/authent
 
 ## Tables
 
-The tables this package owns are prefixed `popcornwave_` and are created by the
+The tables this package owns are prefixed `popcornweb_` and are created by the
 migration `MigrationSQL` publishes, which a project carries under
 `MigrationName` at whatever version was free when the file was written:
 
-- `popcornwave_authstate` — single-use state, nonce, and PKCE verifier of a
+- `popcornweb_authstate` — single-use state, nonce, and PKCE verifier of a
   pending login, consumed by the callback
-- `popcornwave_auth_allowlist` — identities registered before their first
+- `popcornweb_auth_allowlist` — identities registered before their first
   login, consulted only under `registered` admission
 
-`sessionstore/sqlite` owns `popcornwave_session` through its own migration.
+`sessionstore/sqlite` owns `popcornweb_session` through its own migration.
 Startup verifies every one of them and refuses to serve when one is missing,
 naming the migration to apply, so a forgotten migration fails immediately
 rather than during a login.
@@ -107,14 +107,14 @@ fractional number — is refused rather than normalized.
 `auth.oidc.admission` decides whether a verified identity may enter:
 `authenticated` admits every identity the issuer verifies, `claim` admits a
 verified claim match, `registered` admits an identity listed in
-`popcornwave_auth_allowlist`, and `existing` admits only an identity the
+`popcornweb_auth_allowlist`, and `existing` admits only an identity the
 resolver already knows and forbids provisioning.
 
 `registered` is the closed-deployment mode. An operator inserts one row per
 permitted identity, naming a claim and its expected value:
 
 ```sql
-INSERT INTO popcornwave_auth_allowlist (issuer, claim, value, note)
+INSERT INTO popcornweb_auth_allowlist (issuer, claim, value, note)
 VALUES ('https://issuer.example', 'employee_number', 'E-10231', 'first operator');
 ```
 

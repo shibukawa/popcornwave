@@ -2,7 +2,7 @@
 //
 // The structs live here rather than in pw so that both sides of the boundary
 // can name them without importing each other: pw installs the session
-// middleware and popcornwave/plugin/auth supplies the lifetime, and neither may
+// middleware and popcornweb/plugin/auth supplies the lifetime, and neither may
 // depend on the other. pw re-exports every type below as a true alias, so an
 // application writes pw.SessionConfig and the configuration registry, which is
 // keyed by reflect.Type, resolves the two names to one entry.
@@ -101,7 +101,7 @@ type SessionFirestoreConfig struct {
 	// Kind is the entity kind. A kind belongs to the type rather than to the
 	// deployment, so nothing maps it; this exists for a project that has to
 	// share a database with something that already owns the name.
-	Kind string `default:"popcornwave_session" help:"session entity kind"`
+	Kind string `default:"popcornweb_session" help:"session entity kind"`
 }
 
 // SessionDynamoConfig configures the DynamoDB session store. It carries no
@@ -110,7 +110,7 @@ type SessionFirestoreConfig struct {
 type SessionDynamoConfig struct {
 	// Table is the declared table name, which rule:dynamodb-table-naming maps
 	// onto the deployed one.
-	Table string `default:"popcornwave_session" help:"declared session table name"`
+	Table string `default:"popcornweb_session" help:"declared session table name"`
 	// ConsistentRead makes the first read strongly consistent and removes the
 	// retry a miss otherwise pays. It costs twice the read capacity.
 	ConsistentRead bool `default:"false" help:"read sessions with strong consistency"`
@@ -147,7 +147,7 @@ type SessionRDBConfig struct {
 	// table. Empty resolves to middleware.rdb.write_group.
 	Group string `help:"connection group holding the session table"`
 	DSN   string `secret:"mask" help:"dedicated session database DSN"`
-	Table string `default:"popcornwave_session"`
+	Table string `default:"popcornweb_session"`
 }
 
 // SessionCookieStoreConfig configures the client-side session backend. The

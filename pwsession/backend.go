@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -50,16 +50,16 @@ var backendState struct {
 // fix is a single line, so the startup error prints that line instead of a
 // list of names.
 var knownBackendImports = map[string]string{
-	sessionconfig.SessionBackendRDB:       "github.com/shibukawa/popcornwave/sessionstore/sqlite",
-	sessionconfig.SessionBackendRedis:     "github.com/shibukawa/popcornwave/sessionstore/redis",
-	sessionconfig.SessionBackendDynamo:    "github.com/shibukawa/popcornwave/sessionstore/dynamo",
-	sessionconfig.SessionBackendFirestore: "github.com/shibukawa/popcornwave/sessionstore/firestore",
+	sessionconfig.SessionBackendRDB:       "github.com/shibukawa/popcornweb/sessionstore/sqlite",
+	sessionconfig.SessionBackendRedis:     "github.com/shibukawa/popcornweb/sessionstore/redis",
+	sessionconfig.SessionBackendDynamo:    "github.com/shibukawa/popcornweb/sessionstore/dynamo",
+	sessionconfig.SessionBackendFirestore: "github.com/shibukawa/popcornweb/sessionstore/firestore",
 }
 
 // RegisterBackend registers factory under name. A storage plugin calls
 // it from init, so a blank import is what puts a backend in a binary:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 //
 // Cookie and the two development intent modes are built in. They add no
 // storage dependency, so pw registers them here and they need no import.

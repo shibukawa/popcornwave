@@ -56,9 +56,9 @@ Commands:
 ## プロジェクトの探索
 
 `pw init` 以外のコマンドにはプロジェクトが必要ですが、プロジェクトルートで実行する
-必要はありません。`pw` は作業ディレクトリから上へたどって `popcornwave.toml` を
+必要はありません。`pw` は作業ディレクトリから上へたどって `popcornweb.toml` を
 探すため、どのサブディレクトリからでも動きます。最上層まで見つからなければ
-`popcornwave.toml not found` で失敗します。
+`popcornweb.toml not found` で失敗します。
 
 ## 終了ステータス
 

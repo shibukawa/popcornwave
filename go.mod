@@ -1,4 +1,4 @@
-module github.com/shibukawa/popcornwave
+module github.com/shibukawa/popcornweb
 
 go 1.26.0
 

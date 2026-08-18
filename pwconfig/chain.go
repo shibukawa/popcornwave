@@ -1,6 +1,6 @@
 package pwconfig
 
-import "github.com/shibukawa/popcornwave/pwruntime"
+import "github.com/shibukawa/popcornweb/pwruntime"
 
 // ChainSettings reduces the resolved configuration to what building a request
 // chain needs.

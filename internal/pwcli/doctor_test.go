@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
 )
 
 // diagnosedProject is a scaffolded project plus whatever the case under test
@@ -61,7 +61,7 @@ func TestDoctorRequiresTheSelectedSQLiteDriverImport(t *testing.T) {
 	config := environmentConfig{Env: "dev", Values: map[string]configValue{
 		"middleware.rdb.connections[0].dsn": {Raw: "sqlite://fixture.db"},
 	}}
-	unlinked := importGraph{packages: map[string]bool{"github.com/shibukawa/popcornwave/pw": true}}
+	unlinked := importGraph{packages: map[string]bool{"github.com/shibukawa/popcornweb/pw": true}}
 	run := checkRun{checkContext: checkContext{Env: "dev", Config: config, Graph: unlinked}}
 	run.checkWiring()
 	if len(run.findings) != 1 || run.findings[0].Check.ID != pwcheck.MissingSQLDriver {

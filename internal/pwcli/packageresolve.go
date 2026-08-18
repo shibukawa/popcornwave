@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
 	"github.com/shibukawa/tinybind-go/minitoml"
 )
 
@@ -90,16 +90,16 @@ func moduleDir(ctx context.Context, root, module string) (string, error) {
 }
 
 // readPackageManifest reads the package section of a module's own
-// popcornwave.toml. It parses the file directly rather than going through
+// popcornweb.toml. It parses the file directly rather than going through
 // loadProjectConfig, because that loader validates generation directories
 // against the project it is loading, and a dependency's directories are not this
 // project's to check.
 func readPackageManifest(dir string) (packageManifest, error) {
-	path := filepath.Join(dir, "popcornwave.toml")
+	path := filepath.Join(dir, "popcornweb.toml")
 	source, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return packageManifest{}, fmt.Errorf("no popcornwave.toml, so it publishes no package section; remove the declaration or use it as an ordinary Go dependency")
+			return packageManifest{}, fmt.Errorf("no popcornweb.toml, so it publishes no package section; remove the declaration or use it as an ordinary Go dependency")
 		}
 		return packageManifest{}, err
 	}
@@ -112,7 +112,7 @@ func readPackageManifest(dir string) (packageManifest, error) {
 		return packageManifest{}, err
 	}
 	if kind != kindPackage {
-		return packageManifest{}, fmt.Errorf("its popcornwave.toml is not a package; a declaration claims a capability the module does not publish")
+		return packageManifest{}, fmt.Errorf("its popcornweb.toml is not a package; a declaration claims a capability the module does not publish")
 	}
 	return loadPackageManifest(document)
 }

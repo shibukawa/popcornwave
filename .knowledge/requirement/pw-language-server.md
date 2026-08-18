@@ -1,7 +1,7 @@
 ---
 id: requirement:pw-language-server
 type: requirement
-title: Popcorn Wave Language Server
+title: Popcorn Web Language Server
 ---
 One Go language server, reached through api:cli-lsp, answers every editor feature past highlighting by reusing the parsers, the project loader, and the check catalog the CLI already runs.
 
@@ -11,14 +11,14 @@ stage: 2 of vision:editor-support
 mechanism: decision:language-server-in-pw-cli
 surface: api:cli-lsp
 documents:
-  kinds: the three concept:template-source-dialects suffixes, plus popcornwave.toml for requirement:editor-diagnostics
+  kinds: the three concept:template-source-dialects suffixes, plus popcornweb.toml for requirement:editor-diagnostics
   go_sources: read for resolution, never served; gopls owns Go documents
   generated: a *_pw_gen.go is an input to navigation and never a document the server offers to change
 project_model:
-  root: the nearest popcornwave.toml, per data:project-config
+  root: the nearest popcornweb.toml, per data:project-config
   purposes: decision:explicit-generation-sources decides which directory contributes which source kind, so the server answers the same scope api:cli-generate reads
   no_project: parse-only mode; syntax diagnostics still work and every resolved feature reports unavailable rather than guessing
-  reload: a popcornwave.toml change reloads the project model without restarting the process
+  reload: a popcornweb.toml change reloads the project model without restarting the process
 capabilities:
   stage_2:
     - textDocument/publishDiagnostics, per requirement:editor-diagnostics
@@ -41,7 +41,7 @@ lifecycle:
 acceptance:
   - a syntax error in an open document is reported without saving
   - a file opened outside any project still reports syntax diagnostics and reports no project-scoped diagnostic
-  - a popcornwave.toml edit changing a generate purpose changes which files report the out-of-purpose diagnostic, with no restart
+  - a popcornweb.toml edit changing a generate purpose changes which files report the out-of-purpose diagnostic, with no restart
   - the server writes no file in the workspace during an editing session
   - semantic tokens and grammar scopes never disagree on the same range
 ```

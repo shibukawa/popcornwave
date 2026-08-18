@@ -2,7 +2,7 @@ package templates
 
 // The shared leaf rather than a runtime: this file belongs to both builds,
 // and the error page registry is one process-wide table either of them reads.
-import "github.com/shibukawa/popcornwave/pwruntime"
+import "github.com/shibukawa/popcornweb/pwruntime"
 
 func init() {
 	// The framework renders this in place of a page whose boundary failed with

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 )
 
 // TestMain gives the package a console address for the whole run.

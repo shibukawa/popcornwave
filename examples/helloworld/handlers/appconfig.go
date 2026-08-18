@@ -2,7 +2,7 @@ package handlers
 
 // The shared configuration layer rather than a runtime: this file belongs to
 // both builds, and binding a setting is not a transport concern.
-import "github.com/shibukawa/popcornwave/pwconfig"
+import "github.com/shibukawa/popcornweb/pwconfig"
 
 // AppConfig is an application-owned configuration binding. Its values come from
 // the [app] table of config.{APP_ENV}.toml, from APP_ENV_LABEL and

@@ -67,7 +67,7 @@ Writing the files is not the last step. `pw init` then runs `go mod tidy` and
 ```
 Created memoapp
 
-  .              .editorconfig  .gitignore  config.dev.toml  devbox.json  go.mod  popcornwave.toml  public.go
+  .              .editorconfig  .gitignore  config.dev.toml  devbox.json  go.mod  popcornweb.toml  public.go
   .vscode/       extensions.json  settings.json
   cmd/memoapp/   main.go
   handlers/      home.pw.html  home_handler.go  index.go
@@ -114,7 +114,7 @@ The application reports its startup once, ending with the address it accepted:
 
 ```
    .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
+ .(   ) (   ).    Popcorn Web v0.1.0
 (   o     o   )   started at 2026-07-28 09:12:31 JST
 (    \___/    )   env dev · config.dev.toml
  '-.__.___.__-'
@@ -150,7 +150,7 @@ handler also reads a query parameter, so
 | `handlers/home_handler.go` | the route, and the input it reads from the request |
 | `templates/document.pw.html` | the shell every page is rendered inside |
 
-`popcornwave.toml` is worth knowing by name: it records the project's toolchain,
+`popcornweb.toml` is worth knowing by name: it records the project's toolchain,
 its database engine, and which directories each generation purpose reads.
 `config.dev.toml` is the runtime configuration for `APP_ENV=dev`, which is where
 the port and the log format above came from.
@@ -177,7 +177,7 @@ package handlers
 export component Home(name: string, project: string): html {
   <div class="page">
     <header>
-      <p class="eyebrow">Popcorn Wave</p>
+      <p class="eyebrow">Popcorn Web</p>
       <h1 class="title">{project}</h1>
       <p class="lead">Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
     </header>
@@ -210,7 +210,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // homeInput is what this route reads from the request.
@@ -251,7 +251,7 @@ schema and parameter descriptions. The end of chapter 2 shows where that lands.
 // handlers/index.go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 
@@ -288,7 +288,7 @@ package handlers
 
 export component Home(name: string, project: string): html {
   <h1 class="text-3xl font-bold">Hello, {name}</h1>
-  <p>Served by Popcorn Wave.</p>
+  <p>Served by Popcorn Web.</p>
 }
 ```
 

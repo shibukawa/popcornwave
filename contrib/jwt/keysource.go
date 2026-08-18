@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 // ErrDiscovery reports a metadata document that could not be fetched, parsed,

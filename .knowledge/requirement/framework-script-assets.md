@@ -44,7 +44,7 @@ caching:
   headers: public, max-age one year, immutable
   soundness: a revision segment never serves different bytes, so the response is genuinely immutable
 core_module:
-  name: popcornwave-runtime.js, the one asset requirement:unified-update-runtime merges every client capability into
+  name: popcornweb-runtime.js, the one asset requirement:unified-update-runtime merges every client capability into
   exports: the boundary apply function every api:html-boundary-protocol envelope uses, so the parser path, the record path, and the fetch path share one implementation
   adapter: the custom element registration is a thin wrapper the core installs, not a separate module
   endpoints_beside_it: none since system:tinybind v0.3.5; the redraw route of requirement:reloadable-component-endpoint left the prefix for the page URL, so the asset is the only thing here

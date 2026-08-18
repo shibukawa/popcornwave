@@ -6,7 +6,7 @@ title: Test Passkey Authenticator
 testutil binds a requirement:contrib-passkey-test authenticator to an api:test-run server and drives api:authentication-endpoints with it, so flow:passkey-enrollment and flow:passkey-login run in a test without a browser.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/testutil
+package: github.com/shibukawa/popcornweb/testutil
 testing_interface: decision:testutil-testing-interface
 rung: the ceremony rung of decision:test-authentication-seams, so a test that only needs an authenticated request uses api:testutil-auth instead
 endpoints: api:passkey-endpoints

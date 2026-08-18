@@ -3,7 +3,7 @@ id: api:problem-response
 type: api
 title: Problem Response API
 ---
-Popcorn Wave uses one safe error value for API problems and negotiated HTML error pages.
+Popcorn Web uses one safe error value for API problems and negotiated HTML error pages.
 
 ```yaml
 surface:

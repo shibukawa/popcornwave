@@ -23,9 +23,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -43,7 +43,7 @@ type payload struct {
 
 var sample = payload{
 	ID:    4711,
-	Name:  "Popcorn Wave",
+	Name:  "Popcorn Web",
 	Email: "hello@example.test",
 	Tags:  []string{"framework", "go", "html"},
 }
@@ -79,7 +79,7 @@ func main() {
 	pwruntime.SwapHTMLDocument([]htmlbind.Wrapper{
 		documentWrapper(`<!doctype html><html><head><title>bench</title></head><body>`, `</body></html>`),
 	})
-	leaf := staticFragment(`<main><h1>Popcorn Wave</h1><p>A page with a shell around it.</p></main>`)
+	leaf := staticFragment(`<main><h1>Popcorn Web</h1><p>A page with a shell around it.</p></main>`)
 
 	switch *backend {
 	case "nethttp":

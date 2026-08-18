@@ -3,7 +3,7 @@ id: decision:dynamodb-no-runtime-abstraction
 type: decision
 title: No pw Or pwruntime Abstraction For DynamoDB
 ---
-Popcorn Wave configures and owns the DynamoDB client and stops there; api:dynamo-package is the whole surface, and neither pw nor pwruntime gains a DynamoDB symbol.
+Popcorn Web configures and owns the DynamoDB client and stops there; api:dynamo-package is the whole surface, and neither pw nor pwruntime gains a DynamoDB symbol.
 
 ```yaml
 status: accepted

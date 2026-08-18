@@ -3,7 +3,7 @@ id: requirement:external-boundary-runtime
 type: requirement
 title: External Boundary Runtime Script
 ---
-Popcorn Wave ships the client runtime that applies boundary completions, declared once in the document shell as a module reference and never as inline script.
+Popcorn Web ships the client runtime that applies boundary completions, declared once in the document shell as a module reference and never as inline script.
 
 ```yaml
 ownership: whole, since system:tinybind v0.1.20 emits placeholders only and defines no custom element
@@ -55,7 +55,7 @@ script_loading:
   rejected: a classic src script without defer blocks parsing until the fetch completes
 delivery: requirement:framework-script-assets, of which this is the first consumer
 merged_at_v0_3_0:
-  what: this script stops being its own file and becomes the async and live half of requirement:unified-update-runtime, served as popcornwave-runtime.js
+  what: this script stops being its own file and becomes the async and live half of requirement:unified-update-runtime, served as popcornweb-runtime.js
   why: system:tinybind v0.3.0 ships a runtime covering the same boundaries plus navigation, redraw, and action apply, and two runtimes on one document would mean two boundary id spaces and two build identities
   unchanged: the reserved path, the content-derived revision, the single shell reference, the declared external returning the URL, and every acceptance below
   decided_by: decision:update-runtime-convergence

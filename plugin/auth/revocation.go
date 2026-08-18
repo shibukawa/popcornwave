@@ -16,7 +16,7 @@ import (
 // A row is a positive statement that something is revoked. Absence means not
 // revoked, so a lookup that cannot run is not an absence: it is an unknown, and
 // policy:token-revocation fails closed on it.
-const RevocationTable = "popcornwave_auth_revocation"
+const RevocationTable = "popcornweb_auth_revocation"
 
 // Revocation kinds, stored in the kind column.
 const (

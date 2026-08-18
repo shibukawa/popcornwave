@@ -3,7 +3,7 @@ package pw
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 // Span is one unit of traced work. Always end it, normally with defer.

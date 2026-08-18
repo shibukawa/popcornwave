@@ -12,15 +12,15 @@ platform: system:vscode
 languages:
   pw-html:
     extensions: [".pw.html"]
-    aliases: ["Popcorn Wave HTML"]
+    aliases: ["Popcorn Web HTML"]
     reason: a plain html association would apply an HTML formatter to a file whose header is not HTML
   pw-sql:
     extensions: [".pw.sql"]
-    aliases: ["Popcorn Wave SQL"]
+    aliases: ["Popcorn Web SQL"]
     reason: a plain sql association would send the file to a SQL client extension as an executable script
   pw-dynamo:
     extensions: [".pw.dynamo"]
-    aliases: ["Popcorn Wave DynamoDB"]
+    aliases: ["Popcorn Web DynamoDB"]
 language_configuration:
   comments: the header comment syntax; the body inherits the embedded language through the rule:template-grammar-scopes embeddedLanguages map
   brackets_and_autoclosing: braces, parentheses, and angle brackets in pw-html; braces and parentheses elsewhere
@@ -31,7 +31,7 @@ configuration_defaults:
   - trim trailing whitespace is left to the user, because an HTML body may depend on it
 project_awareness:
   reads: data:project-config only to answer whether a suffix sits inside its generate purpose, and never to decide the language
-  absent_config: every feature of this stage works without popcornwave.toml
+  absent_config: every feature of this stage works without popcornweb.toml
 generated_files:
   fact: concept:project-layout scaffolds a .vscode/settings.json hiding **/*_pw_gen.go
   behavior: the extension does not remove or duplicate that entry, and does not hide files on its own

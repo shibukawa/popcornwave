@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/internal/requestid"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/requestid"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // DefaultRequestIDHeader carries the request correlation ID in both directions.

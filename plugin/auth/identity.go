@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 )
 
 var (

@@ -5,19 +5,19 @@ sidebar:
   order: 7
 ---
 
-React can own one part of a Popcorn Wave page. The boundary is literal:
-Popcorn Wave renders the document and surrounding HTML, while React manages
+React can own one part of a Popcorn Web page. The boundary is literal:
+Popcorn Web renders the document and surrounding HTML, while React manages
 only the children of one element.
 
 Mounting is the easy half. If a server fragment later replaces that element,
 something must clean up the old React root and start the new one. A custom
-element can do that, but Popcorn Wave already has the lifecycle needed here:
+element can do that, but Popcorn Web already has the lifecycle needed here:
 a [component script](/guides/interactivity/component-scripts/) runs `setup` for
 each rendered instance and runs its teardown before that instance is replaced.
 
 ## Dependencies and the script build
 
-React is an npm dependency at build time. Popcorn Wave's asset pipeline bundles
+React is an npm dependency at build time. Popcorn Web's asset pipeline bundles
 it into the browser entry before the application binary embeds the result.
 
 ```bash
@@ -46,7 +46,7 @@ Merge these keys into an existing configuration when the project already has one
 Commit `package-lock.json`, then enable script conversion:
 
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [assets.scripts]
 enabled = true
 ```
@@ -122,11 +122,11 @@ window.mountCounter = (el: HTMLElement, initial: number) => {
 };
 ```
 
-`mountCounter` is an application bridge, not a Popcorn Wave API; its only job is
+`mountCounter` is an application bridge, not a Popcorn Web API; its only job is
 to let the generated component module call the bundle whose URL the asset build
 owns.
 
-Popcorn Wave owns the `<section>` element and its placement. React owns the
+Popcorn Web owns the `<section>` element and its placement. React owns the
 element's children after `setup` mounts the root. The headings, forms, and lists
 around it do not need to enter a React root.
 
@@ -146,7 +146,7 @@ island to reconnect all of that styling itself.
 
 ## Use `createRoot`, not `hydrateRoot`
 
-The fallback button came from a Popcorn Wave template, not from React server
+The fallback button came from a Popcorn Web template, not from React server
 rendering. `createRoot` replacing its children on the first render is therefore
 the intended operation.
 
@@ -159,7 +159,7 @@ misbound events.
 If the server only supplies initial values, `data-*` attributes or a JSON
 payload keep the boundary small. Real React SSR and hydration require a Node.js
 renderer, React's streaming protocol, and a deployment boundary between it and
-Go. Popcorn Wave does not provide that system.
+Go. Popcorn Web does not provide that system.
 
 ## DOM ownership during fragment swaps
 
@@ -168,7 +168,7 @@ division:
 
 | Operation | Owner |
 | --- | --- |
-| placing `.counter` and writing `data-initial` | the Popcorn Wave template |
+| placing `.counter` and writing `data-initial` | the Popcorn Web template |
 | children of `.counter` after `setup` | React |
 | swapping lists or forms outside the island | htmx or application swap code |
 | re-rendering a region containing the whole island | the server; the old island unmounts and the new one mounts |

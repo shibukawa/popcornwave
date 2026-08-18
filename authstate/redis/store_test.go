@@ -8,7 +8,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 type stringCodec struct{}

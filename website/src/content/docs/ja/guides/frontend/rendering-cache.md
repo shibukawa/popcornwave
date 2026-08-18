@@ -63,7 +63,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func ShowCatalog(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ component ProductCard(id: string): html {
 見せることもあります。最初のリクエストでは認証に成功していても、その区別を飛び越えて再利用
 するのが共有キャッシュだからです。
 
-そこで Popcorn Wave は、宣言を忘れたときの着地点を安全側に置きます。同じ宣言済みパラメータ
+そこで Popcorn Web は、宣言を忘れたときの着地点を安全側に置きます。同じ宣言済みパラメータ
 なら、**どの読み手へ渡しても安全**だと確認できるまでは private のままにしてください。共通の
 商品一覧、公開記事、共有アイコンなど、アカウント、テナント、認可結果、リクエストコンテキスト
 由来の隠れた値を含まないコンポーネントだけを public へ昇格します。本当は共有できるものを

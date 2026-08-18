@@ -3,7 +3,7 @@ id: decision:stdlib-servemux
 type: decision
 title: Standard ServeMux Routing
 ---
-Popcorn Wave applications register Go 1.22+ ServeMux method-and-path patterns through api:serve-mux so one pw import works on host Go and the decision:tinygo-042-baseline target.
+Popcorn Web applications register Go 1.22+ ServeMux method-and-path patterns through api:serve-mux so one pw import works on host Go and the decision:tinygo-042-baseline target.
 
 ```yaml
 status: accepted
@@ -25,7 +25,7 @@ non_goals:
   - custom router DSL
 rationale:
   - compatible with system:tinybind route analysis
-  - requirement:tinygodriver-adoption centralizes reusable TinyGo compatibility outside Popcorn Wave
+  - requirement:tinygodriver-adoption centralizes reusable TinyGo compatibility outside Popcorn Web
   - host builds retain standard net/http.ServeMux behavior
   - familiar Go handler model
 ```

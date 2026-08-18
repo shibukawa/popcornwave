@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
 )
 
 // IdPInfo is what a test needs to point an application at the identity

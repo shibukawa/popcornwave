@@ -53,7 +53,7 @@ func Sequential() string {
 func Random() string {
 	var bytes [16]byte
 	if _, err := rand.Read(bytes[:]); err != nil {
-		return "popcornwave-request"
+		return "popcornweb-request"
 	}
 	return hex.EncodeToString(bytes[:])
 }

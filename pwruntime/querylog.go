@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

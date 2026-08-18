@@ -12,7 +12,7 @@ status: delivered in system:tinybind v0.5.15, consumed here 2026-08-18 by the go
 mechanism_owner:
   where: the system:tinybind catalog, under the boundary-joiner-inference decision and the predicate-group-elision rule, whose ids belong to that catalog rather than this one
   why_not_restated_here: those entries carry the frame protocol, the exactness rules, and the acceptance list in full; a second copy on this side would drift against the release that owns it
-  what_this_entry_keeps: why Popcorn Wave asked, what the release changed about the ask, and what the documentation teaches
+  what_this_entry_keeps: why Popcorn Web asked, what the release changed about the ask, and what the documentation teaches
 problem_it_closed:
   before: the operator joining two conditions was text the author wrote, correct only for the branch combination they had in mind
   failures: a leading operator left "WHERE AND x", an operator inside parentheses left "( AND y)", and an all-conditional predicate left a bare WHERE before ORDER BY
@@ -39,7 +39,7 @@ documentation_stance:
   in_branch_form: works identically and is not deprecated; the pages note it reads as part of one condition when it joins two
   not_tool_enforced: no formatter normalizes between the two, because moving a token across a branch boundary would change the AST
   pages: reference/sql-templates and guides/storage/queries in both locales, the reference carrying the managed-clause list and the guide two cases and the boundary
-popcorn_wave_scope:
+popcorn_web_scope:
   - consume the release and regenerate, per decision:tinybind-sql-runtime
   - teach the canonical form
   - add no SQL parser, no predicate analysis, and no builder

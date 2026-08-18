@@ -18,7 +18,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 )
 
 // Art is the framework's popcorn mascot, and its first row is how a startup

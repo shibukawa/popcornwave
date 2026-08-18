@@ -305,8 +305,8 @@ customElements.define('copy-button', CopyButton);
 アドレスへ POST し、返ってきた領域を適用します。現在の `pw_csrf` クッキーを
 `X-CSRF-Token` ヘッダへ移すのも、その途中で済みます。アクションを撃つ島が自分で
 配線するものは何もありません。変更の前に島が判断を挟む場合は、要素から
-`server-action` を外し、`window.popcornwave.updateHeaders()` と
-`window.popcornwave.apply()` を使って自分でリクエストを出してください。同じトークンを
+`server-action` を外し、`window.popcornweb.updateHeaders()` と
+`window.popcornweb.apply()` を使って自分でリクエストを出してください。同じトークンを
 運び、同じように領域を適用します。[サーバーアクション](/ja/guides/interactivity/server-actions/)と
 [React の統合](/ja/guides/interactivity/react/#サーバーへ書き込む場合)を参照してください。
 

@@ -1,6 +1,6 @@
 ---
 title: Container Images
-description: Why a Popcorn Wave image cannot be built with COPY and go build, and what each line of the scaffolded Dockerfile is for.
+description: Why a Popcorn Web image cannot be built with COPY and go build, and what each line of the scaffolded Dockerfile is for.
 sidebar:
   order: 2
 ---
@@ -13,7 +13,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /out/myapp ./cmd/myapp
 ```
 
-On a Popcorn Wave project it fails, and the way it fails is unhelpful. The
+On a Popcorn Web project it fails, and the way it fails is unhelpful. The
 compiler reports undefined symbols — a renderer your template declares, a query
 function your `.pw.sql` names, the registration that wires your page tree —
 and every one of them belongs to a file that is not in the repository.
@@ -21,7 +21,7 @@ and every one of them belongs to a file that is not in the repository.
 Those files are build outputs. `pw generate` writes them beside their sources as
 `_pw_gen.go`, `pw init` puts that pattern in `.gitignore`, and the same is true
 of the CSS Tailwind compiles and the asset tree under `dist/` that `public.go`
-embeds. A Popcorn Wave build has a **host phase** before the compiler, and a
+embeds. A Popcorn Web build has a **host phase** before the compiler, and a
 Dockerfile that goes straight to `go build` skips it.
 
 `pw init` writes a Dockerfile that does not. This page explains it, so you can
@@ -37,7 +37,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 COPY . .
 
@@ -87,7 +87,7 @@ scaffold reads it back out of the module graph:
 
 ```dockerfile
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 ```
 
 Bump the framework in `go.mod` and the builder follows. There is no second place
@@ -223,7 +223,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 RUN GOBIN=/usr/local/bin go install \
-      github.com/shibukawa/popcornwave/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornwave)
+      github.com/shibukawa/popcornweb/cmd/pw@$(go list -m -f '{{.Version}}' github.com/shibukawa/popcornweb)
 
 COPY . .
 

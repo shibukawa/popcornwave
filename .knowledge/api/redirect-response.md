@@ -20,9 +20,9 @@ returned_form:
 status: implemented 2026-08-10
 as_built:
   surface: pw.Redirect and pw.RedirectSeeOther, plus pw.QueryValue and pw.FormValue for the one-value reads a handler would otherwise take from the request itself
-  found_it_the_hard_way: the transport report over the examples refused todo/popcornwave three times for http.Redirect and htmx_fragment four times for direct form and query reads, which is the same finding this concept opened with and the first evidence that it was real rather than argued
+  found_it_the_hard_way: the transport report over the examples refused todo/popcornweb three times for http.Redirect and htmx_fragment four times for direct form and query reads, which is the same finding this concept opened with and the first evidence that it was real rather than argued
   body: the stdlib body is kept for the branch that reaches it, since a browser that follows the redirect never sees it and paying a template render on every redirect to discard it is the trade this concept already rejected
-package: github.com/shibukawa/popcornwave/pw
+package: github.com/shibukawa/popcornweb/pw
 replaces: http.Redirect in application code, per decision:transport-handle-containment
 surface:
   - pw.Redirect(w, r, url string, status int)

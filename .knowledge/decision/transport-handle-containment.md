@@ -33,7 +33,7 @@ allowed_seams:
   - a _test.go file, which constructs requests directly and is rewritten alongside any backend
 stdlib_helpers:
   question: http.Redirect, http.Error, and http.SetCookie take w or r and are the helpers a handler actually reaches for
-  evidence: examples/todo/popcornwave/handlers/todos.go calls http.Redirect three times, so the rule as written first failed this framework's own example
+  evidence: examples/todo/popcornweb/handlers/todos.go calls http.Redirect three times, so the rule as written first failed this framework's own example
   redirect: api:redirect-response, a new pw surface, because the framework has a second reason to own it beyond portability
   error: api:problem-response through pw.WriteProblem, which already covers it and negotiates the representation http.Error cannot
   cookie: api:cookie-jar and api:session-registry, already shipped, so nothing new is owed here

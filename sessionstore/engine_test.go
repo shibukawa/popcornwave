@@ -11,16 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/database"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionstore"
 
-	_ "github.com/shibukawa/popcornwave/database/mysql"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/mysql"
-	_ "github.com/shibukawa/popcornwave/sessionstore/postgres"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/mysql"
+	_ "github.com/shibukawa/popcornweb/sessionstore/postgres"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 // The server engines need a live server, so their runs are opt-in. The same
@@ -52,7 +52,7 @@ func TestEngineContract(t *testing.T) {
 			db := openEngine(t, engine.dsn)
 			store, err := sessionstore.NewStore(db, sessionstore.Options{
 				Dialect: engine.dialect,
-				Table:   "popcornwave_session_contract",
+				Table:   "popcornweb_session_contract",
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -67,7 +67,7 @@ func TestEngineContract(t *testing.T) {
 				t.Fatalf("EnsureSchema: %v", err)
 			}
 			t.Cleanup(func() {
-				_, _ = db.ExecContext(context.Background(), `DROP TABLE popcornwave_session_contract`)
+				_, _ = db.ExecContext(context.Background(), `DROP TABLE popcornweb_session_contract`)
 			})
 			if err := store.VerifySchema(ctx); err != nil {
 				t.Fatalf("VerifySchema after the migration: %v", err)

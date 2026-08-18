@@ -1,6 +1,6 @@
 // Package session stores typed per-browser state. It knows nothing about
 // login: what proved a session, how strongly, and for how long belongs to
-// whatever owns authentication, which is normally popcornwave/plugin/auth.
+// whatever owns authentication, which is normally popcornweb/plugin/auth.
 //
 // An application declares each piece of state once, as a Go type with a
 // Placement, and reads it back by that type:

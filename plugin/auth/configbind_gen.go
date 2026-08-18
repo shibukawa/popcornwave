@@ -18,7 +18,7 @@ func init() {
 
 func registerConfigDefinition0() {
 	configbind.Register[Config](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/plugin/auth.Config",
+		TypeName: "github.com/shibukawa/popcornweb/plugin/auth.Config",
 		Prefix:   "auth",
 		Doc:      "Config is the [auth] runtime binding. It is registered when this package is imported",
 		KnownKeys: []string{
@@ -829,9 +829,9 @@ func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 
 func registerSessionLifetimeConfigDefinition1() {
 	configbind.Register[SessionLifetimeConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/plugin/auth.SessionLifetimeConfig",
+		TypeName: "github.com/shibukawa/popcornweb/plugin/auth.SessionLifetimeConfig",
 		Prefix:   "auth.session",
-		Doc:      "SessionLifetimeConfig is the [auth.session] binding, declared in popcornwave/sessionconfig so that pw can read it without importing this package",
+		Doc:      "SessionLifetimeConfig is the [auth.session] binding, declared in popcornweb/sessionconfig so that pw can read it without importing this package",
 		KnownKeys: []string{
 			"auth.session.ttl",
 			"auth.session.idle_timeout",

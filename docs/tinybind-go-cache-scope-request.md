@@ -1,6 +1,6 @@
 # Change request: a scope on the cache annotation, defaulting to private
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.8
 **Date:** 2026-08-09
 **Status:** open

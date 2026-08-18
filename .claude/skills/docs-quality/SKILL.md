@@ -1,9 +1,9 @@
 ---
 name: docs-quality
-description: Write, rewrite, review, or audit any page of the Popcorn Wave documentation site under website/src/content/docs/ (Astro Starlight, English + Japanese). Use this whenever documentation is created or changed — "write the docs", "add a guide", "document this feature", "update the docs", "review this page", "the docs are stale", "translate this page" — and ALSO immediately after implementing or changing a framework feature that users will need documented, even when the request only says "and update the docs too". Carries the house style (prose over bullets, guides show two or three cases rather than every option, every guide says when not to use the feature, recommend rather than survey), the fixed terminology (registered/discovered routing, .pw.html as a typed template language, _pw_gen.go as build output, pw.ServeMux as a type alias), and check_docs.mjs for broken links, retired URLs, frontmatter, English/Japanese parity, Tailwind leakage, tutorial code continuity, and sidebar drift.
+description: Write, rewrite, review, or audit any page of the Popcorn Web documentation site under website/src/content/docs/ (Astro Starlight, English + Japanese). Use this whenever documentation is created or changed — "write the docs", "add a guide", "document this feature", "update the docs", "review this page", "the docs are stale", "translate this page" — and ALSO immediately after implementing or changing a framework feature that users will need documented, even when the request only says "and update the docs too". Carries the house style (prose over bullets, guides show two or three cases rather than every option, every guide says when not to use the feature, recommend rather than survey), the fixed terminology (registered/discovered routing, .pw.html as a typed template language, _pw_gen.go as build output, pw.ServeMux as a type alias), and check_docs.mjs for broken links, retired URLs, frontmatter, English/Japanese parity, Tailwind leakage, tutorial code continuity, and sidebar drift.
 ---
 
-# Popcorn Wave documentation
+# Popcorn Web documentation
 
 The site is Astro Starlight. Pages are Markdown under
 `website/src/content/docs/`, English at the root and Japanese under `ja/`, and

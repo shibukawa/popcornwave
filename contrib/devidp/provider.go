@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 // Bounds on in-memory state. Every value is small because the provider serves

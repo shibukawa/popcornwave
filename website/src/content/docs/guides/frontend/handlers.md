@@ -7,7 +7,7 @@ sidebar:
 
 Handlers stay ordinary `net/http` handlers, but they do not have to parse every
 input by hand. The stable application-facing API,
-`github.com/shibukawa/popcornwave/pw`, adds routing-compatible generation and
+`github.com/shibukawa/popcornweb/pw`, adds routing-compatible generation and
 typed request binding without changing the handler signature.
 
 ## Code generation
@@ -24,7 +24,7 @@ compiles, and [`pw generate`](/pw/project/generate/) is that same work stopping
 short of the compiler, for a build that TinyGo or your own `go build` drives — or
 for running it once by hand.
 
-The scan is not the whole module. `popcornwave.toml` names directories per
+The scan is not the whole module. `popcornweb.toml` names directories per
 purpose, and handlers are the `handlers` purpose:
 
 ```toml
@@ -45,7 +45,7 @@ rather than looking for the bug in the handler.
 ```go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 

@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-Popcorn Wave はセッション、CSRF、セキュリティヘッダ、リクエスト ID といった雑事を
+Popcorn Web はセッション、CSRF、セキュリティヘッダ、リクエスト ID といった雑事を
 既定で引き受けます。そのぶん遅くなるかというと、そうでもありません。todo の
 ベンチマークでは、手書きの `net/http` 実装よりも少ない CPU 時間でリクエストを
 返しました。
@@ -33,7 +33,7 @@ Popcorn Wave はセッション、CSRF、セキュリティヘッダ、リクエ
 | `tinygo build -no-debug` | 4.2 MiB | 5.6 MiB |
 
 測ったのは Apple M3 上の
-[`examples/helloworld`](https://github.com/shibukawa/popcornwave/tree/main/examples/helloworld)
+[`examples/helloworld`](https://github.com/shibukawa/popcornweb/tree/main/examples/helloworld)
 です。何を測ったかが効いていて、この数字のほとんどは同梱した SQLite が占めています。
 2 つの列の差のうちトランスポートによるものは 300 KiB ほどしかないので、バイナリを
 小さくしたいという理由で乗り換えても意味がありません。TinyGo なら話は別です。
@@ -115,7 +115,7 @@ net/http が 369 µs でした。同じものを 3 回測った、という以�
 
 ## レイヤーごとの処理時間
 
-[`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo) に
+[`examples/todo`](https://github.com/shibukawa/popcornweb/tree/main/examples/todo) に
 20 並列で負荷をかけ、リクエスト 1 本あたりの CPU 時間を測りました。環境は Go 1.26.5、
 Apple M3、同じマシンの Docker で動く PostgreSQL 17 です。
 
@@ -126,7 +126,7 @@ Apple M3、同じマシンの Docker で動く PostgreSQL 17 です。
 | 50 行を返す `SELECT` 1 回 | 39 µs |
 | JSON のエンコードと書き出し | 36 µs |
 | HTML の描画と書き出し | 100 µs |
-| リクエスト全体（Popcorn Wave） | 166 µs |
+| リクエスト全体（Popcorn Web） | 166 µs |
 | リクエスト全体（`net/http` の比較実装） | 219 µs |
 
 JSON と HTML は別々のレスポンスなので、各行を足して全体になる表ではありません。
@@ -213,7 +213,7 @@ max_open_conns = 20
 ```
 
 この設定なら、グループを指定しないクエリは `reader` へ行きます。読み取りしかしない
-ハンドラはそのまま既定のグループに流して構いません。ただし Popcorn Wave は SQL の
+ハンドラはそのまま既定のグループに流して構いません。ただし Popcorn Web は SQL の
 中身を見て接続先を推測したりはしないので、書き込む側には手を入れる必要があります。
 
 ```go

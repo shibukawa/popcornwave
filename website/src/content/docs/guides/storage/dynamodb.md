@@ -28,7 +28,7 @@ that does not use DynamoDB gains no key and links no driver:
 
 ```go
 // cmd/myapp/main.go
-import _ "github.com/shibukawa/popcornwave/database/dynamo"
+import _ "github.com/shibukawa/popcornweb/database/dynamo"
 ```
 
 ```toml
@@ -93,7 +93,7 @@ desired schema. The declared table name is the snake_case of the type name —
 
 Generation is directed by use: the codec appears for the directions something
 actually calls, so deleting a read shrinks the generated code to match. The
-directory has to be listed under `generate.dynamo` in `popcornwave.toml`, which
+directory has to be listed under `generate.dynamo` in `popcornweb.toml`, which
 `pw add dynamo` does; a `.pw.dynamo` file outside every listed directory is
 reported once, by path, rather than silently skipped.
 
@@ -263,7 +263,7 @@ trains a reader to stop looking at it.
 | Filter and update expressions | declarations cover key conditions, limit, direction, and consistency |
 | Single-table design | one struct owns one table, which `tinybind` declines to work around |
 
-None of these is a Popcorn Wave choice. They are the edge of what the layer
+None of these is a Popcorn Web choice. They are the edge of what the layer
 below currently does, and they move when it does.
 
 ## Sessions on it

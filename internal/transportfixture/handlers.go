@@ -16,7 +16,7 @@ package transportfixture
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

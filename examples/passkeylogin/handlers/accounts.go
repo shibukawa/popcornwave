@@ -7,8 +7,8 @@ import (
 
 	"passkeylogin/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // RegisterAccounts installs the account seams. Call it from main before

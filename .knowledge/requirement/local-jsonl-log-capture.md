@@ -14,7 +14,7 @@ source:
   - persist from the api:logger structured pipeline before stdout formatting and independently of OTLP or requirement:dev-telemetry-viewer
   - never parse policy:log-emission plaintext stdout
 destination:
-  directory: .log relative to the directory containing popcornwave.toml
+  directory: .log relative to the directory containing popcornweb.toml
   file: one collision-resistant .jsonl file per pw dev invocation
   lifetime: select before the application starts; reopen for append across every rebuild and application restart; close when each application process stops
   creation: create the directory and file lazily on the first record

@@ -1,4 +1,4 @@
-// Popcorn Wave update runtime.
+// Popcorn Web update runtime.
 //
 // This is the framework's own implementation of the update wire contract that
 // system:tinybind publishes. It replaced the module's bundled client, which used
@@ -132,7 +132,7 @@ export function createUpdateRuntime(config) {
 			} catch (error) {
 				// A subscriber is a progress indicator or an analytics call. It
 				// must not be able to break the update it is watching.
-				console.error("Popcorn Wave: update subscriber failed", error);
+				console.error("Popcorn Web: update subscriber failed", error);
 			}
 		}
 	}
@@ -423,12 +423,12 @@ export function createUpdateRuntime(config) {
 			// look identical from the outside and have nothing in common: one is
 			// a page that moved under this client, the other is an address this
 			// deployment cannot describe.
-			console.warn("Popcorn Wave: no sequence for", operation.seq);
+			console.warn("Popcorn Web: no sequence for", operation.seq);
 			return carried;
 		}
 		const html = reassemble(nodes, operation.values || []);
 		if (html === null) {
-			console.warn("Popcorn Wave: values do not fit sequence", operation.seq,
+			console.warn("Popcorn Web: values do not fit sequence", operation.seq,
 				(operation.values || []).length);
 			return carried;
 		}
@@ -1055,7 +1055,7 @@ export function createUpdateRuntime(config) {
 	// caller's — it started this and knows what it is waiting for.
 	async function callPageAction(url, input) {
 		const target = new URL(url, document.baseURI);
-		if (target.origin !== location.origin) throw new Error("Popcorn Wave: refusing a cross-origin action");
+		if (target.origin !== location.origin) throw new Error("Popcorn Web: refusing a cross-origin action");
 		markBusy(true);
 		let response;
 		try {
@@ -1079,7 +1079,7 @@ export function createUpdateRuntime(config) {
 		// returned to the caller: it asked for this and can read a value, where
 		// a gesture had nobody to hand one to.
 		if (served(response) === "action") return apply(response);
-		if (!response.ok) throw new Error("Popcorn Wave: the action failed with " + response.status);
+		if (!response.ok) throw new Error("Popcorn Web: the action failed with " + response.status);
 		const type = response.headers.get("Content-Type") || "";
 		return type.includes("json") ? response.json() : response.text();
 	}

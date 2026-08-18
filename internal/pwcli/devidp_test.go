@@ -50,7 +50,7 @@ email = "admin@example.com"
 `
 
 func TestLoadProjectConfigReadsDevIdP(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": idpProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": idpProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -68,7 +68,7 @@ func TestLoadProjectConfigReadsDevIdP(t *testing.T) {
 
 func TestLoadProjectConfigRejectsABadIdPPort(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": idpProject + "port = 70000\n",
+		"popcornweb.toml": idpProject + "port = 70000\n",
 	})
 	if _, err := loadProjectConfig(root); err == nil || !strings.Contains(err.Error(), "dev.idp.port") {
 		t.Fatalf("err = %v", err)
@@ -77,7 +77,7 @@ func TestLoadProjectConfigRejectsABadIdPPort(t *testing.T) {
 
 func TestStartDevIdentityProviderInjectsIssuerAndCredentials(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": idpProject,
+		"popcornweb.toml": idpProject,
 		"devidp.toml":      idpRoster,
 	})
 	config, err := loadProjectConfig(root)
@@ -122,7 +122,7 @@ func TestStartDevIdentityProviderInjectsIssuerAndCredentials(t *testing.T) {
 
 func TestDevIdentityProviderKeepsAnExplicitEnvironmentValue(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": idpProject,
+		"popcornweb.toml": idpProject,
 		"devidp.toml":      idpRoster,
 	})
 	config, err := loadProjectConfig(root)
@@ -144,7 +144,7 @@ func TestDevIdentityProviderKeepsAnExplicitEnvironmentValue(t *testing.T) {
 }
 
 func TestStartDevIdentityProviderReportsAMissingRoster(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": idpProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": idpProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -160,7 +160,7 @@ func TestStartDevIdentityProviderReportsAMissingRoster(t *testing.T) {
 
 func TestDevIdentityProviderReloadsAnEditedRoster(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": idpProject,
+		"popcornweb.toml": idpProject,
 		"devidp.toml":      idpRoster,
 	})
 	config, err := loadProjectConfig(root)

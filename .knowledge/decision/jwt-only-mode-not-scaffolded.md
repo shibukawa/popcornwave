@@ -33,7 +33,7 @@ reason:
   - decision:authentication-bootstrap-strategy grounds every scaffolded mode in an account the ceremony creates, and this mode creates none, so there is nothing for the scaffold to write beyond a configuration block
 consequence:
   - the auth capability catalog stays one entry meaning one thing, rather than an entry with a mode question whose second answer scaffolds nothing
-  - a jwt_only project writes its own configuration section, its own resolver when it wants one, and runs the popcornwave_revoked_token migration by hand
+  - a jwt_only project writes its own configuration section, its own resolver when it wants one, and runs the popcornweb_revoked_token migration by hand
   - documentation names the mode in the API-server reference and not in the tutorial, so requirement:tutorial-continuity is unaffected
 reopen_when:
   - requirement:contrib-devidp can issue at+jwt access tokens, which would make a runnable scaffolded jwt_only project possible

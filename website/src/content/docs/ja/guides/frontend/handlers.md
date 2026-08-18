@@ -7,7 +7,7 @@ sidebar:
 
 ハンドラは素の `net/http` ハンドラのままですが、入力を毎回手でパースする必要は
 ありません。安定したアプリケーション向け API
-`github.com/shibukawa/popcornwave/pw` は、ハンドラのシグネチャを変えずに、
+`github.com/shibukawa/popcornweb/pw` は、ハンドラのシグネチャを変えずに、
 ルーティングとの互換性と型付きリクエストバインディングを加えます。
 
 ## コード生成
@@ -24,7 +24,7 @@ Git は無視しますし、生成し直せば作り直されます。
 もので、TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回
 走らせるときも同じコマンドです。
 
-走査の対象はモジュール全体ではありません。`popcornwave.toml` が目的ごとに
+走査の対象はモジュール全体ではありません。`popcornweb.toml` が目的ごとに
 ディレクトリを挙げていて、ハンドラは `handlers` の目的です。
 
 ```toml
@@ -45,7 +45,7 @@ handlers = ["handlers"]
 ```go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 

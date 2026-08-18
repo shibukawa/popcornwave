@@ -8,7 +8,7 @@ A PostgreSQL connection serves its request-time query path through the pgx-nativ
 ```yaml
 motivation:
   benchmark: >
-    a Popcorn Wave benchmark on the postgres engine showed database/sql lock
+    a Popcorn Web benchmark on the postgres engine showed database/sql lock
     acquisition dominating the query path: the sql.DB pool mutex plus a
     per-conn mutex on every call, and driver.Value boxing per parameter.
     system:tinygodriver measured the same seam at 6 vs 15 allocs and 352 vs

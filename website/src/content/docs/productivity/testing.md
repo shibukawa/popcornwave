@@ -6,7 +6,7 @@ sidebar:
 ---
 
 A fast test is useful only if it still exercises the application you deploy.
-`github.com/shibukawa/popcornwave/testutil` starts the actual routes,
+`github.com/shibukawa/popcornweb/testutil` starts the actual routes,
 middleware stack, and configuration binding against an isolated copy of every
 registered setting. Tests reach that application over HTTP instead of calling a
 hand-assembled approximation.
@@ -211,7 +211,7 @@ A mismatch goes through `Errorf` rather than `Fatalf`, so the test continues and
 one run reports every table that drifted instead of only the first:
 
 ```
-Popcorn Wave database does not match:
+Popcorn Web database does not match:
 after_archive.yaml:
 Table: member
 - Expected
@@ -291,7 +291,7 @@ database whose pool can open a second connection — which rules out
 
 ### Row tags are parsed but never filter
 
-A row may carry a `_tag` list, and dbtestify's CLI filters on it. Popcorn Wave
+A row may carry a `_tag` list, and dbtestify's CLI filters on it. Popcorn Web
 exposes neither the include nor the exclude filter, so every row in the file is
 applied whatever its tags say. Split the rows across files when a test needs a
 subset.

@@ -67,7 +67,7 @@ user. Refresh tokens, the Client Credentials Grant, and consent screens are
 deliberately absent. Client Credentials is for a client acting on its own
 behalf, without an end-user, so it is not a substitute for Device Authorization.
 `pw build` refuses to build an application that imports the provider. See
-[`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp).
+[`contrib/devidp`](https://github.com/shibukawa/popcornweb/tree/main/contrib/devidp).
 
 For tests, `testutil.WithIdentityProvider` starts the same provider and
 `WithLoginUser` pre-selects the subject, so a login completes without a browser.

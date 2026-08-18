@@ -7,7 +7,7 @@ import (
 	"log"
 
 	"async_render/handlers"
-	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornweb/pwfast"
 )
 
 func main() {

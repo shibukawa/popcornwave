@@ -1,4 +1,4 @@
-// Package migrate applies versioned SQL migrations to a Popcorn Wave database.
+// Package migrate applies versioned SQL migrations to a Popcorn Web database.
 //
 // Importing this package opts the migration engine into the binary. A host Go
 // build links goose directly; a TinyGo build runs the pw command as a child
@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/sqlscript"
+	"github.com/shibukawa/popcornweb/internal/sqlscript"
 )
 
 // DefaultDir is the project-relative migration directory.

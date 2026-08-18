@@ -61,7 +61,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // Quote is what the upstream returns and what one entry holds.

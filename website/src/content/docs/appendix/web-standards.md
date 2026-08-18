@@ -1,12 +1,12 @@
 ---
 title: Web Standards
-description: The HTTP, security, authentication, error, API, and caching standards Popcorn Wave puts on the wire.
+description: The HTTP, security, authentication, error, API, and caching standards Popcorn Web puts on the wire.
 sidebar:
   order: 3
 ---
 
 A framework can claim to be “standards based” while leaving the consequential
-choices to every application. Popcorn Wave takes the narrower position: this
+choices to every application. Popcorn Web takes the narrower position: this
 page lists behavior the framework actually emits or enforces, and links to the
 guide that owns each detail. An RFC number means a published specification;
 `X-RateLimit-*` is called out separately because compatibility is useful, but
@@ -65,7 +65,7 @@ origin check rather than anything configured here.
 ## Authentication
 
 Enabling authentication does not settle which trust model an application uses.
-Popcorn Wave keeps browser login separate from Bearer API authentication and
+Popcorn Web keeps browser login separate from Bearer API authentication and
 offers five configurations:
 
 | Configuration | Setting | Boundary | Authentication mechanism |
@@ -206,7 +206,7 @@ deltas and live delivery use `no-store`, and 429 responses are never stored.
 The useful wire format depends on the caller, not just on the operation. JSON
 is convenient from JavaScript, while an HTML form that works without
 JavaScript—and a `curl` command someone can type without assembling a JSON
-document—naturally use form encoding. Popcorn Wave therefore does not require a
+document—naturally use form encoding. Popcorn Web therefore does not require a
 separate handler for each kind of client. The same request struct accepts
 `application/json`, `application/x-www-form-urlencoded`, and
 `multipart/form-data`; the request's `Content-Type` says how to decode it.
@@ -235,7 +235,7 @@ original PNG or JPEG instead.
 
 WebP is Baseline Widely Available and now makes a practical browser fallback.
 AVIF support arrived later, so older browsers, WebViews, and non-browser clients
-may still lack it. Popcorn Wave does not guess from the User-Agent. It returns
+may still lack it. Popcorn Web does not guess from the User-Agent. It returns
 AVIF when the request's `Accept` field permits `image/avif` and that
 representation exists; otherwise it falls back to WebP. Only a URL with both
 representations carries `Vary: Accept`, keeping shared caches from mixing the
@@ -302,7 +302,7 @@ application handlers.
 
 ## Why HTTPS termination stays out
 
-A public web application needs HTTPS. Even so, Popcorn Wave deliberately does
+A public web application needs HTTPS. Even so, Popcorn Web deliberately does
 not load certificates and private keys or terminate inbound TLS inside the
 application. TinyGo's `crypto/tls` support makes parity with a conventional Go
 HTTPS server difficult, but the compiler is only part of the reason.
@@ -319,7 +319,7 @@ renewal, revocation, private-key protection, and cipher-policy updates part of
 the application's operating surface. The terminating process would then be the
 first component to absorb TLS handshakes, connection floods, and other attack
 traffic. A CDN or managed load balancer can manage the certificate lifecycle and
-mitigate DDoS traffic at a much larger network edge. Popcorn Wave has not
+mitigate DDoS traffic at a much larger network edge. Popcorn Web has not
 discarded HTTPS; it has moved termination to the layer better equipped to own it.
 
 In production, terminate HTTPS at a CDN or load balancer and prevent direct
@@ -339,7 +339,7 @@ ranges, HSTS, and the public origins used for CSRF checks.
 `Accept-CH` looks like the right way to render a page the reader already wants.
 The server advertises the hints it cares about, the browser sends
 `Sec-CH-Prefers-Color-Scheme` on the next request, and a reader who prefers dark
-gets a dark first paint with no script and no flash. Popcorn Wave sends no
+gets a dark first paint with no script and no flash. Popcorn Web sends no
 `Accept-CH` and reads no `Sec-CH-*` request header, because the mechanism has one
 engine behind it.
 
@@ -386,7 +386,7 @@ breakdown of a slow page exists before anyone goes looking for it. Returning it
 on the same response is the obvious next step, and HTTP has the mechanism for it:
 `Trailer: Server-Timing` carries fields that are known only after the body, which
 on a streamed page is most of what is worth knowing. DevTools would show them
-beside the request. Popcorn Wave sends no trailer, because on the connection
+beside the request. Popcorn Web sends no trailer, because on the connection
 `pw dev` serves, nothing reads one.
 
 | | Chromium | Firefox | Safari |

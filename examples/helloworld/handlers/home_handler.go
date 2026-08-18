@@ -5,7 +5,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"helloworld/queries"
 )
 

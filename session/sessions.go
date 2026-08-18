@@ -14,7 +14,7 @@ import (
 // Options configures a Manager.
 //
 // Every duration here is supplied by whatever owns the session lifetime, which
-// is normally popcornwave/plugin/auth: an expiry states how long a proof of
+// is normally popcornweb/plugin/auth: an expiry states how long a proof of
 // identity stays good, and the store holding the bytes has no basis to make
 // that statement. A zero TTL is allowed and means the session is bounded by the
 // browser alone.
@@ -56,7 +56,7 @@ type Options struct {
 //
 // Handlers read and write state through Load and Value and never call the
 // manager. Rotate and Destroy are called by whatever owns the login, which is
-// normally popcornwave/plugin/auth.
+// normally popcornweb/plugin/auth.
 type Manager struct {
 	registry *Registry
 	slots    []*slot

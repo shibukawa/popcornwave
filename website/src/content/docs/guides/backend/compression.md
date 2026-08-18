@@ -155,7 +155,7 @@ from being compiled in — a runtime value cannot unlink code — so a build tha
 terminates compression at a CDN still carries them.
 
 That is 387 KB for the pair, stripped. It used to be worth a build tag: zstd
-once meant linking a decoder ten times the size of the encoder, and Popcorn Wave
+once meant linking a decoder ten times the size of the encoder, and Popcorn Web
 published `pw_nozstd` and `pw_nogzip` to escape it. The encoder is its own
 package now, the decoder is gone, and the remaining figure is smaller than the
 question. Both tags were removed; a build that still passes one is not refused,

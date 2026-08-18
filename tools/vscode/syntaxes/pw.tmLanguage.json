@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Popcorn Wave Shared",
+  "name": "Popcorn Web Shared",
   "scopeName": "source.pw",
-  "comment": "Shared declaration header and template body grammar for every Popcorn Wave source dialect. Included by source.pw.html, source.pw.sql, and source.pw.dynamo; never bound to a language of its own. Scope names are fixed by rule:template-grammar-scopes.",
+  "comment": "Shared declaration header and template body grammar for every Popcorn Web source dialect. Included by source.pw.html, source.pw.sql, and source.pw.dynamo; never bound to a language of its own. Scope names are fixed by rule:template-grammar-scopes.",
   "patterns": [
     {
       "include": "#header"

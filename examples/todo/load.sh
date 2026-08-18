@@ -18,7 +18,7 @@ trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$bin"' EXIT
 # while every other benchmark setting remains identical to config.bench.toml.
 pwrun="$bin/pw-run"
 mkdir -p "$pwrun"
-cp popcornwave/config.bench.toml "$pwrun/config.dev.toml"
+cp popcornweb/config.bench.toml "$pwrun/config.dev.toml"
 
 PASSES=${PASSES:-3}
 VUS=${VUS:-20}
@@ -46,7 +46,7 @@ echo "    seeded ${ROWS} rows"
 
 echo "==> building"
 (cd stdhttp && go build -o "$bin/todo-std" .)
-(cd popcornwave && go build -o "$bin/todo-pw" ./cmd/popcornwave)
+(cd popcornweb && go build -o "$bin/todo-pw" ./cmd/popcornweb)
 
 echo "==> starting services"
 "$bin/todo-std" >"$bin/std.log" 2>&1 &
@@ -76,17 +76,17 @@ first_session=$(awk '$4 == "FALSE" && $6 == "pw_session" { print $7 }' "$pw_cook
 curl -sS -H 'Accept: text/html' -b "$pw_cookie_jar" -c "$pw_cookie_jar" -o /dev/null http://127.0.0.1:8082/
 second_session=$(awk '$4 == "FALSE" && $6 == "pw_session" { print $7 }' "$pw_cookie_jar")
 if [ -z "$first_session" ] || [ "$first_session" != "$second_session" ]; then
-  echo "PopcornWave session cookie did not persist over loopback HTTP" >&2
+  echo "PopcornWeb session cookie did not persist over loopback HTTP" >&2
   exit 1
 fi
-echo "    PopcornWave session persists across HTTP requests"
+echo "    PopcornWeb session persists across HTTP requests"
 
 # Both must answer with the same row count, or the two are not rendering the
 # same page and the throughput numbers describe different work.
 std_rows=$(curl -s http://127.0.0.1:8081/api/todos | grep -o '"id"' | wc -l | tr -d ' ')
 pw_rows=$(curl -s http://127.0.0.1:8082/api/todos  | grep -o '"id"' | wc -l | tr -d ' ')
 if [ "$std_rows" != "$pw_rows" ] || [ "$std_rows" != "$ROWS" ]; then
-  echo "row counts disagree: stdhttp=$std_rows popcornwave=$pw_rows expected=$ROWS" >&2
+  echo "row counts disagree: stdhttp=$std_rows popcornweb=$pw_rows expected=$ROWS" >&2
   exit 1
 fi
 echo "    both serving $ROWS rows"
@@ -106,7 +106,7 @@ echo "    load average now: $(uptime | sed 's/.*averages*: //')"
 for pass in $(seq 1 "$PASSES"); do
   echo "-- pass $pass --"
   one "net/http+pgx" 8081; sleep 4
-  one "PopcornWave"  8082; sleep 4
+  one "PopcornWeb"  8082; sleep 4
 done
 echo "    load average now: $(uptime | sed 's/.*averages*: //')"
 echo

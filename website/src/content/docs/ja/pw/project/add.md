@@ -54,7 +54,7 @@ pw add <module-path>
 
 ## 検出
 
-機能の有無は、それを担っているファイルから検出します。`popcornwave.toml` の一覧では
+機能の有無は、それを担っているファイルから検出します。`popcornweb.toml` の一覧では
 ありません。マニフェストは手編集されたプロジェクトと食い違い得るからです。
 
 | 機能 | 根拠 |
@@ -64,14 +64,14 @@ pw add <module-path>
 | `dynamo` | 環境設定ファイルの `[middleware.dynamo]` |
 | `firestore` | 環境設定ファイルの `[middleware.firestore]` |
 | `redis-valkey` | `devbox.json` の Valkey パッケージ |
-| `auth` | `[auth]` セクション、または `init_popcornwave_auth` マイグレーション（バージョンは問わない） |
-| `tailwind` | `popcornwave.toml` の `assets.tailwind.enabled` |
-| `images` | `popcornwave.toml` の `assets.images.enabled` |
+| `auth` | `[auth]` セクション、または `init_popcornweb_auth` マイグレーション（バージョンは問わない） |
+| `tailwind` | `popcornweb.toml` の `assets.tailwind.enabled` |
+| `images` | `popcornweb.toml` の `assets.images.enabled` |
 
 既にある機能を追加しようとすると、根拠のファイルを名指しして失敗します。
 
 ```
-pw: add: this project already has auth, per migrations/00003_init_popcornwave_auth.sql
+pw: add: this project already has auth, per migrations/00003_init_popcornweb_auth.sql
 ```
 
 ## 書き込む内容
@@ -84,8 +84,8 @@ pw: add: this project already has auth, per migrations/00003_init_popcornwave_au
     OIDC provider  External provider
 
     create  handlers/accounts.go
-    create  migrations/00002_init_popcornwave_session.sql
-    create  migrations/00003_init_popcornwave_auth.sql
+    create  migrations/00002_init_popcornweb_session.sql
+    create  migrations/00003_init_popcornweb_auth.sql
     append  config.dev.toml
     edit    cmd/lean/main.go
     then    pw migrate up

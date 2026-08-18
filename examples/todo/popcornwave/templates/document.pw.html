@@ -1,9 +1,0 @@
-package templates
-
-external RuntimeScriptURL(): url
-
-export component Document(children: html?): html {
-  <!doctype html>
-  <html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title><link rel="stylesheet" href="/public/app.css"><script type="module" src={RuntimeScriptURL()}></script></head>
-  <body><slot /></body></html>
-}

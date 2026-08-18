@@ -3,7 +3,7 @@ id: requirement:typed-websocket
 type: requirement
 title: Typed WebSocket On Both Builds
 ---
-Popcorn Wave offers WebSocket as a typed socket over system:tinybind-websocket, published from pw and pwfast under one name, with the message codecs generated from the declared inbound and outbound structs.
+Popcorn Web offers WebSocket as a typed socket over system:tinybind-websocket, published from pw and pwfast under one name, with the message codecs generated from the declared inbound and outbound structs.
 
 ```yaml
 status: implemented 2026-08-11

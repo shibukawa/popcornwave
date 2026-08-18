@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 func hintSecret() string {

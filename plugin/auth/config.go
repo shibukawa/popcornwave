@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // Authentication modes.
@@ -126,7 +126,7 @@ const (
 )
 
 // SessionLifetimeConfig is the [auth.session] binding, declared in
-// popcornwave/sessionconfig so that pw can read it without importing this
+// popcornweb/sessionconfig so that pw can read it without importing this
 // package.
 //
 // It is bound here rather than there because a lifetime is authentication's

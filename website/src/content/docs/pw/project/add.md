@@ -57,7 +57,7 @@ capability names the tools in words and leaves the install to you.
 ## Detection
 
 A capability is detected from the files that carry it, never from a list in
-`popcornwave.toml` — a manifest could disagree with a hand-edited project:
+`popcornweb.toml` — a manifest could disagree with a hand-edited project:
 
 | Capability | Evidence |
 | --- | --- |
@@ -66,15 +66,15 @@ A capability is detected from the files that carry it, never from a list in
 | `dynamo` | `[middleware.dynamo]` in an environment configuration file |
 | `firestore` | `[middleware.firestore]` in an environment configuration file |
 | `redis-valkey` | the Valkey package in `devbox.json` |
-| `auth` | the `[auth]` section, or an `init_popcornwave_auth` migration at any version |
-| `tailwind` | `assets.tailwind.enabled` in `popcornwave.toml` |
-| `images` | `assets.images.enabled` in `popcornwave.toml` |
+| `auth` | the `[auth]` section, or an `init_popcornweb_auth` migration at any version |
+| `tailwind` | `assets.tailwind.enabled` in `popcornweb.toml` |
+| `images` | `assets.images.enabled` in `popcornweb.toml` |
 
 Adding a capability the project already has fails and names the file that proves
 it:
 
 ```
-pw: add: this project already has auth, per migrations/00003_init_popcornwave_auth.sql
+pw: add: this project already has auth, per migrations/00003_init_popcornweb_auth.sql
 ```
 
 ## What it writes
@@ -87,8 +87,8 @@ The review screen lists every change before anything is written:
     OIDC provider  External provider
 
     create  handlers/accounts.go
-    create  migrations/00002_init_popcornwave_session.sql
-    create  migrations/00003_init_popcornwave_auth.sql
+    create  migrations/00002_init_popcornweb_session.sql
+    create  migrations/00003_init_popcornweb_auth.sql
     append  config.dev.toml
     edit    cmd/lean/main.go
     then    pw migrate up

@@ -1,6 +1,6 @@
 # The update surface, checked against v0.4.4
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** the usage guide of 2026-08-09, and `github.com/shibukawa/tinybind-go` v0.4.4 as published
 **Status:** every item is closed. §1 and §2 in v0.4.5, §3 and the follow-up in v0.4.6. Kept as the record of the round, and of one defect it found on this side.
 

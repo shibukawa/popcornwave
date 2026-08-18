@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/internal/devconsole"
+	"github.com/shibukawa/popcornweb/internal/devconsole"
 )
 
 // doctorPane runs api:cli-doctor and shows what it said.

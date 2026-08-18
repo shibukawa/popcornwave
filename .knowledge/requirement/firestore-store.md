@@ -50,7 +50,7 @@ bounded_by_the_stack:
   - no TTL on the wire, so expiry deletion is a policy the deployment applies, per decision:firestore-expiry-policy
   - no response integrity check, unlike the x-amz-crc32 layer of system:tinygodriver-dynamodb
   - a transaction costs one round trip more than the reads it performs, which is the lazy start of system:tinygodriver-firestore rather than a fixed three
-  effect: these bound the stores by what the service and the driver offer, not by a Popcorn Wave choice
+  effect: these bound the stores by what the service and the driver offer, not by a Popcorn Web choice
 tinygo:
   buildable: the client and firestorebind both build under TinyGo, so no part of this store needs decision:migration-execution-split delegation, and there is no migration to delegate anyway
   credential_cost: the JWT path links RSA signing, which is native on TinyGo builds and 583 KB against 1040 KB for the pure-Go path; a deployment using the metadata server links none of it

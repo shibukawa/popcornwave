@@ -6,7 +6,7 @@ title: Typed Session Storage Registry
 An application declares each piece of per-browser state once, as a Go type with a placement, and reads it back by that type, so no handler carries a jar, a store, or a string key.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/session, registered through pw
+package: github.com/shibukawa/popcornweb/session, registered through pw
 status: implemented
 model: concept:session-storage-boundary
 registration:

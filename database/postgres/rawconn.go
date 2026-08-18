@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 	"github.com/shibukawa/tinygodriver/database/pgx"
 )
@@ -50,7 +50,7 @@ import (
 // A group that is not PostgreSQL returns an error naming the dialect it found.
 func WithConn(ctx context.Context, fn func(*pgx.Conn) error) error {
 	if fn == nil {
-		return errors.New("popcornwave/database/postgres: WithConn was given no callback")
+		return errors.New("popcornweb/database/postgres: WithConn was given no callback")
 	}
 	executor, err := pwruntime.SQLExecutor(ctx)
 	if err != nil {
@@ -100,9 +100,9 @@ func unwrapExecutor(executor sqlbind.SQLExecutor) sqlbind.SQLExecutor {
 func notPostgres(ctx context.Context) error {
 	if dialect, known := pwruntime.DBDriver(ctx); known {
 		return fmt.Errorf(
-			"popcornwave/database/postgres: WithConn needs a PostgreSQL connection, but the effective group runs on %s",
+			"popcornweb/database/postgres: WithConn needs a PostgreSQL connection, but the effective group runs on %s",
 			dialect)
 	}
 	return errors.New(
-		"popcornwave/database/postgres: WithConn needs a PostgreSQL connection, and the effective group is not one")
+		"popcornweb/database/postgres: WithConn needs a PostgreSQL connection, and the effective group is not one")
 }

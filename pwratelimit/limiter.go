@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Limiter decides. Which bucket a request falls in, whether its path is

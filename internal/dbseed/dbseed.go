@@ -1,7 +1,7 @@
 // Package dbseed applies version-control-owned dataset files to the
 // framework-owned database pool.
 //
-// It is the single place where Popcorn Wave talks to github.com/shibukawa/dbtestify,
+// It is the single place where Popcorn Web talks to github.com/shibukawa/dbtestify,
 // so the CLI seed command and the test helpers share one dataset contract.
 package dbseed
 
@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/shibukawa/dbtestify"
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

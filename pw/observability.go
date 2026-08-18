@@ -1,12 +1,12 @@
 package pw
 
 import (
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/pwobservability"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/pwobservability"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
-// The observability layer lives in popcornwave/pwobservability, and every entry
+// The observability layer lives in popcornweb/pwobservability, and every entry
 // below is a thin wrapper over one declared there.
 //
 // It moved because none of it is transport-shaped: the emission policy, the

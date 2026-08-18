@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // With no lifetime source the session is bounded by the browser: the token

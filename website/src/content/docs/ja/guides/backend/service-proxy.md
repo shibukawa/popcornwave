@@ -24,7 +24,7 @@ preflight が付き、「今ログインしているのは誰か」という問�
 
 `net/http/httputil` は TinyGo でビルドできません。そこでプロキシは
 `tinygodriver/httprevproxy` から取ります。公開 API は標準パッケージのリバースプロキシ
-部分をそのまま写したものです。Popcorn Wave のプロジェクトは `tinygodriver` を既に
+部分をそのまま写したものです。Popcorn Web のプロジェクトは `tinygodriver` を既に
 require しています——`pw.ServeMux` がそこの型です——ので、追加する依存はありません。
 `httputil` という別名で import しておけば、呼び出し側は標準パッケージを使うときとまったく同じに読めます。
 
@@ -112,7 +112,7 @@ mux.Handle("/api/", http.StripPrefix("/api", proxy))
 サービスは認証しませんが、誰が尋ねているかはたいてい知る必要があります。`Rewrite` は
 受信リクエストを手にした状態で走り、その時点でフレームワークはセッションを解決済み
 なので、答えはもうコンテキストの中にあります。上の `Rewrite` フィールドを次で置き換え、
-import に `github.com/shibukawa/popcornwave/pw` を足します。
+import に `github.com/shibukawa/popcornweb/pw` を足します。
 
 ```go
 Rewrite: func(r *httputil.ProxyRequest) {

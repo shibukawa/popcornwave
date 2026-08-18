@@ -11,8 +11,8 @@ import (
 
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	authsqlite "github.com/shibukawa/popcornwave/authstate/sqlite"
+	"github.com/shibukawa/popcornweb/authstate"
+	authsqlite "github.com/shibukawa/popcornweb/authstate/sqlite"
 	dbsqlite "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 
@@ -76,7 +76,7 @@ func TestStorePutTakeDuplicateAndExpiredReplacement(t *testing.T) {
 	if _, err := store.Take(ctx, "key"); !errors.Is(err, authstate.ErrNotFound) {
 		t.Fatalf("second Take error = %v", err)
 	}
-	if _, err := store.db.Exec(`INSERT INTO popcornwave_authstate VALUES(?, ?, ?, ?)`, "test", "expired", now.Add(-time.Second).UnixMilli(), []byte{1, 'x'}); err != nil {
+	if _, err := store.db.Exec(`INSERT INTO popcornweb_authstate VALUES(?, ?, ?, ?)`, "test", "expired", now.Add(-time.Second).UnixMilli(), []byte{1, 'x'}); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Put(ctx, "expired", "replacement", now.Add(time.Minute)); err != nil {
@@ -126,7 +126,7 @@ func TestStoreConsumesExpiredMalformedAndCodecFailure(t *testing.T) {
 	defer closeStore()
 	insert := func(key string, expiresAt time.Time, payload []byte) {
 		t.Helper()
-		if _, err := store.db.Exec(`INSERT INTO popcornwave_authstate VALUES(?, ?, ?, ?)`, "test", key, expiresAt.UnixMilli(), payload); err != nil {
+		if _, err := store.db.Exec(`INSERT INTO popcornweb_authstate VALUES(?, ?, ?, ?)`, "test", key, expiresAt.UnixMilli(), payload); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -158,7 +158,7 @@ func TestStorePruneIsBoundedAndNamespaced(t *testing.T) {
 		if i == 4 {
 			namespace = "two"
 		}
-		if _, err := store.db.Exec(`INSERT INTO popcornwave_authstate VALUES(?, ?, ?, ?)`, namespace, fmt.Sprintf("key-%d", i), now.Add(-time.Duration(i+1)*time.Second).UnixMilli(), []byte{1, 'x'}); err != nil {
+		if _, err := store.db.Exec(`INSERT INTO popcornweb_authstate VALUES(?, ?, ?, ?)`, namespace, fmt.Sprintf("key-%d", i), now.Add(-time.Duration(i+1)*time.Second).UnixMilli(), []byte{1, 'x'}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -167,10 +167,10 @@ func TestStorePruneIsBoundedAndNamespaced(t *testing.T) {
 		t.Fatalf("Prune = (%d, %v), want (2, nil)", affected, err)
 	}
 	var one, two int
-	if err := store.db.QueryRow(`SELECT count(*) FROM popcornwave_authstate WHERE namespace = 'one'`).Scan(&one); err != nil {
+	if err := store.db.QueryRow(`SELECT count(*) FROM popcornweb_authstate WHERE namespace = 'one'`).Scan(&one); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.db.QueryRow(`SELECT count(*) FROM popcornwave_authstate WHERE namespace = 'two'`).Scan(&two); err != nil {
+	if err := store.db.QueryRow(`SELECT count(*) FROM popcornweb_authstate WHERE namespace = 'two'`).Scan(&two); err != nil {
 		t.Fatal(err)
 	}
 	if one != 2 || two != 1 {
@@ -201,7 +201,7 @@ func TestEnsureSchemaIsIdempotentAndRejectsIncompatibleTable(t *testing.T) {
 	}
 	badDB.SetMaxOpenConns(1)
 	defer badDB.Close()
-	if _, err := badDB.Exec(`CREATE TABLE popcornwave_authstate(namespace TEXT)`); err != nil {
+	if _, err := badDB.Exec(`CREATE TABLE popcornweb_authstate(namespace TEXT)`); err != nil {
 		t.Fatal(err)
 	}
 	badStore, err := authstate.NewSQLStore[string](badDB, stringCodec{}, authstate.SQLOptions{Dialect: authsqlite.Dialect, Namespace: "test"})

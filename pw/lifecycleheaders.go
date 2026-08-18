@@ -1,6 +1,6 @@
 package pw
 
-import "github.com/shibukawa/popcornwave/middlewares"
+import "github.com/shibukawa/popcornweb/middlewares"
 
 // Lifecycle describes the deprecation and expected shutdown dates of the
 // routes wrapped by LifecycleHeaders.

@@ -5,7 +5,7 @@ package fastfixture
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // Greet is the authored handler, and the only one written here. Its fasthttp

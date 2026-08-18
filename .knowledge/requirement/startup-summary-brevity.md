@@ -8,7 +8,7 @@ The startup summary must show what this deployment decided, which needs an appli
 ```yaml
 priority: should
 intent: an operator reads policy:startup-summary and finds the decisions without filtering it by eye
-upstream: system:tinybind states both levers; this states Popcorn Wave's obligation to adopt them
+upstream: system:tinybind states both levers; this states Popcorn Web's obligation to adopt them
 measured_case:
   source: this repository, session.backend=redis and auth.mode=oidc_only, auth and session enabled
   file_set_keys: 9

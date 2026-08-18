@@ -7,8 +7,8 @@ The package section of a concept:component-package's data:project-config declare
 
 ```yaml
 files:
-  published: popcornwave.toml in the package module root, the same file api:cli-generate already reads for the package's own generation
-  consuming: popcornwave.toml in the application, whose packages array names the modules, per decision:declared-package-installation
+  published: popcornweb.toml in the package module root, the same file api:cli-generate already reads for the package's own generation
+  consuming: popcornweb.toml in the application, whose packages array names the modules, per decision:declared-package-installation
 reachability: shipped inside the module, so the consumer's CLI reads the published half from the module cache with no network access and no build
 published_schema:
   selector: project.kind = "package", which is also what makes project.main optional
@@ -20,7 +20,7 @@ published_schema:
       capabilities: the requirement:incremental-project-capabilities members the package needs, such as database
       engines: the requirement:database-engine-selection engines the package supports, empty meaning it touches no SQL
     generated_with:
-      pw: the Popcorn Wave version that generated the committed artifacts
+      pw: the Popcorn Web version that generated the committed artifacts
       tinybind: the system:tinybind version behind it
       consumer: policy:package-compatibility decides what a mismatch means
     config:
@@ -58,5 +58,5 @@ consumers:
 discovery:
   how: the packages array, resolved against the module graph
   why_not_the_module_graph_alone: go.mod says a module is available, including transitively; the array says the application intends to use it, and the bootstrap generator needs the second fact
-  why_not_a_separate_state_file: a project-local record of installed packages would disagree with popcornwave.toml, which is the reasoning requirement:incremental-project-capabilities used to reject a capability manifest
+  why_not_a_separate_state_file: a project-local record of installed packages would disagree with popcornweb.toml, which is the reasoning requirement:incremental-project-capabilities used to reject a capability manifest
 ```

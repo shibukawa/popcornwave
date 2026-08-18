@@ -1,4 +1,4 @@
-// Package database resolves a Popcorn Wave rdb DSN onto the engine that opens it.
+// Package database resolves a Popcorn Web rdb DSN onto the engine that opens it.
 //
 // A DSN is scheme://rest, and the scheme names an engine rather than a
 // database/sql driver. The distinction matters: the PostgreSQL package builds
@@ -10,7 +10,7 @@
 // An engine registers itself from init, so a project links only the engine its
 // DSN selects:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/postgres"
+//	import _ "github.com/shibukawa/popcornweb/database/postgres"
 //
 // An engine may also register a native opener, which the request-time query
 // path uses instead of database/sql: the sql.DB pool mutex, the per-conn
@@ -119,11 +119,11 @@ var registry struct {
 func Register(engine Engine) {
 	switch {
 	case engine.Dialect == "":
-		panic("popcornwave/database: engine has no dialect")
+		panic("popcornweb/database: engine has no dialect")
 	case engine.Open == nil:
-		panic("popcornwave/database: engine " + engine.Dialect + " has no Open")
+		panic("popcornweb/database: engine " + engine.Dialect + " has no Open")
 	case len(engine.Schemes) == 0:
-		panic("popcornwave/database: engine " + engine.Dialect + " has no scheme")
+		panic("popcornweb/database: engine " + engine.Dialect + " has no scheme")
 	}
 	registry.Lock()
 	defer registry.Unlock()
@@ -132,7 +132,7 @@ func Register(engine Engine) {
 	}
 	for _, scheme := range engine.Schemes {
 		if existing, taken := registry.engines[scheme]; taken && existing.Dialect != engine.Dialect {
-			panic(fmt.Sprintf("popcornwave/database: scheme %q is already registered by %q",
+			panic(fmt.Sprintf("popcornweb/database: scheme %q is already registered by %q",
 				scheme, existing.Dialect))
 		}
 		registry.engines[scheme] = engine
@@ -152,7 +152,7 @@ type Target struct {
 // Open opens the pool. The caller applies its own pool bounds and ping.
 func (target Target) Open() (*sql.DB, error) {
 	if target.open == nil {
-		return nil, errors.New("popcornwave: database target was not resolved")
+		return nil, errors.New("popcornweb: database target was not resolved")
 	}
 	return target.open(target.DataSource)
 }
@@ -166,7 +166,7 @@ func (target Target) Native() bool {
 // pings, because a native pool connects lazily.
 func (target Target) OpenNative(ctx context.Context, bounds PoolBounds) (NativeDB, error) {
 	if target.openNative == nil {
-		return nil, errors.New("popcornwave: engine " + target.Dialect + " has no native opener")
+		return nil, errors.New("popcornweb: engine " + target.Dialect + " has no native opener")
 	}
 	return target.openNative(ctx, target.DataSource, bounds)
 }
@@ -231,11 +231,11 @@ func Schemes() []string {
 // an engine that exists but was not linked reports the import to add instead of
 // looking like an unknown database.
 var shipped = map[string]string{
-	"sqlite":     "github.com/shibukawa/popcornwave/database/sqlite",
-	"sqlite3":    "github.com/shibukawa/popcornwave/database/sqlite",
-	"postgres":   "github.com/shibukawa/popcornwave/database/postgres",
-	"postgresql": "github.com/shibukawa/popcornwave/database/postgres",
-	"mysql":      "github.com/shibukawa/popcornwave/database/mysql",
+	"sqlite":     "github.com/shibukawa/popcornweb/database/sqlite",
+	"sqlite3":    "github.com/shibukawa/popcornweb/database/sqlite",
+	"postgres":   "github.com/shibukawa/popcornweb/database/postgres",
+	"postgresql": "github.com/shibukawa/popcornweb/database/postgres",
+	"mysql":      "github.com/shibukawa/popcornweb/database/mysql",
 }
 
 func remedy(scheme string) string {

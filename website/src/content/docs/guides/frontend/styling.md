@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-Popcorn Wave does not force one CSS workflow. Component-scoped styles require no
+Popcorn Web does not force one CSS workflow. Component-scoped styles require no
 setup, while Tailwind CSS remains an opt-in build tool. The two approaches can
 also share a component without competing for its class names.
 
@@ -32,7 +32,7 @@ attribute. See [Templates](/guides/frontend/templates/).
 
 ## Tailwind CSS
 
-Popcorn Wave drives the **standalone** Tailwind binary. There is no
+Popcorn Web drives the **standalone** Tailwind binary. There is no
 `package.json`, no `node_modules`, and no Node lockfile.
 
 The shortest path is to enable it when creating the project:
@@ -56,7 +56,7 @@ message if it is missing. Add it to `devbox.json`:
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": ["go@latest", "git@latest", "valkey@latest", "tailwindcss_4@4.1.18"],
-  "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
+  "shell": {"init_hook": ["echo 'Popcorn Web development environment'"]}
 }
 ```
 
@@ -88,7 +88,7 @@ For the layout in [Project structure](/guides/architecture/project-structure/), 
 The `@import "tailwindcss"` line is checked before the build runs, so a
 malformed entry point is reported rather than silently producing empty CSS.
 
-**3. Turn it on in `popcornwave.toml`.**
+**3. Turn it on in `popcornweb.toml`.**
 
 ```toml
 [assets.tailwind]

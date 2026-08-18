@@ -17,26 +17,26 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/term"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/internal/pwgen"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/sessionstore"
 
 	// The CLI writes a migration in any dialect, so it links every engine the
 	// framework knows rather than the one this machine happens to run.
-	_ "github.com/shibukawa/popcornwave/authstate/mysql"
-	_ "github.com/shibukawa/popcornwave/authstate/postgres"
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/mysql"
-	_ "github.com/shibukawa/popcornwave/sessionstore/postgres"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/mysql"
+	_ "github.com/shibukawa/popcornweb/authstate/postgres"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/mysql"
+	_ "github.com/shibukawa/popcornweb/sessionstore/postgres"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 // Where the starter page sends a reader who wants more than it holds. Literal,
 // because a landing page that needs a lookup to render is not a starting point.
 const (
-	documentationURL = "https://shibukawa.github.io/popcornwave/"
-	repositoryURL    = "https://github.com/shibukawa/popcornwave"
+	documentationURL = "https://shibukawa.github.io/popcornweb/"
+	repositoryURL    = "https://github.com/shibukawa/popcornweb"
 )
 
 const initUsage = "usage: pw init [<project-name>] [--yes] [--router=registered|discovered|both] [--tailwind] [--tinygo] [--no-devbox] [--no-database] [--db=sqlite|postgres|mysql] [--dynamo] [--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=dev-volatile|dev-persist|rdb|cookie|redis|dynamo] [--devidp] [--skills=claude|agents|none]"
@@ -171,13 +171,13 @@ func sessionBackendPlugin(backend, engine string) string {
 	case sessionRDB:
 		// A SQL store is one package per engine, because no engine reads
 		// another's DDL.
-		return "github.com/shibukawa/popcornwave/sessionstore/" + engineDialect(engine)
+		return "github.com/shibukawa/popcornweb/sessionstore/" + engineDialect(engine)
 	case sessionRedis:
-		return "github.com/shibukawa/popcornwave/sessionstore/redis"
+		return "github.com/shibukawa/popcornweb/sessionstore/redis"
 	case sessionDynamo:
-		return "github.com/shibukawa/popcornwave/sessionstore/dynamo"
+		return "github.com/shibukawa/popcornweb/sessionstore/dynamo"
 	case sessionFirestore:
-		return "github.com/shibukawa/popcornwave/sessionstore/firestore"
+		return "github.com/shibukawa/popcornweb/sessionstore/firestore"
 	default:
 		return ""
 	}
@@ -204,7 +204,7 @@ const (
 
 // The directories pw init scaffolds each router into. They are defaults rather
 // than fixed names: generation, pw new, and pw dev all read the data:project-config
-// purpose lists, so a project renames a tree by editing popcornwave.toml and
+// purpose lists, so a project renames a tree by editing popcornweb.toml and
 // moving the directory.
 const (
 	defaultRegisteredDir = "handlers"
@@ -897,7 +897,7 @@ func scaffoldFiles(options initOptions) map[string]string {
 	}
 	files := map[string]string{
 		"go.mod": "module " + name + "\n\ngo 1.26.0\n\n" + moduleExtra,
-		"popcornwave.toml": `[project]
+		"popcornweb.toml": `[project]
 name = "` + name + `"
 main = "./cmd/` + name + `"
 toolchain = "` + projectToolchain(options) + `"
@@ -961,7 +961,7 @@ external RuntimeScriptURL(): url
 
 export component Document(children: html?): html {
   <!doctype html>
-  <html lang="en"><head><meta charset="utf-8"><title>Popcorn Wave</title>` + homeStylesheet +
+  <html lang="en"><head><meta charset="utf-8"><title>Popcorn Web</title>` + homeStylesheet +
 			`<script type="module" src={RuntimeScriptURL()}></script></head>
   <body` + homeClasses + `><slot /></body></html>
 }
@@ -971,7 +971,7 @@ export component Document(children: html?): html {
 import (
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // RuntimeScriptURL backs the external declaration in document.pw.html.
@@ -1018,7 +1018,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornweb/middlewares"
 )
 
 //go:embed all:dist/public
@@ -1159,7 +1159,7 @@ import _ "github.com/shibukawa/tinygodriver/netdev"
 		if sessionBackend(options) == sessionRDB {
 			// A migration is written in the dialect of the engine this project
 			// selected, because no engine reads another's DDL.
-			migration, err := sessionstore.MigrationSQL(dialect, "popcornwave_session")
+			migration, err := sessionstore.MigrationSQL(dialect, "popcornweb_session")
 			if err != nil {
 				panic(err)
 			}
@@ -1301,7 +1301,7 @@ func firestoreRuntimeSection() string {
 # the mode is chosen at creation and cannot be changed afterwards.
 [middleware.firestore]
 enabled = true
-project_id = "demo-popcornwave"
+project_id = "demo-popcornweb"
 endpoint = "127.0.0.1:8081"
 `
 }
@@ -1319,7 +1319,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/firestore"
+	"github.com/shibukawa/popcornweb/database/firestore"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 )
 
@@ -1392,7 +1392,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/dynamo"
+	"github.com/shibukawa/popcornweb/database/dynamo"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 )
 
@@ -1486,7 +1486,7 @@ func sessionBackendImport(options initOptions) string {
 		// accepts an empty issuer and every request arrives unauthenticated.
 		imports += "\n\t// The bearer verifier. It registers itself on import, and without\n" +
 			"\t// this line the [auth] section below is configuration nothing reads.\n\t_ " +
-			strconv.Quote("github.com/shibukawa/popcornwave/plugin/auth")
+			strconv.Quote("github.com/shibukawa/popcornweb/plugin/auth")
 	}
 	if servesBrowserLogin(options) {
 		if backend := authBackend(options); backend != "rdb" {
@@ -1494,13 +1494,13 @@ func sessionBackendImport(options initOptions) string {
 			// owns, so both halves are imported: the ceremony store and the
 			// account-side stores.
 			imports += "\n\t// auth.backend = \"" + backend + "\" is served by these two imports.\n\t_ " +
-				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+backend) +
-				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornwave/authstore/"+backend)
+				strconv.Quote("github.com/shibukawa/popcornweb/authstate/"+backend) +
+				"\n\t_ " + strconv.Quote("github.com/shibukawa/popcornweb/authstore/"+backend)
 		} else {
 			// The login ceremony records live in the database whichever backend
 			// holds the sessions, so their engine is imported for every login.
 			imports += "\n\t// The single-use login records this engine stores.\n\t_ " +
-				strconv.Quote("github.com/shibukawa/popcornwave/authstate/"+engineDialect(options.Engine))
+				strconv.Quote("github.com/shibukawa/popcornweb/authstate/"+engineDialect(options.Engine))
 		}
 	}
 	return imports
@@ -1555,7 +1555,7 @@ func storeMiddlewareImport(options initOptions) string {
 		return ""
 	}
 	return "\n\t// Opens the Firestore client and installs it into every request.\n\t_ " +
-		strconv.Quote("github.com/shibukawa/popcornwave/database/firestore")
+		strconv.Quote("github.com/shibukawa/popcornweb/database/firestore")
 }
 
 // authBootstrap installs the account resolver. That call is the whole
@@ -1704,7 +1704,7 @@ wire("passkey-register", register);
 // accountsScaffold wires the account seams the selected mode needs. Each one is
 // a small function the framework calls; the application owns account storage.
 func accountsScaffold(options initOptions) string {
-	imports := "\t\"context\"\n\n\t\"github.com/shibukawa/popcornwave/plugin/auth\"\n"
+	imports := "\t\"context\"\n\n\t\"github.com/shibukawa/popcornweb/plugin/auth\"\n"
 	body := "// RegisterAccounts installs the account seams. Call it from main before\n// pw.Run.\nfunc RegisterAccounts() {\n"
 	if usesOIDC(options.Auth) {
 		body += "\tauth.SetAccountResolver(resolveAccount)\n"
@@ -1786,7 +1786,7 @@ func homeHandlerScaffold(options initOptions) string {
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func init() { mux.HandleFunc("` + pattern + `", home) }
@@ -1820,8 +1820,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func init() { mux.HandleFunc("` + pattern + `", home) }
@@ -2067,7 +2067,7 @@ func registeredHomeRoute(options initOptions) (pattern, path string) {
 func registeredHomeHeader(options initOptions, style landingStyle) string {
 	if effectiveRouter(options.Router) != routerBoth {
 		return `  <header>
-    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <p` + style.Eyebrow + `>Popcorn Web</p>
     <h1` + style.Title + `>{project}</h1>
     <p` + style.Lead + `>Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
   </header>
@@ -2561,7 +2561,7 @@ identity_claim = "sub"
 # issuer mints for, so it states what it is willing to accept.
 max_token_lifetime = "1h"
 # No revocation list, so a verified token is good until it expires. Turning
-# this on takes a database and the popcornwave_revoked_token migration with it.
+# this on takes a database and the popcornweb_revoked_token migration with it.
 revocation.mode = "off"
 `
 }
@@ -2751,7 +2751,7 @@ func mainScaffold(options initOptions) string {
 	handler := ""
 	switch router := effectiveRouter(options.Router); {
 	case router == routerRegistered:
-		imports += "\t\"" + name + "/" + registered + "\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+		imports += "\t\"" + name + "/" + registered + "\"\n\t\"github.com/shibukawa/popcornweb/pw\""
 		handler = registeredPkg + ".Handlers()"
 	case router == routerDiscovered:
 		imports += "\t\"" + name + "/" + discovered + "\""
@@ -2762,12 +2762,12 @@ func mainScaffold(options initOptions) string {
 			// route from.
 			imports += "\n\t\"" + name + "/" + registered + "\""
 		}
-		imports += "\n\t\"github.com/shibukawa/popcornwave/pw\""
+		imports += "\n\t\"github.com/shibukawa/popcornweb/pw\""
 		body = "\tmux := pw.NewServeMux()\n\t" + discoveredPkg + ".Register(mux)\n"
 		handler = "mux"
 	default:
 		imports += "\t\"" + name + "/" + registered + "\"\n\t\"" + name + "/" + discovered +
-			"\"\n\t\"github.com/shibukawa/popcornwave/pw\""
+			"\"\n\t\"github.com/shibukawa/popcornweb/pw\""
 		body = "\t// The page routes join the handler mux. Registration order does not\n" +
 			"\t// matter; a duplicate pattern would panic here rather than shadow.\n" +
 			"\tmux := " + registeredPkg + ".Handlers()\n\t" + discoveredPkg + ".Register(mux)\n"
@@ -2840,7 +2840,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func init() { mux.HandleFunc("GET /me", me) }
@@ -2899,7 +2899,7 @@ export component Layout(children: html): html {
 export component Page(` + discoveredRootParams(options) + `): html {
 <div` + style.Page + `>
   <header>
-    <p` + style.Eyebrow + `>Popcorn Wave</p>
+    <p` + style.Eyebrow + `>Popcorn Web</p>
     <h1` + style.Title + `>` + options.Name + `</h1>
     <p` + style.Lead + `>A directory holding a page template is a route, so <a` + style.Link + ` href="/greet/world">/greet/world</a> is served by the directory beside this one.` + discoveredCounterpartLink(options, style) + `</p>
   </header>
@@ -2959,9 +2959,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwpage"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwpage"
 )
 
 // Load renders the starter landing page, signed in or not.
@@ -2995,7 +2995,7 @@ func muxScaffold(options initOptions) string {
 	if options.TinyGo {
 		return firstBuild(options) + `package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 
@@ -3169,7 +3169,7 @@ func errorRegistrationScaffold() string {
 
 // The shared leaf rather than a runtime: this file belongs to both builds, and
 // the error page registry is one process-wide table either of them reads.
-import "github.com/shibukawa/popcornwave/pwruntime"
+import "github.com/shibukawa/popcornweb/pwruntime"
 
 // The framework renders one of these when a request fails and the client would
 // rather have a page than a problem document. It also renders one in place of a
@@ -3240,16 +3240,16 @@ export component ` + component + `(status: int, title: string, detail: string, c
 }
 
 func frameworkModuleDirective() string {
-	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Path == "github.com/shibukawa/popcornwave" &&
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Path == "github.com/shibukawa/popcornweb" &&
 		info.Main.Version != "" && info.Main.Version != "(devel)" && !strings.Contains(info.Main.Version, "+dirty") {
-		return "require github.com/shibukawa/popcornwave " + info.Main.Version + "\n"
+		return "require github.com/shibukawa/popcornweb " + info.Main.Version + "\n"
 	}
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return "require github.com/shibukawa/popcornwave latest\n"
+		return "require github.com/shibukawa/popcornweb latest\n"
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	return "require github.com/shibukawa/popcornwave v0.0.0\n\nreplace github.com/shibukawa/popcornwave => " + filepath.ToSlash(root) + "\n"
+	return "require github.com/shibukawa/popcornweb v0.0.0\n\nreplace github.com/shibukawa/popcornweb => " + filepath.ToSlash(root) + "\n"
 }
 
 // firstBuild excludes an authored file from the second build.
@@ -3316,10 +3316,10 @@ func fastMainScaffold(options initOptions) string {
 		// The other build gains these frames from an import; this one cannot,
 		// because a chain assembled from arguments does not silently gain a
 		// frame. So it names them.
-		imports += "\t\"github.com/shibukawa/popcornwave/plugin/auth/authfast\"\n"
+		imports += "\t\"github.com/shibukawa/popcornweb/plugin/auth/authfast\"\n"
 		run = "pwfast.Run(context.Background(), mux.Handler, pwfast.WithSetup(authfast.Contribute))"
 	}
-	imports += "\t\"github.com/shibukawa/popcornwave/pwfast\""
+	imports += "\t\"github.com/shibukawa/popcornweb/pwfast\""
 	return `//go:build fasthttp
 
 package main

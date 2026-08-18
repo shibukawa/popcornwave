@@ -3,7 +3,7 @@ package pw
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/pwratelimit"
+	"github.com/shibukawa/popcornweb/pwratelimit"
 )
 
 // The counter store registry is the shared leaf's, so a backend registered by a
@@ -33,7 +33,7 @@ type RateLimitStoreFactory = pwratelimit.StoreFactory
 // RegisterRateLimitStore registers factory under name. A storage plugin calls
 // it from init, so a blank import is what puts a backend in a binary:
 //
-//	import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/ratelimitstore/redis"
 //
 // The in-process counter is built in, because it adds no dependency and a
 // limiter that needs one before it starts is one nobody switches on.

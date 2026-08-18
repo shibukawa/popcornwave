@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 var errNotRegistered = errors.New("devidp: redirect_uri is not registered")

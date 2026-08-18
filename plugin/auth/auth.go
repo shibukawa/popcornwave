@@ -1,9 +1,9 @@
 // Package auth adds browser authentication and bearer-token API authentication
-// to a Popcorn Wave application. Importing it registers the [auth]
+// to a Popcorn Web application. Importing it registers the [auth]
 // configuration binding and the framework extensions that authenticate
 // requests and guard protected paths.
 //
-//	import _ "github.com/shibukawa/popcornwave/plugin/auth"
+//	import _ "github.com/shibukawa/popcornweb/plugin/auth"
 //
 // Browser modes use OIDC, passkeys, or both and establish a session in the
 // backend session.backend selects. auth.mode = "jwt_only" instead verifies an
@@ -21,10 +21,10 @@
 //
 // # What it reads through pw and what it no longer does
 //
-// The settings and the environment come from popcornwave/pwconfig, and the
-// request state from popcornwave/pwruntime, so the decisions in this package
+// The settings and the environment come from popcornweb/pwconfig, and the
+// request state from popcornweb/pwruntime, so the decisions in this package
 // are reachable from a build serving on either transport — which is what
-// popcornwave/plugin/auth/authfast then does.
+// popcornweb/plugin/auth/authfast then does.
 //
 // What is still pw's is what is genuinely the net/http runtime's: the extension
 // registry this registers into, the session manager it drives, and the
@@ -36,21 +36,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shibukawa/popcornwave/pwsession"
+	"github.com/shibukawa/popcornweb/pwsession"
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/contrib/oauth"
-	"github.com/shibukawa/popcornwave/contrib/oidc"
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
+	"github.com/shibukawa/popcornweb/contrib/oidc"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // Authentication method names recorded on a session and reported by
@@ -78,7 +78,7 @@ const stateNamespace = "auth-oidc"
 // authFastPackage is where this capability is served on the second transport.
 // It is a string rather than an import, because importing it from here would
 // put the fasthttp runtime into every net/http build.
-const authFastPackage = "github.com/shibukawa/popcornwave/plugin/auth/authfast"
+const authFastPackage = "github.com/shibukawa/popcornweb/plugin/auth/authfast"
 
 func init() {
 	registerSessionSlot()

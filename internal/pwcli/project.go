@@ -323,7 +323,7 @@ const (
 )
 
 func loadProjectConfig(root string) (projectConfig, error) {
-	path := filepath.Join(root, "popcornwave.toml")
+	path := filepath.Join(root, "popcornweb.toml")
 	source, err := os.ReadFile(path)
 	if err != nil {
 		return projectConfig{}, fmt.Errorf("read %s: %w", path, err)
@@ -367,7 +367,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			continue
 		}
 		if !slices.Contains(known, key) {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: unknown key %s", key)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: unknown key %s", key)
 		}
 	}
 	config := projectConfig{}
@@ -383,7 +383,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Kind = kindApplication
 	}
 	if config.Kind != kindApplication && config.Kind != kindPackage {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.kind must be %q or %q", kindApplication, kindPackage)
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: project.kind must be %q or %q", kindApplication, kindPackage)
 	}
 	config.Main, err = optionalScalar(document, "project.main")
 	if err != nil {
@@ -397,7 +397,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Toolchain = toolchainTinyGo
 	}
 	if config.Toolchain != toolchainTinyGo && config.Toolchain != toolchainGo {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: project.toolchain must be %q or %q", toolchainTinyGo, toolchainGo)
 	}
 	config.Database, err = optionalScalar(document, "project.database")
 	if err != nil {
@@ -409,12 +409,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Database = engineSQLite
 	}
 	if !validEngine(config.Database) {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: project.database must be %s", engineNames())
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: project.database must be %s", engineNames())
 	}
 	if value, ok := document.Get("project.fasthttp"); ok {
 		config.FastHTTP, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: project.fasthttp: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: project.fasthttp: %w", err)
 		}
 	}
 	config.Generate, err = generationSources(document, root)
@@ -431,7 +431,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("dev.idp.enabled"); ok {
 		config.IdP.Enabled, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.idp.enabled: %w", err)
 		}
 	}
 	config.IdP.Config, err = optionalScalar(document, "dev.idp.config")
@@ -442,15 +442,15 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.IdP.Config = defaultIdPConfig
 	}
 	if filepath.IsAbs(config.IdP.Config) {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.config must be relative to the project")
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.idp.config must be relative to the project")
 	}
 	if value, ok := document.Get("dev.idp.port"); ok {
 		port, err := value.AsInt()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.idp.port: %w", err)
 		}
 		if port < 0 || port > 65535 {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.idp.port must be between 0 and 65535")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.idp.port must be between 0 and 65535")
 		}
 		config.IdP.Port = int(port)
 	}
@@ -458,26 +458,26 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("dev.otel.enabled"); ok {
 		config.Otel.Enabled, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.otel.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.otel.port"); ok {
 		port, err := value.AsInt()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.otel.port: %w", err)
 		}
 		if port < 0 || port > 65535 {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.port must be between 0 and 65535")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.otel.port must be between 0 and 65535")
 		}
 		config.Otel.Port = int(port)
 	}
 	if value, ok := document.Get("dev.otel.max"); ok {
 		max, err := value.AsInt()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.otel.max: %w", err)
 		}
 		if max < 0 {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.otel.max must not be negative")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.otel.max must not be negative")
 		}
 		config.Otel.Max = int(max)
 	}
@@ -485,7 +485,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("dev.logs.enabled"); ok {
 		config.Logs.Enabled, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.logs.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.logs.enabled: %w", err)
 		}
 	}
 	config.Logs.Directory, err = optionalScalar(document, "dev.logs.directory")
@@ -497,7 +497,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	}
 	logDirectory := filepath.Clean(filepath.FromSlash(config.Logs.Directory))
 	if filepath.IsAbs(logDirectory) || logDirectory == "." || logDirectory == ".." || strings.HasPrefix(logDirectory, ".."+string(filepath.Separator)) {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.logs.directory must be a relative directory within the project")
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.logs.directory must be a relative directory within the project")
 	}
 	config.Logs.Directory = filepath.ToSlash(logDirectory)
 	config.Console.Enabled = true
@@ -512,44 +512,44 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("dev.console.enabled"); ok {
 		config.Console.Enabled, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.assets.enabled"); ok {
 		config.Console.Assets, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.assets.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.assets.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.overlay.enabled"); ok {
 		config.Console.Overlay, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.overlay.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.overlay.reload"); ok {
 		config.Console.Reload, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.overlay.reload: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.overlay.reload: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.launcher.enabled"); ok {
 		config.Console.Launcher, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.launcher.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.launcher.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.launcher.corner"); ok {
 		corner, err := value.AsString()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.launcher.corner: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.launcher.corner: %w", err)
 		}
 		if !slices.Contains(launcherCorners, corner) {
 			// Named rather than defaulted, so a typo does not read as a corner
 			// the project chose. project.toolchain and project.database reject
 			// an unknown value for the same reason.
 			return projectConfig{}, fmt.Errorf(
-				"popcornwave.toml: dev.console.launcher.corner: %q is not one of %s",
+				"popcornweb.toml: dev.console.launcher.corner: %q is not one of %s",
 				corner, strings.Join(launcherCorners, ", "))
 		}
 		config.Console.LauncherCorner = corner
@@ -557,22 +557,22 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("dev.console.storybook.enabled"); ok {
 		config.Console.Storybook, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.storybook.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.storybook.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.data.enabled"); ok {
 		config.Console.Data, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.data.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.data.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.port"); ok {
 		port, err := value.AsInt()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.port: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.port: %w", err)
 		}
 		if port < 0 || port > 65535 {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: dev.console.port must be between 0 and 65535")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.port must be between 0 and 65535")
 		}
 		config.Console.Port = int(port)
 	}
@@ -584,20 +584,20 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Migration.Dir = defaultMigrationDir
 	}
 	if filepath.IsAbs(config.Migration.Dir) {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: migration.dir must be relative to the project")
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: migration.dir must be relative to the project")
 	}
 	config.Migration.Auto = true
 	if value, ok := document.Get("migration.auto"); ok {
 		config.Migration.Auto, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: migration.auto: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: migration.auto: %w", err)
 		}
 	}
 	config.Seed.Auto = true
 	if value, ok := document.Get("seed.auto"); ok {
 		config.Seed.Auto, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: seed.auto: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: seed.auto: %w", err)
 		}
 	}
 	// Both verification checks read bytes the asset walk already holds, so
@@ -623,7 +623,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		}
 		parsed, err := value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: %s: %w", binding.key, err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: %s: %w", binding.key, err)
 		}
 		*binding.target = parsed
 	}
@@ -633,34 +633,34 @@ func loadProjectConfig(root string) (projectConfig, error) {
 	if value, ok := document.Get("assets.images.quality"); ok {
 		quality, err := value.AsInt()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.images.quality: %w", err)
 		}
 		if quality < 1 || quality > 100 {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.images.quality must be between 1 and 100")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.images.quality must be between 1 and 100")
 		}
 		config.Assets.ImageQuality = int(quality)
 	}
 	config.Assets.VerifyAllow, err = array(document, "assets.verify.allow")
 	if err != nil {
-		return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.verify.allow: %w", err)
+		return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.verify.allow: %w", err)
 	}
 	for _, glob := range config.Assets.VerifyAllow {
 		// An absolute or escaping glob would silently exempt nothing, since
 		// every path it is matched against is relative to the authored tree.
 		if glob == "" || strings.HasPrefix(glob, "/") || strings.HasPrefix(glob, "../") {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.verify.allow: %q must be relative to the public directory", glob)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.verify.allow: %q must be relative to the public directory", glob)
 		}
 	}
 	if value, ok := document.Get("assets.tailwind.enabled"); ok {
 		config.Tailwind.Enabled, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.tailwind.enabled: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.tailwind.enabled: %w", err)
 		}
 	}
 	if value, ok := document.Get("assets.tailwind.minify"); ok {
 		config.Tailwind.Minify, err = value.AsBool()
 		if err != nil {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: assets.tailwind.minify: %w", err)
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: assets.tailwind.minify: %w", err)
 		}
 	}
 	config.Tailwind.Input, err = optionalScalar(document, "assets.tailwind.input")
@@ -679,12 +679,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 			config.Tailwind.Output = defaultTailwindOutput
 		}
 		if filepath.IsAbs(config.Tailwind.Input) || filepath.IsAbs(config.Tailwind.Output) {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: Tailwind input and output must be relative to the project")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: Tailwind input and output must be relative to the project")
 		}
 		input := filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Tailwind.Input)))
 		output := filepath.Clean(filepath.Join(root, filepath.FromSlash(config.Tailwind.Output)))
 		if input == output {
-			return projectConfig{}, fmt.Errorf("popcornwave.toml: Tailwind input and output must be different files")
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: Tailwind input and output must be different files")
 		}
 	}
 	config.I18n, err = readI18n(document)
@@ -709,7 +709,7 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 	if len(locales) == 0 {
 		for _, key := range document.Keys() {
 			if strings.HasPrefix(key, "i18n.") {
-				return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s is set but i18n.locales is empty, so nothing declares which languages exist", key)
+				return i18nConfig{}, fmt.Errorf("popcornweb.toml: %s is set but i18n.locales is empty, so nothing declares which languages exist", key)
 			}
 		}
 		return i18nConfig{}, nil
@@ -717,10 +717,10 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 	seen := map[string]bool{}
 	for _, tag := range locales {
 		if tag == "" {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.locales holds an empty tag")
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.locales holds an empty tag")
 		}
 		if seen[tag] {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.locales lists %q twice", tag)
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.locales lists %q twice", tag)
 		}
 		seen[tag] = true
 	}
@@ -736,14 +736,14 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 		config.DefaultLocale = locales[0]
 	}
 	if !seen[config.DefaultLocale] {
-		return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.default_locale %q is not in i18n.locales", config.DefaultLocale)
+		return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.default_locale %q is not in i18n.locales", config.DefaultLocale)
 	}
 
 	if catalog, err := optionalScalar(document, "i18n.catalog"); err != nil {
 		return i18nConfig{}, err
 	} else if catalog != "" {
 		if filepath.IsAbs(catalog) || strings.HasPrefix(catalog, "../") {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.catalog %q must be inside the project", catalog)
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.catalog %q must be inside the project", catalog)
 		}
 		config.Catalog = catalog
 	}
@@ -752,7 +752,7 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 		return i18nConfig{}, err
 	} else if missing != "" {
 		if missing != "error" && missing != "warn" {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.missing is %q, want error or warn", missing)
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.missing is %q, want error or warn", missing)
 		}
 		config.Missing = missing
 	}
@@ -760,7 +760,7 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 	if value, ok := document.Get("i18n.prefix_default"); ok {
 		config.PrefixDefault, err = value.AsBool()
 		if err != nil {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: i18n.prefix_default: %w", err)
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: i18n.prefix_default: %w", err)
 		}
 	}
 
@@ -771,7 +771,7 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 		}
 		tag := strings.TrimPrefix(key, i18nLabelKeyPrefix)
 		if !seen[tag] {
-			return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s names %q, which is not in i18n.locales", key, tag)
+			return i18nConfig{}, fmt.Errorf("popcornweb.toml: %s names %q, which is not in i18n.locales", key, tag)
 		}
 		label, err := scalar(document, key)
 		if err != nil {
@@ -788,10 +788,10 @@ func readI18n(document minitoml.Document) (i18nConfig, error) {
 		}
 		for _, prefix := range entries {
 			if !strings.HasPrefix(prefix, "/") {
-				return i18nConfig{}, fmt.Errorf("popcornwave.toml: %s %q must start with a slash", mode.key, prefix)
+				return i18nConfig{}, fmt.Errorf("popcornweb.toml: %s %q must start with a slash", mode.key, prefix)
 			}
 			if previous, clash := prefixes[prefix]; clash {
-				return i18nConfig{}, fmt.Errorf("popcornwave.toml: prefix %q is declared as both %s and %s", prefix, previous, mode.mode)
+				return i18nConfig{}, fmt.Errorf("popcornweb.toml: prefix %q is declared as both %s and %s", prefix, previous, mode.mode)
 			}
 			prefixes[prefix] = mode.mode
 			config.Routes = append(config.Routes, localeRoute{Prefix: prefix, Mode: mode.mode})
@@ -822,13 +822,13 @@ func (config *projectConfig) readKindSections(document minitoml.Document) error 
 	switch config.Kind {
 	case kindPackage:
 		if config.Main != "" {
-			return fmt.Errorf("popcornwave.toml: project.main does not apply to a package; the application that imports it owns the entry point")
+			return fmt.Errorf("popcornweb.toml: project.main does not apply to a package; the application that imports it owns the entry point")
 		}
 		if hasPackages {
-			return fmt.Errorf("popcornwave.toml: packages does not apply to a package; a package depends on another through go.mod like any Go module")
+			return fmt.Errorf("popcornweb.toml: packages does not apply to a package; a package depends on another through go.mod like any Go module")
 		}
 		if !hasManifest {
-			return fmt.Errorf("popcornwave.toml: a package project requires the package section; start with package.module")
+			return fmt.Errorf("popcornweb.toml: a package project requires the package section; start with package.module")
 		}
 		manifest, err := loadPackageManifest(document)
 		if err != nil {
@@ -840,14 +840,14 @@ func (config *projectConfig) readKindSections(document minitoml.Document) error 
 		// engine. Generating one would ship a query that compiles and then fails
 		// at the first call in half the projects that install it.
 		if len(config.Generate.Queries) > 0 {
-			return fmt.Errorf("popcornwave.toml: generate.queries must be empty in a package; a generated query is compiled for one engine and a package cannot know its consumer's")
+			return fmt.Errorf("popcornweb.toml: generate.queries must be empty in a package; a generated query is compiled for one engine and a package cannot know its consumer's")
 		}
 	default:
 		if config.Main == "" {
-			return fmt.Errorf("popcornwave.toml: project.main is required")
+			return fmt.Errorf("popcornweb.toml: project.main is required")
 		}
 		if hasManifest {
-			return fmt.Errorf("popcornwave.toml: the package section applies to a package; set project.kind = %q to publish this module", kindPackage)
+			return fmt.Errorf("popcornweb.toml: the package section applies to a package; set project.kind = %q to publish this module", kindPackage)
 		}
 		refs, err := packageRefs(document)
 		if err != nil {
@@ -889,10 +889,10 @@ func checkPageRoots(scope generationScope) error {
 		for _, root := range scope.Pages {
 			for _, entry := range entries {
 				if entry == root || strings.HasPrefix(entry, root+"/") {
-					return fmt.Errorf("popcornwave.toml: %s %q is inside the page tree root %q, which generates it already", key, entry, root)
+					return fmt.Errorf("popcornweb.toml: %s %q is inside the page tree root %q, which generates it already", key, entry, root)
 				}
 				if strings.HasPrefix(root, entry+"/") {
-					return fmt.Errorf("popcornwave.toml: page tree root %q is inside %s %q, which would read its templates a second time", root, key, entry)
+					return fmt.Errorf("popcornweb.toml: page tree root %q is inside %s %q, which would read its templates a second time", root, key, entry)
 				}
 			}
 		}
@@ -911,32 +911,32 @@ func purposeDirectories(document minitoml.Document, root, key string, optional b
 		if optional {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("popcornwave.toml: %s is required; list the directories it reads, such as %s, or [] when it generates nothing", key, sourcesExample)
+		return nil, fmt.Errorf("popcornweb.toml: %s is required; list the directories it reads, such as %s, or [] when it generates nothing", key, sourcesExample)
 	}
 	entries, err := value.AsStringSlice()
 	if err != nil {
-		return nil, fmt.Errorf("popcornwave.toml: %s: %w", key, err)
+		return nil, fmt.Errorf("popcornweb.toml: %s: %w", key, err)
 	}
 	seen := make(map[string]bool, len(entries))
 	directories := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if filepath.IsAbs(entry) {
-			return nil, fmt.Errorf("popcornwave.toml: %s %q must be relative to the project", key, entry)
+			return nil, fmt.Errorf("popcornweb.toml: %s %q must be relative to the project", key, entry)
 		}
 		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry)))
 		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-			return nil, fmt.Errorf("popcornwave.toml: %s %q must name a directory inside the project", key, entry)
+			return nil, fmt.Errorf("popcornweb.toml: %s %q must name a directory inside the project", key, entry)
 		}
 		if seen[clean] {
-			return nil, fmt.Errorf("popcornwave.toml: %s lists %q twice", key, entry)
+			return nil, fmt.Errorf("popcornweb.toml: %s lists %q twice", key, entry)
 		}
 		seen[clean] = true
 		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(clean)))
 		if err != nil {
-			return nil, fmt.Errorf("popcornwave.toml: %s %q: %w", key, entry, err)
+			return nil, fmt.Errorf("popcornweb.toml: %s %q: %w", key, entry, err)
 		}
 		if !info.IsDir() {
-			return nil, fmt.Errorf("popcornwave.toml: %s %q is not a directory", key, entry)
+			return nil, fmt.Errorf("popcornweb.toml: %s %q is not a directory", key, entry)
 		}
 		directories = append(directories, clean)
 	}
@@ -945,7 +945,7 @@ func purposeDirectories(document minitoml.Document, root, key string, optional b
 	for _, outer := range directories {
 		for _, inner := range directories {
 			if outer != inner && strings.HasPrefix(inner, outer+"/") {
-				return nil, fmt.Errorf("popcornwave.toml: %s %q is already covered by %q", key, inner, outer)
+				return nil, fmt.Errorf("popcornweb.toml: %s %q is already covered by %q", key, inner, outer)
 			}
 		}
 	}
@@ -960,27 +960,27 @@ func watchPaths(document minitoml.Document, root string) (watchConfig, error) {
 	var err error
 	config.Includes, err = array(document, "dev.watch.includes")
 	if err != nil {
-		return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes: %w", err)
+		return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.includes: %w", err)
 	}
 	for _, pattern := range config.Includes {
 		if filepath.IsAbs(pattern) {
-			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes paths must be relative")
+			return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.includes paths must be relative")
 		}
 		if _, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern))); err != nil {
-			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.includes %q: %w", pattern, err)
+			return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.includes %q: %w", pattern, err)
 		}
 	}
 	config.Excludes, err = array(document, "dev.watch.excludes")
 	if err != nil {
-		return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes: %w", err)
+		return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.excludes: %w", err)
 	}
 	for index, entry := range config.Excludes {
 		if filepath.IsAbs(entry) {
-			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes paths must be relative")
+			return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.excludes paths must be relative")
 		}
 		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry)))
 		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-			return watchConfig{}, fmt.Errorf("popcornwave.toml: dev.watch.excludes %q must name a directory inside the project", entry)
+			return watchConfig{}, fmt.Errorf("popcornweb.toml: dev.watch.excludes %q must name a directory inside the project", entry)
 		}
 		config.Excludes[index] = clean
 	}
@@ -990,7 +990,7 @@ func watchPaths(document minitoml.Document, root string) (watchConfig, error) {
 func scalar(document minitoml.Document, key string) (string, error) {
 	value, ok := document.Get(key)
 	if !ok {
-		return "", fmt.Errorf("popcornwave.toml: %s is required", key)
+		return "", fmt.Errorf("popcornweb.toml: %s is required", key)
 	}
 	return value.AsString()
 }
@@ -1002,7 +1002,7 @@ func optionalScalar(document minitoml.Document, key string) (string, error) {
 	}
 	result, err := value.AsString()
 	if err != nil {
-		return "", fmt.Errorf("popcornwave.toml: %s: %w", key, err)
+		return "", fmt.Errorf("popcornweb.toml: %s: %w", key, err)
 	}
 	return result, nil
 }
@@ -1021,12 +1021,12 @@ func projectRoot(start string) (string, error) {
 		return "", err
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(current, "popcornwave.toml")); err == nil {
+		if _, err := os.Stat(filepath.Join(current, "popcornweb.toml")); err == nil {
 			return current, nil
 		}
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("popcornwave.toml not found")
+			return "", fmt.Errorf("popcornweb.toml not found")
 		}
 		current = parent
 	}

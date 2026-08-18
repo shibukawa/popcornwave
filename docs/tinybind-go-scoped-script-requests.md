@@ -7,7 +7,7 @@
 
 Found against **tinybind-go v0.5.5** on 2026-08-11, while wiring
 `requirement:component-script-block` and `requirement:scoped-script-declaration`
-through Popcorn Wave. Two gaps, independent of each other, and together they are
+through Popcorn Web. Two gaps, independent of each other, and together they are
 what stands between the shipped module half and a working feature.
 
 ---

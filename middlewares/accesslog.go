@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // AccessLog writes one completion record per request through the pwruntime

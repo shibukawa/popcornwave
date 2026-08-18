@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
 )
 
 // checkPackages reports where a project's component package declarations and
@@ -26,7 +26,7 @@ func (r *checkRun) checkPackages(ctx context.Context) {
 			if errors.Is(err, errPackageNotInModuleGraph) {
 				r.report(pwcheck.PackageNotResolved,
 					fmt.Sprintf("packages declares %q, and the module graph does not carry it", ref.Module),
-					"popcornwave.toml packages")
+					"popcornweb.toml packages")
 			}
 			continue
 		}
@@ -34,7 +34,7 @@ func (r *checkRun) checkPackages(ctx context.Context) {
 		if err != nil {
 			r.report(pwcheck.PackageNotResolved,
 				fmt.Sprintf("packages declares %q: %v", ref.Module, err),
-				"popcornwave.toml packages")
+				"popcornweb.toml packages")
 			continue
 		}
 		resolved = append(resolved, resolvedPackage{Module: ref.Module, Dir: dir, Manifest: manifest})
@@ -61,7 +61,7 @@ func (r *checkRun) checkPackageImports(ctx context.Context, resolved []resolvedP
 		if pkg.Manifest.Import == "" {
 			message += "; its manifest sets no package.import, so the module root is used"
 		}
-		r.report(pwcheck.PackageImportMissing, message, "popcornwave.toml packages")
+		r.report(pwcheck.PackageImportMissing, message, "popcornweb.toml packages")
 	}
 }
 
@@ -119,7 +119,7 @@ func (r *checkRun) checkUndeclaredPackages(ctx context.Context, declared []packa
 	}
 }
 
-// projectFrameworkVersion is the Popcorn Wave version this project resolves,
+// projectFrameworkVersion is the Popcorn Web version this project resolves,
 // which is what a package's committed artifacts will actually link against. The
 // version of the pw binary running the check is a different thing and would be
 // the wrong comparison: a CLI can diagnose a project it was not built alongside.
@@ -137,7 +137,7 @@ func projectFrameworkVersion(ctx context.Context, root string) string {
 	return version
 }
 
-const frameworkModulePath = "github.com/shibukawa/popcornwave"
+const frameworkModulePath = "github.com/shibukawa/popcornweb"
 
 // checkPackageVersions compares what generated each package's committed
 // artifacts against what this project builds with.
@@ -160,9 +160,9 @@ func (r *checkRun) checkPackageVersions(ctx context.Context, resolved []resolved
 		}
 		if compareVersions(generated, current) > 0 {
 			r.report(pwcheck.PackageGeneratorNewer,
-				fmt.Sprintf("%q was generated with Popcorn Wave %s, and this project builds with %s",
+				fmt.Sprintf("%q was generated with Popcorn Web %s, and this project builds with %s",
 					pkg.Module, generated, current),
-				"popcornwave.toml packages")
+				"popcornweb.toml packages")
 		}
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 func TestDevBuildCarriesTheRelaxation(t *testing.T) {

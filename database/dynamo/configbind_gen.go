@@ -17,7 +17,7 @@ func init() {
 
 func registerConfigDefinition0() {
 	configbind.Register[Config](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/database/dynamo.Config",
+		TypeName: "github.com/shibukawa/popcornweb/database/dynamo.Config",
 		Prefix:   "middleware.dynamo",
 		Doc:      "Config is the [middleware.dynamo] runtime binding. It is registered when this package is imported, so a project that does not use DynamoDB gains no key",
 		KnownKeys: []string{

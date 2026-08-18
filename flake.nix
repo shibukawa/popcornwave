@@ -1,5 +1,5 @@
 {
-  description = "pw, the CLI of the Popcorn Wave web application framework";
+  description = "pw, the CLI of the Popcorn Web web application framework";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

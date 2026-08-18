@@ -1,6 +1,6 @@
 ---
 title: 5. Pages that update themselves
-description: Serve a route from a directory, then meet the three ways a Popcorn Wave page changes after it is first rendered.
+description: Serve a route from a directory, then meet the three ways a Popcorn Web page changes after it is first rendered.
 sidebar:
   order: 5
 ---
@@ -52,7 +52,7 @@ package about
 
 export component Page(): html {
   <h1 class="text-3xl font-bold">About memoapp</h1>
-  <p class="mt-4 text-slate-600">A memo application built by following the Popcorn Wave tutorial.</p>
+  <p class="mt-4 text-slate-600">A memo application built by following the Popcorn Web tutorial.</p>
 }
 ```
 
@@ -105,8 +105,8 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // Load is the page's entry point. Naming it Page would not compile: the
@@ -364,7 +364,7 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // MemoCount reports how many memos this account has, again every five seconds.

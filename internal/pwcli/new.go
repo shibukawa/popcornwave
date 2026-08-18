@@ -12,7 +12,7 @@ import (
 	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 )
 
 // The implemented kinds. A third one costs an entry here, a step list, and its
@@ -287,7 +287,7 @@ func routeAlreadyRegistered(state projectState, directory, pattern string) (stri
 // handlerSourceScaffold writes the route registration and the handler body.
 func handlerSourceScaffold(pkg string, options newOptions) string {
 	exported := exportedName(options.Name)
-	imports := "\t\"net/http\"\n\n\t\"github.com/shibukawa/popcornwave/pw\"\n"
+	imports := "\t\"net/http\"\n\n\t\"github.com/shibukawa/popcornweb/pw\"\n"
 	body := ""
 	parse := ""
 	input := ""
@@ -389,10 +389,10 @@ func runNewWizard(state projectState, destinations []string, defaults newOptions
 
 func newNewWizard(state projectState, destinations []string, defaults newOptions) wizardModel[newOptions] {
 	steps := newWizardSteps(state, destinations, defaults)
-	title := "Popcorn Wave  new handler"
+	title := "Popcorn Web  new handler"
 	if defaults.Kind == newKindPage {
 		steps = newPageWizardSteps(state, destinations, defaults)
-		title = "Popcorn Wave  new page"
+		title = "Popcorn Web  new page"
 	}
 	return wizardModel[newOptions]{
 		steps:    steps,

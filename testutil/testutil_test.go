@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -21,7 +21,7 @@ type fixtureConfig struct {
 
 func init() {
 	configbind.Register[fixtureConfig](configbind.Definition{
-		TypeName:  "github.com/shibukawa/popcornwave/testutil.fixtureConfig",
+		TypeName:  "github.com/shibukawa/popcornweb/testutil.fixtureConfig",
 		Prefix:    "fixture",
 		KnownKeys: []string{"fixture.name"},
 		Defaults:  map[string]string{"fixture.name": "global"},

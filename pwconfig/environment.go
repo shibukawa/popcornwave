@@ -3,7 +3,7 @@ package pwconfig
 import (
 	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 // EnvVar names the environment variable that selects the runtime environment.

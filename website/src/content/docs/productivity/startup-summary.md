@@ -11,7 +11,7 @@ a tree, ending with the address the listener accepted:
 
 ```
    .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
+ .(   ) (   ).    Popcorn Web v0.1.0
 (   o     o   )   started at 2026-07-27 23:31:04 JST
 (    \___/    )   env dev · config.dev.toml
  '-.__.___.__-'
@@ -43,7 +43,7 @@ one structured record instead, so a JSON handler or an OpenTelemetry bridge
 ships a single event rather than sixty:
 
 ```json
-{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornwave started",
+{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornweb started",
  "environment":"dev","config_file":"config.dev.toml",
  "listening":"http://localhost:8080",
  "config":{"server":{"port":"8080"},"session":{"enabled":"false"}},

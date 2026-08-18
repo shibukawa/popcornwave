@@ -10,13 +10,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/exporter/otlphttp"
-	otellog "github.com/shibukawa/popcornwave/contrib/otel/log"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/exporter/otlphttp"
+	otellog "github.com/shibukawa/popcornweb/contrib/otel/log"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Stdout record formats.
@@ -97,7 +97,7 @@ func Build(config pwconfig.ObservabilityConfig, env string) (*Resolved, error) {
 }
 
 // loggerScope names the instrumentation scope of framework records.
-const loggerScope = "github.com/shibukawa/popcornwave"
+const loggerScope = "github.com/shibukawa/popcornweb"
 
 // processBackend is the emission policy of the running process.
 //

@@ -7,8 +7,8 @@ import (
 
 	"oidclogin/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // RegisterAccountResolver installs the application account resolver. Call it

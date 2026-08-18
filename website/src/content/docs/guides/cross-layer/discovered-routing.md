@@ -38,7 +38,7 @@ compiles, and [`pw generate`](/pw/project/generate/) is that same work stopping
 short of the compiler, for a build that TinyGo or your own `go build` drives — or
 for running it once by hand.
 
-`popcornwave.toml` names the tree under the `pages` purpose:
+`popcornweb.toml` names the tree under the `pages` purpose:
 
 ```toml
 [generate]

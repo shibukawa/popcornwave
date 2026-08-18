@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/dbseed"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
 )
 
 const seedUsage = "usage: pw seed [--dir=" + dbseed.DefaultDir + "] [<name>...]"

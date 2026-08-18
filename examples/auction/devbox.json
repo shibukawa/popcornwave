@@ -6,5 +6,5 @@
     "tailwindcss_4@4.1.18",
     "git@latest"
   ],
-  "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
+  "shell": {"init_hook": ["echo 'Popcorn Web development environment'"]}
 }

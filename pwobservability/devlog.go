@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // developmentSink returns the pw-dev-only JSONL destination. The path is
@@ -90,7 +90,7 @@ func (writer *developmentLogWriter) disable(err error) {
 		writer.file = nil
 	}
 	if writer.diagnostic != nil {
-		fmt.Fprintf(writer.diagnostic, "popcornwave: local log capture disabled for %s: %v\n", writer.path, err)
+		fmt.Fprintf(writer.diagnostic, "popcornweb: local log capture disabled for %s: %v\n", writer.path, err)
 	}
 }
 

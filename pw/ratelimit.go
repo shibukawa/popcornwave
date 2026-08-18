@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func init() {

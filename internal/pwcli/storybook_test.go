@@ -154,7 +154,7 @@ func TestStorybookPaneProxiesToTheHarness(t *testing.T) {
 
 func TestDisabledStorybookRegistersNoPane(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject + "\n[dev.console.storybook]\nenabled = false\n",
+		"popcornweb.toml": consoleProject + "\n[dev.console.storybook]\nenabled = false\n",
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {

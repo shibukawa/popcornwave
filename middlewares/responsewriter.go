@@ -120,7 +120,7 @@ func (w *ResponseTracker) Flush() {
 func (w *ResponseTracker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	hijacker, ok := w.ResponseWriter.(http.Hijacker)
 	if !ok {
-		return nil, nil, fmt.Errorf("popcornwave: response writer does not support hijacking")
+		return nil, nil, fmt.Errorf("popcornweb: response writer does not support hijacking")
 	}
 	return hijacker.Hijack()
 }

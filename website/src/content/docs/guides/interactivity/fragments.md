@@ -317,8 +317,8 @@ posts to the address, applies whatever regions come back, and puts the current
 `pw_csrf` cookie into the `X-CSRF-Token` header on the way — so an island that
 fires an action wires none of that up itself. Where the island has to decide
 before the mutation, leave `server-action` off the element and issue the request
-yourself with `window.popcornwave.updateHeaders()` and
-`window.popcornwave.apply()`, which carry the same token and apply the same
+yourself with `window.popcornweb.updateHeaders()` and
+`window.popcornweb.apply()`, which carry the same token and apply the same
 regions. See [Server actions](/guides/interactivity/server-actions/) and
 [Integrating React](/guides/interactivity/react/#writing-back-to-the-server).
 

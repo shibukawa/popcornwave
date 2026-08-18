@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-設定の取得元は複数ありますが、解決後の見え方はひとつの型付き構造体です。Popcorn Wave
+設定の取得元は複数ありますが、解決後の見え方はひとつの型付き構造体です。Popcorn Web
 は最初のリクエストより前に TOML ファイル、環境変数、コマンドラインオプションを構造体へ
 バインドするため、不正な値は実行途中ではなく起動時に処理を止めます。
 
@@ -13,7 +13,7 @@ sidebar:
 バインディングコードを事前に書き出します。仕組み全体が TinyGo でも使えるのはそのため
 であり、以下の規則がリフレクション方式より少し厳しいのも同じ理由です。
 
-扱うのは、動いているアプリケーションが読む設定です。`pw` 自身が読む `popcornwave.toml`
+扱うのは、動いているアプリケーションが読む設定です。`pw` 自身が読む `popcornweb.toml`
 はここには出てきません。そちらは[ビルドツール設定一覧](/ja/reference/build-configuration/)です。
 
 フレームワーク自身のキーと既定値は
@@ -35,7 +35,7 @@ APP_ENV=prod ./myapp
 
 ## ファイルの解決
 
-環境を選ぶと、プロジェクトローカルのファイル名が決まります。Popcorn Wave は作業
+環境を選ぶと、プロジェクトローカルのファイル名が決まります。Popcorn Web は作業
 ディレクトリ、次にその `config/` ディレクトリの順で探索します。
 
 1. `./config.{APP_ENV}.toml`
@@ -133,7 +133,7 @@ float、map、ポインタ、それ以外の要素型のスライスは**バイ�
 ```go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 type AppConfig struct {
 	EnvLabel      string `default:"local" help:"environment name shown in the page badge"`

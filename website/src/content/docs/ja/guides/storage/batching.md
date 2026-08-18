@@ -51,8 +51,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/database/postgres"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/database/postgres"
+	"github.com/shibukawa/popcornweb/pw"
 	"github.com/shibukawa/tinygodriver/database/pgx"
 )
 

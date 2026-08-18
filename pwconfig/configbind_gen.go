@@ -24,7 +24,7 @@ func init() {
 
 func registerServerConfigDefinition0() {
 	configbind.Register[ServerConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.ServerConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.ServerConfig",
 		Prefix:   "server",
 		Doc:      "ServerConfig controls the primary HTTP listener and operational endpoints",
 		KnownKeys: []string{
@@ -241,7 +241,7 @@ func applyServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 
 func registerSecurityConfigDefinition1() {
 	configbind.Register[SecurityConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.SecurityConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.SecurityConfig",
 		Prefix:   "security",
 		Doc:      "SecurityConfig controls framework request and response security policy",
 		KnownKeys: []string{
@@ -561,7 +561,7 @@ func applySecurityConfigDefinition1(dst any, o *configbind.Overlay) error {
 
 func registerRateLimitConfigDefinition2() {
 	configbind.Register[RateLimitConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.RateLimitConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.RateLimitConfig",
 		Prefix:   "ratelimit",
 		Doc:      "RateLimitConfig bounds how often one caller, and the process as a whole, may arrive within a window. It is its own binding rather than a member of SecurityConfig, because a backend selection carrying a DSN does not belong beside a list of response headers",
 		KnownKeys: []string{
@@ -701,7 +701,7 @@ func applyRateLimitConfigDefinition2(dst any, o *configbind.Overlay) error {
 
 func registerSessionConfigDefinition3() {
 	configbind.Register[SessionConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.SessionConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.SessionConfig",
 		Prefix:   "session",
 		KnownKeys: []string{
 			"session.enabled",
@@ -737,13 +737,13 @@ func registerSessionConfigDefinition3() {
 			"session.cookie.http_only":       "true",
 			"session.cookie.same_site":       "lax",
 			"session.rdb.source":             "middleware",
-			"session.rdb.table":              "popcornwave_session",
+			"session.rdb.table":              "popcornweb_session",
 			"session.redis.key_prefix":       "pw:session:",
 			"session.redis.connect_timeout":  "5s",
 			"session.cookie_store.name":      "pw_session_data",
-			"session.dynamo.table":           "popcornwave_session",
+			"session.dynamo.table":           "popcornweb_session",
 			"session.dynamo.consistent_read": "false",
-			"session.firestore.kind":         "popcornwave_session",
+			"session.firestore.kind":         "popcornweb_session",
 		},
 		DependsOn: map[string][]configbind.Dependency{
 			"session.backend":                  {{Key: "session.enabled"}},
@@ -818,16 +818,16 @@ func registerSessionConfigDefinition3() {
 			{Key: "rdb.source", Kind: configbind.ScaffoldString, Default: "middleware", Help: "middleware reuses middleware.rdb; dedicated opens rdb.dsn"},
 			{Key: "rdb.group", Kind: configbind.ScaffoldString, Help: "connection group holding the session table"},
 			{Key: "rdb.dsn", Kind: configbind.ScaffoldString, Help: "dedicated session database DSN"},
-			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session"},
+			{Key: "rdb.table", Kind: configbind.ScaffoldString, Default: "popcornweb_session"},
 			{Key: "redis.dsn", Kind: configbind.ScaffoldString, Env: "SESSION_REDIS_DSN", Help: "redis:// or rediss:// session server"},
 			{Key: "redis.key_prefix", Kind: configbind.ScaffoldString, Default: "pw:session:", Help: "key space owned by the session store"},
 			{Key: "redis.connect_timeout", Kind: configbind.ScaffoldDuration, Default: "5s", Help: "startup ping and per-command deadline"},
 			{Key: "cookie_store.name", Kind: configbind.ScaffoldString, Default: "pw_session_data", Help: "cookie holding the sealed record"},
 			{Key: "keyring.secret", Kind: configbind.ScaffoldString, Env: "SESSION_KEYRING_SECRET", Help: "base64 secret signing and sealing everything the browser carries"},
 			{Key: "keyring.previous_secrets", Kind: configbind.ScaffoldStringSlice, Help: "retired secrets kept readable during a rotation"},
-			{Key: "dynamo.table", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "declared session table name"},
+			{Key: "dynamo.table", Kind: configbind.ScaffoldString, Default: "popcornweb_session", Help: "declared session table name"},
 			{Key: "dynamo.consistent_read", Kind: configbind.ScaffoldBool, Default: "false", Help: "read sessions with strong consistency"},
-			{Key: "firestore.kind", Kind: configbind.ScaffoldString, Default: "popcornwave_session", Help: "session entity kind"},
+			{Key: "firestore.kind", Kind: configbind.ScaffoldString, Default: "popcornweb_session", Help: "session entity kind"},
 		},
 	})
 }
@@ -910,7 +910,7 @@ func applySessionConfigDefinition3(dst any, o *configbind.Overlay) error {
 	if v, ok := o.GetString("session.rdb.table"); ok {
 		p.RDB.Table = v
 	} else {
-		p.RDB.Table = "popcornwave_session"
+		p.RDB.Table = "popcornweb_session"
 	}
 	if v, ok := o.GetString("session.redis.dsn"); ok {
 		p.Redis.DSN = v
@@ -943,7 +943,7 @@ func applySessionConfigDefinition3(dst any, o *configbind.Overlay) error {
 	if v, ok := o.GetString("session.dynamo.table"); ok {
 		p.Dynamo.Table = v
 	} else {
-		p.Dynamo.Table = "popcornwave_session"
+		p.Dynamo.Table = "popcornweb_session"
 	}
 	if v, ok := o.GetString("session.dynamo.consistent_read"); ok {
 		bb, err := strconv.ParseBool(v)
@@ -957,14 +957,14 @@ func applySessionConfigDefinition3(dst any, o *configbind.Overlay) error {
 	if v, ok := o.GetString("session.firestore.kind"); ok {
 		p.Firestore.Kind = v
 	} else {
-		p.Firestore.Kind = "popcornwave_session"
+		p.Firestore.Kind = "popcornweb_session"
 	}
 	return nil
 }
 
 func registerObservabilityConfigDefinition4() {
 	configbind.Register[ObservabilityConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.ObservabilityConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.ObservabilityConfig",
 		Prefix:   "observability",
 		Doc:      "ObservabilityConfig controls runtime logging, tracing, and service identity",
 		KnownKeys: []string{
@@ -1443,7 +1443,7 @@ func applyObservabilityConfigDefinition4(dst any, o *configbind.Overlay) error {
 
 func registerMiddlewareConfigDefinition5() {
 	configbind.Register[MiddlewareConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.MiddlewareConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.MiddlewareConfig",
 		Prefix:   "middleware",
 		Doc:      "MiddlewareConfig selects the framework's basic HTTP middleware",
 		KnownKeys: []string{
@@ -1663,7 +1663,7 @@ func applyMiddlewareConfigDefinition5(dst any, o *configbind.Overlay) error {
 
 func registerHTMLConfigDefinition6() {
 	configbind.Register[HTMLConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.HTMLConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.HTMLConfig",
 		Prefix:   "html",
 		Doc:      "HTMLConfig bounds and gates progressive HTML rendering. A template that opens an await boundary renders correctly under either setting; this only decides whether the fallbacks reach the browser before the work behind them settles",
 		KnownKeys: []string{
@@ -1952,7 +1952,7 @@ func applyHTMLConfigDefinition6(dst any, o *configbind.Overlay) error {
 
 func registerCacheConfigDefinition7() {
 	configbind.Register[CacheConfig](configbind.Definition{
-		TypeName: "github.com/shibukawa/popcornwave/pwconfig.CacheConfig",
+		TypeName: "github.com/shibukawa/popcornweb/pwconfig.CacheConfig",
 		Prefix:   "cache",
 		Doc:      "CacheConfig is the named data cache store set, configured as [[cache.stores]]. It is separate from html.cache: that store holds rendered bytes sized for one entry per parameter set, and this one holds what a fetch returned",
 		KnownKeys: []string{

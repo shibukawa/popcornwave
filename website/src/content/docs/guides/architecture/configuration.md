@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Configuration arrives from several places and resolves to one typed view.
-Popcorn Wave binds TOML files, environment variables, and command-line options
+Popcorn Web binds TOML files, environment variables, and command-line options
 to structs before the first request, so an invalid value stops startup instead
 of surfacing midway through runtime.
 
@@ -16,7 +16,7 @@ available under TinyGo — and what makes a few of the rules below stricter than
 a reflection-based binder would need.
 
 What this covers is the configuration a running application reads.
-`popcornwave.toml`, which `pw` itself reads, does not appear here — that is
+`popcornweb.toml`, which `pw` itself reads, does not appear here — that is
 [Build Tool Configuration](/reference/build-configuration/).
 
 For the framework's own keys and their defaults, see
@@ -38,7 +38,7 @@ and `pw.EnvProduction` name the well-known ones.
 
 ## File resolution
 
-Selecting an environment determines the project-local filename. Popcorn Wave
+Selecting an environment determines the project-local filename. Popcorn Web
 searches the working directory first, then its `config/` directory:
 
 1. `./config.{APP_ENV}.toml`
@@ -141,7 +141,7 @@ a setting does not add a parallel parser.
 ```go
 package handlers
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 type AppConfig struct {
 	EnvLabel      string `default:"local" help:"environment name shown in the page badge"`

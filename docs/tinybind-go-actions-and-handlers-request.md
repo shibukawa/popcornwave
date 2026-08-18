@@ -1,7 +1,7 @@
 # Change requests: invocable server actions, and a template that names a handler
 
 Written against **tinybind-go v0.5.7** on 2026-08-11, while designing two
-features together in Popcorn Wave: making `server-action` actually perform its
+features together in Popcorn Web: making `server-action` actually perform its
 mutation, and letting a template name a function the component's script block
 produced.
 

@@ -63,7 +63,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func ShowCatalog(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +162,7 @@ reader's screen to everyone who follows. Authentication still ran for the first
 request; the shared cache is precisely what lets later requests bypass the
 distinction.
 
-For that reason Popcorn Wave makes the forgotten declaration land on the safe
+For that reason Popcorn Web makes the forgotten declaration land on the safe
 side. Treat a component as private until you can show that its output, for the
 same declared parameters, is safe for **any** reader to receive. Promote only
 those components to `public`: a common catalogue, public article, shared icon,

@@ -3,7 +3,7 @@ id: decision:devidp-scope-reduction
 type: decision
 title: Development IdP Scope Reduction
 ---
-Popcorn Wave reimplements the smallest useful subset of system:oidcld as requirement:contrib-devidp instead of depending on it, because the framework needs an in-repo OIDC counterparty rather than a local edge platform.
+Popcorn Web reimplements the smallest useful subset of system:oidcld as requirement:contrib-devidp instead of depending on it, because the framework needs an in-repo OIDC counterparty rather than a local edge platform.
 
 ```yaml
 status: proposed
@@ -43,7 +43,7 @@ tool_owned_wiring:
   boundary: injection is limited to the process the tool starts, and never writes secrets to disk or to the developer shell
 configuration_format:
   choice: TOML
-  reason: every other Popcorn Wave input is TOML through data:project-config and policy:config-file-resolution
+  reason: every other Popcorn Web input is TOML through data:project-config and policy:config-file-resolution
 value:
   - requirement:contrib-oidc and requirement:contrib-oauth gain a controllable counterparty for requirement:contrib-acceptance fixtures
   - flow:oidc-account-login becomes runnable in api:cli-dev and api:test-run without external IdP credentials

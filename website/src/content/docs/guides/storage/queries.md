@@ -22,7 +22,7 @@ compiles, and [`pw generate`](/pw/project/generate/) is that same work stopping
 short of the compiler, for a build that TinyGo or your own `go build` drives — or
 for running it once by hand.
 
-The scan is not the whole module. `popcornwave.toml` names directories per
+The scan is not the whole module. `popcornweb.toml` names directories per
 purpose, and `.pw.sql` belongs to the `queries` purpose:
 
 ```toml
@@ -125,7 +125,7 @@ structure. They cannot substitute table names, column names, operators, or sort
 directions.
 
 The placeholder syntax the generator emits — `$1` for PostgreSQL, `?` for MySQL
-and SQLite — comes from `project.database` in `popcornwave.toml`. You write
+and SQLite — comes from `project.database` in `popcornweb.toml`. You write
 `{name}` either way; only the compiled output differs. See
 [Choosing the database](/pw/project/init/#choosing-the-database).
 

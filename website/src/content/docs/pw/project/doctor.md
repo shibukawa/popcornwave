@@ -10,7 +10,7 @@ pw doctor
 pw doctor --env=prod
 ```
 
-A Popcorn Wave application decides what it will run from two places that no
+A Popcorn Web application decides what it will run from two places that no
 single file contains. Configuration selects a session backend, a database, an
 identity provider. The binary decides whether the code implementing those
 choices was ever linked, because a plugin registers itself through a blank
@@ -70,7 +70,7 @@ production's secrets to be sitting on your laptop.
 
 So the inputs are:
 
-- `popcornwave.toml`, the migration directory, `devbox.json`, `go.mod`, the
+- `popcornweb.toml`, the migration directory, `devbox.json`, `go.mod`, the
   generated artifacts, and what the repository tracks or ignores;
 - the configuration file the environment selects, merged over the typed
   defaults, with the layer that won each key;
@@ -84,7 +84,7 @@ only readable next to the value behind it:
 ```
 features
   database             on  sqlite
-  session              on  rdb  not linked: github.com/shibukawa/popcornwave/sessionstore/sqlite
+  session              on  rdb  not linked: github.com/shibukawa/popcornweb/sessionstore/sqlite
   authentication       off
   security headers     on
   query diagnostics    on  auto

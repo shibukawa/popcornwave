@@ -4,12 +4,12 @@ import (
 	"context"
 	"log"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"passkeylogin/handlers"
 
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 func main() {

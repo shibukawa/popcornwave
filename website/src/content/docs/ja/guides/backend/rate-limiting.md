@@ -80,7 +80,7 @@ redis.dsn = "${RATELIMIT_REDIS_DSN}"
 ```
 
 ```go
-import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
+import _ "github.com/shibukawa/popcornweb/ratelimitstore/redis"
 ```
 
 ブランク import がバックエンドをバイナリに繋ぎます。登録の時点では接続せず、`backend = "redis"` が選ばれたときにダイヤルします。引き受けるのは、数える経路に乗る依存 — カウント 1 回につき往復 1 回 — と、起動時に到達できていなければならないストアです。到達できなければ起動を拒否します。全リクエストが黙ってフェイルオープンするリミッターを出荷するくらいなら、起動しない方がましだからです。なお、動き出したあとに到達できなくなった場合の挙動は別で、[ストアが落ちたとき](#ストアが落ちたとき)にあります。

@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 )
 
-// The browser runtime is popcornwave/pwbrowser's: the bytes, the module set,
+// The browser runtime is popcornweb/pwbrowser's: the bytes, the module set,
 // the revision the URL carries, and which paths the set claims. Both transports
 // serve one asset under one URL, because a document naming it is rendered by
 // whichever half is running and an application's template names it once.

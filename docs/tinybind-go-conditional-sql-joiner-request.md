@@ -1,6 +1,6 @@
 # Change request: infer the joiner from the operator already written beside a conditional block
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.5.14
 **Date:** 2026-08-17
 **Status:** accepted and implemented in v0.5.15, 2026-08-17. The release broadened joiner recognition (every `AND`/`OR` at the innermost open group's item depth, not only one adjacent to an elidable node), landed the comma clauses in the same change, excluded `CASE` rather than diagnosing every case in it, and corrected the join-`ON` premise in Open Questions below — `ON` was already classified boolean. See the upstream catalog for the shipped spec.

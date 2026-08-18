@@ -7,7 +7,7 @@ A form carrying `server-action` submits to a working endpoint with no browser ru
 
 ```yaml
 source: the scriptless_forms note of api:page-action-endpoint, and the downstream_dependency system:tinybind records against its own script-free render mode
-the_condition_this_restores: requirement:classic-web-acceptance criteria works without the Popcorn Wave browser runtime, which a route adopting server actions cannot meet today
+the_condition_this_restores: requirement:classic-web-acceptance criteria works without the Popcorn Web browser runtime, which a route adopting server actions cannot meet today
 today:
   emitted: data-pw-action alone, per the scripted lowering set system:tinybind applies
   no_method: that lowering deliberately writes no action, method, hidden selector, or hidden token, because it assumes a runtime intercepts the submit

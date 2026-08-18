@@ -3,7 +3,7 @@ package pwruntime
 import (
 	"sync/atomic"
 
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
 )
 
 // A WebSocket handshake is a GET, so it passes the CSRF frame untouched, and it

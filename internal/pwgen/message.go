@@ -1,7 +1,7 @@
 package pwgen
 
 import (
-	"github.com/shibukawa/popcornwave/internal/pwmsg"
+	"github.com/shibukawa/popcornweb/internal/pwmsg"
 	"github.com/shibukawa/tinybind-go/generator"
 	templates "github.com/shibukawa/tinybind-go/templates/htmlbind"
 )

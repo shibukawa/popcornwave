@@ -3,7 +3,7 @@ id: api:cli-init
 type: api
 title: pw init
 ---
-pw init creates a runnable Popcorn Wave project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
+pw init creates a runnable Popcorn Web project with a shared document shell, representative handler, typed page template, SQL query, error pages, Devbox environment, and generated-artifact conventions.
 
 ```yaml
 usage: pw init [myapp] [--preset=<name>] [--yes] [--router=registered|discovered|both] [--tailwind|--no-tailwind] [--tinygo|--no-tinygo] [--devbox|--no-devbox] [--database|--no-database] [--db=sqlite|postgres|mysql] [--dynamo|--no-dynamo] [--redis|--no-redis] [--auth=none|oidc|oidc-passkey|passkey] [--session=rdb|cookie|redis|dynamo] [--devidp|--no-devidp] [--skills=claude|agents|none]
@@ -49,10 +49,10 @@ questions:
     asked_last: it selects a discovery adapter for the machines editing the project rather than an application capability
     default: claude
     choices:
-      claude: .claude/skills/popcornwave/
-      agents: .agents/skills/popcornwave/
+      claude: .claude/skills/popcornweb/
+      agents: .agents/skills/popcornweb/
       none: no generated copy
-    source: decision:canonical-popcornwave-skill-source
+    source: decision:canonical-popcornweb-skill-source
     preset: never answered by a project preset
     shortcut: --skills
   database:
@@ -141,7 +141,7 @@ outputs:
   - config.prod.toml beside config.dev.toml, per requirement:environment-switching, carrying the same endpoint paths, data:observability-runtime-config stdout_format json, and no secret
   - the requirement:container-image-scaffold files, which every answer set receives: Dockerfile and .dockerignore, plus Dockerfile.tinygo when TinyGo is selected
   - .vscode/settings.json hiding **/*_pw_gen.go
-  - one generated copy of decision:canonical-popcornwave-skill-source at the selected agent discovery path, including requirement:agent-log-analysis-skill, unless --skills=none
+  - one generated copy of decision:canonical-popcornweb-skill-source at the selected agent discovery path, including requirement:agent-log-analysis-skill, unless --skills=none
   - editor_configuration below
   - Devbox configuration with Valkey when selected, TinyGo when selected, and the selected requirement:database-engine-selection server package, only when the Devbox environment is selected
   - data:authentication-runtime-config section for the selected authentication mode

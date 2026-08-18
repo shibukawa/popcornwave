@@ -1,6 +1,6 @@
 # Defect report: hoisting a value binding removes a component's boundary root
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.5.11
 **Date:** 2026-08-14
 **Status:** open — adoption held at v0.5.10

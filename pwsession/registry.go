@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // slotState holds the declared session storage of this process.

@@ -25,7 +25,7 @@ all, because nothing reaches it that has not already been through yours.
 
 `net/http/httputil` does not build under TinyGo, so the proxy comes from
 `tinygodriver/httprevproxy`, whose public API mirrors the reverse-proxy portion
-of the standard package. Every Popcorn Wave project already requires
+of the standard package. Every Popcorn Web project already requires
 `tinygodriver` — `pw.ServeMux` is one of its types — so there is no dependency
 to add. Import it under the `httputil` alias and the call sites read exactly as they
 would against the standard package.
@@ -116,7 +116,7 @@ The service does not authenticate, but it usually still needs to know who is
 asking. `Rewrite` runs with the inbound request in hand, and by that point the
 framework has resolved the session, so the answer is already in the context.
 Replacing the `Rewrite` field above, with
-`github.com/shibukawa/popcornwave/pw` added to the imports:
+`github.com/shibukawa/popcornweb/pw` added to the imports:
 
 ```go
 Rewrite: func(r *httputil.ProxyRequest) {

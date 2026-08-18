@@ -32,7 +32,7 @@ build_flags:
   trimpath: enabled
   ldflags:
     - -s -w
-    - -X github.com/shibukawa/popcornwave/internal/pwcli.version={version}
+    - -X github.com/shibukawa/popcornweb/internal/pwcli.version={version}
   target: ./cmd/pw
 publication:
   host: GitHub releases of the repository

@@ -3,7 +3,7 @@
 package pw
 
 import (
-	"github.com/shibukawa/popcornwave/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwdatabase"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // developmentTestFixture builds the wrapped handler against a real SQLite pool

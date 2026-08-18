@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // TestRateLimitExemptionsCoverWhatTheFrameworkRoutes pins the carve-out that

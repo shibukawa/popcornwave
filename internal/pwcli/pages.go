@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
-	"github.com/shibukawa/popcornwave/internal/pwscript"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwscript"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/routetree"
 	templatehtmlbind "github.com/shibukawa/tinybind-go/templates/htmlbind"
@@ -461,12 +461,12 @@ func withPageDirectories(directories []string, planned map[string][]generator.Ar
 func pageArtifact(file routetree.Generated) (generator.Artifact, error) {
 	base := strings.TrimSuffix(filepath.Base(file.Path), "_pw_gen.go")
 	if base == filepath.Base(file.Path) {
-		return generator.Artifact{}, fmt.Errorf("popcornwave: page tree emitted %q, which does not end in _pw_gen.go", file.Path)
+		return generator.Artifact{}, fmt.Errorf("popcornweb: page tree emitted %q, which does not end in _pw_gen.go", file.Path)
 	}
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, file.Path, file.Source, parser.PackageClauseOnly)
 	if err != nil {
-		return generator.Artifact{}, fmt.Errorf("popcornwave: parse generated %s: %w", file.Path, err)
+		return generator.Artifact{}, fmt.Errorf("popcornweb: parse generated %s: %w", file.Path, err)
 	}
 	return generator.Artifact{
 		Kind:        generator.ArtifactHTMLTemplate,
@@ -482,7 +482,7 @@ func pageArtifact(file routetree.Generated) (generator.Artifact, error) {
 // a directory does not reveal where it sits inside its module.
 //
 // The search walks up, because the go.mod of a project is normally beside its
-// popcornwave.toml but nothing requires it to be.
+// popcornweb.toml but nothing requires it to be.
 func moduleImportPath(root string) (string, string, error) {
 	directory, err := filepath.Abs(root)
 	if err != nil {
@@ -584,7 +584,7 @@ func pageActionRegistrationArtifact(artifact generator.Artifact) (generator.Arti
 	var body strings.Builder
 	// The shared leaf rather than either runtime, for the reason the document
 	// and reloadable registrations name it: one registry, read by both.
-	body.WriteString("package " + artifact.PackageName + "\n\nimport \"github.com/shibukawa/popcornwave/pwruntime\"\n\nfunc init() {\n")
+	body.WriteString("package " + artifact.PackageName + "\n\nimport \"github.com/shibukawa/popcornweb/pwruntime\"\n\nfunc init() {\n")
 	registered := 0
 	for _, route := range pageRouteEntry.FindAllStringSubmatch(content, -1) {
 		actions := byDirectory[route[2]]

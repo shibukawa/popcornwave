@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwratelimit"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwratelimit"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -32,13 +32,13 @@ func parsed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		path := filepath.Join(directory, "popcornwave.toml")
+		path := filepath.Join(directory, "popcornweb.toml")
 		if err := os.WriteFile(path, []byte("[server]\nport = 0\nhealth = \"/healthz\"\n\n"+
 			"[middleware]\nrequest_id = true\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		pwconfig.SetLoadOptions(configbind.LoadOptions{
-			Vendor:             "popcornwave-pwfast-test",
+			Vendor:             "popcornweb-pwfast-test",
 			Tool:               "pwfast-test",
 			ExplicitConfigPath: path,
 			Args:               []string{},

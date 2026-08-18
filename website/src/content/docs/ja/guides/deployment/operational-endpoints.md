@@ -100,7 +100,7 @@ Docker の `--timeout=5s` はコマンド全体を待つ時間です。プロー
 最初のインターバルで表面化します。
 
 `pw init` はこの行を含む Dockerfile を、キーを設定した `config.prod.toml` と
-一緒に書きます。そのファイルの残りの部分 — Popcorn Wave のイメージが `COPY` と
+一緒に書きます。そのファイルの残りの部分 — Popcorn Web のイメージが `COPY` と
 `go build` では作れない理由を含めて — は
 [コンテナイメージ](/ja/guides/deployment/container-images/)にあります。
 

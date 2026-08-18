@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
-	"github.com/shibukawa/popcornwave/contrib/oauth"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
 )
 
 var (

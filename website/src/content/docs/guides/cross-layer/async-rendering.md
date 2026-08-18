@@ -67,7 +67,7 @@ finishes**.
 
 This is the streaming shape the Next.js App Router made familiar: a shell with
 placeholders goes out first, and each suspended region is filled in as its data
-resolves, over one response. Popcorn Wave reaches the same result without a
+resolves, over one response. Popcorn Web reaches the same result without a
 component framework in the browser — the page a reader receives is
 server-rendered HTML from first byte to last, and the only client code involved
 is one small module that moves finished markup into place.
@@ -326,7 +326,7 @@ it — and a script cannot ask it anything, because not running scripts is the
 whole point.
 
 `<noscript>` is the one HTML feature that fires precisely when scripting is off,
-so that is what asks. Popcorn Wave contributes a block to the head of a streamed
+so that is what asks. Popcorn Web contributes a block to the head of a streamed
 page that redirects to **that same page** under a marker parameter, and the
 marked request renders buffered. The reader reaches the page they asked for,
 complete, one round trip later and at the same path. A cookie remembers the
@@ -353,7 +353,7 @@ way a browser can — they would follow the redirect or ignore it with equal
 indifference — which makes the fallback the indexed text, the share card
 description, and whatever lands in your terminal.
 
-Popcorn Wave recognises those clients by their `User-Agent` and hands them the
+Popcorn Web recognises those clients by their `User-Agent` and hands them the
 buffered response instead. They wait for every boundary and receive the finished
 document:
 
@@ -564,7 +564,7 @@ in the stream**, and the server component payload is delivered the same way. Tha
 is what makes a CSP nonce part of the setup, and it arrives alongside a client
 runtime that also hydrates the tree so components can re-render in the browser.
 
-Popcorn Wave carries no script in the stream at all. A completion is markup, the
+Popcorn Web carries no script in the stream at all. A completion is markup, the
 trigger is an element definition, and the runtime is a single cached module
 loaded by `src` — so `script-src 'self'` is sufficient, with no nonce and no
 `unsafe-inline`. There is no hydration, no virtual DOM, and no component code in

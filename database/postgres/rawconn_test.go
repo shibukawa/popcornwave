@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/popcornwave/database/postgres"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/database"
+	"github.com/shibukawa/popcornweb/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/database/pgx"
 )
 

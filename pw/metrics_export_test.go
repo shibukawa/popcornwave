@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // trackedChain is the two frames a metric needs: the tracker that carries the

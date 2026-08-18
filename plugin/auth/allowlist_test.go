@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

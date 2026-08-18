@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // presenceReport is the whole of what a browser sends: whether any input

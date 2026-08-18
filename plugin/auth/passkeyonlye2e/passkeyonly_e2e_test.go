@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/contrib/passkey/passkeytest"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/contrib/passkey/passkeytest"
 )
 
 // TestPasskeyOnlyStory walks the whole passkey_only path: an administrator

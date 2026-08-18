@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate/memory"
+	"github.com/shibukawa/popcornweb/authstate/memory"
 )
 
 func ExampleNewStore() {

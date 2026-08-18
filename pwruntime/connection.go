@@ -9,7 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -20,7 +20,7 @@ const DefaultConnectionGroup = "default"
 // ErrUnknownConnectionGroup reports a group name that no configured connection
 // carries. A group name is data, so the failure surfaces at the statement that
 // depended on it rather than where the name was written.
-var ErrUnknownConnectionGroup = errors.New("popcornwave: unknown database connection group")
+var ErrUnknownConnectionGroup = errors.New("popcornweb: unknown database connection group")
 
 // Connection is one configured pool of the connection set. Exactly one of DB
 // and Native is set: DB for an engine served through database/sql, Native for
@@ -100,7 +100,7 @@ type ConnectionSet struct {
 // defaultGroup may be empty only when exactly one group is present.
 func NewConnectionSet(defaultGroup string, connections []Connection) (*ConnectionSet, error) {
 	if len(connections) == 0 {
-		return nil, errors.New("popcornwave: connection set needs at least one connection")
+		return nil, errors.New("popcornweb: connection set needs at least one connection")
 	}
 	set := &ConnectionSet{
 		groups:  make(map[string][]*Connection, len(connections)),
@@ -112,10 +112,10 @@ func NewConnectionSet(defaultGroup string, connections []Connection) (*Connectio
 			entry.Group = DefaultConnectionGroup
 		}
 		if entry.DB == nil && entry.Native == nil {
-			return nil, fmt.Errorf("popcornwave: connection group %q has a nil pool", entry.Group)
+			return nil, fmt.Errorf("popcornweb: connection group %q has a nil pool", entry.Group)
 		}
 		if entry.DB != nil && entry.Native != nil {
-			return nil, fmt.Errorf("popcornwave: connection group %q has both a sql and a native pool", entry.Group)
+			return nil, fmt.Errorf("popcornweb: connection group %q has both a sql and a native pool", entry.Group)
 		}
 		if _, seen := set.groups[entry.Group]; !seen {
 			set.order = append(set.order, entry.Group)
@@ -128,7 +128,7 @@ func NewConnectionSet(defaultGroup string, connections []Connection) (*Connectio
 	}
 	if defaultGroup == "" {
 		if len(set.order) != 1 {
-			return nil, errors.New("popcornwave: default_group is required when more than one connection group is configured")
+			return nil, errors.New("popcornweb: default_group is required when more than one connection group is configured")
 		}
 		defaultGroup = set.order[0]
 	}
@@ -277,7 +277,7 @@ func (memo *connectionMemo) resolve(set *ConnectionSet, group string) (*Connecti
 // sqlbind.AsReadOnly stored on the context, checked by the write resolver — but
 // it emits that check only when no framework executor resolver is configured:
 // the resolver contract is func(context.Context) (SQLExecutor, error), which
-// carries no statement access mode. Popcorn Wave configures that resolver for
+// carries no statement access mode. Popcorn Web configures that resolver for
 // transaction scope and query diagnostics, so generated writes never reach the
 // check.
 //

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/dbseed"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // WithSeed loads dataset files into the copied database after the migration
@@ -56,7 +56,7 @@ func (server *Server) Seed(t TestingT, files ...string) {
 	}
 	exec, inTransaction := server.executor()
 	if err := applySeed(server.Config, exec, inTransaction, server.seedDir, files); err != nil {
-		t.Fatalf("seed Popcorn Wave database: %v", err)
+		t.Fatalf("seed Popcorn Web database: %v", err)
 	}
 }
 
@@ -77,17 +77,17 @@ func (server *Server) AssertDB(t TestingT, files ...string) {
 	}
 	dialect, paths, err := resolveSeed(server.Config, server.seedDir, files)
 	if err != nil {
-		t.Fatalf("assert Popcorn Wave database: %v", err)
+		t.Fatalf("assert Popcorn Web database: %v", err)
 		return
 	}
 	exec, inTransaction := server.executor()
 	matched, report, err := dbseed.Assert(context.Background(), exec, dialect, inTransaction, paths)
 	if err != nil {
-		t.Fatalf("assert Popcorn Wave database: %v", err)
+		t.Fatalf("assert Popcorn Web database: %v", err)
 		return
 	}
 	if !matched {
-		t.Errorf("Popcorn Wave database does not match:\n%s", report)
+		t.Errorf("Popcorn Web database does not match:\n%s", report)
 	}
 }
 

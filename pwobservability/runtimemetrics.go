@@ -5,8 +5,8 @@ import (
 	runtimemetrics "runtime/metrics"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
 )
 
 // runtimeMetricScope is a scope of its own rather than the framework's, because

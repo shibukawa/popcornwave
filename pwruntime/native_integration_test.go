@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/database"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

@@ -1,11 +1,11 @@
 ---
 title: ビルドツール設定一覧
-description: popcornwave.toml の全設定項目。コード生成、pw dev と同時に起動するサービス、マイグレーションやスタイルシートの配置を指定します。
+description: popcornweb.toml の全設定項目。コード生成、pw dev と同時に起動するサービス、マイグレーションやスタイルシートの配置を指定します。
 sidebar:
   order: 2
 ---
 
-`popcornwave.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
+`popcornweb.toml` はプロジェクトルートに置かれ、`pw` コマンドのものです。書いてあるのは
 *プロジェクト*のこと——生成がどのディレクトリを読むか、ソースがどのコンパイラ向けに
 書かれているか、開発中にアプリケーションの横で何が動くか。
 
@@ -179,7 +179,7 @@ minify し、`pw dev` は決してしません。この値が実際に効くの�
 スタイルシートを readiness の指摘として報告します。`true` のままにしてください。
 
 Tailwind のプラグインはここでは設定しません。CSS のエントリに書く `@plugin` 宣言であり、
-解決するのは Tailwind CLI です。Popcorn Wave はエントリをそのまま渡すだけで、プラグインの
+解決するのは Tailwind CLI です。Popcorn Web はエントリをそのまま渡すだけで、プラグインの
 レジストリを持ちません。
 
 ## `[assets.images]`、`[assets.css]`、`[assets.scripts]`

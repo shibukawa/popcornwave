@@ -15,8 +15,8 @@ port = 0
 
 func startTestConsole(t *testing.T, files map[string]string) (string, *bytes.Buffer) {
 	t.Helper()
-	if _, ok := files["popcornwave.toml"]; !ok {
-		files["popcornwave.toml"] = consoleProject
+	if _, ok := files["popcornweb.toml"]; !ok {
+		files["popcornweb.toml"] = consoleProject
 	}
 	root := writeProject(t, files)
 	config, err := loadProjectConfig(root)
@@ -70,7 +70,7 @@ func TestDevConsolePrintsOneURLAndServesTheIndex(t *testing.T) {
 // The viewer UI moves onto the console listener while the receiver keeps its
 // own, so both addresses answer and they are not the same one.
 func TestTelemetryPaneIsServedByTheConsoleWhileTheReceiverKeepsItsPort(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -117,7 +117,7 @@ func TestTelemetryPaneIsServedByTheConsoleWhileTheReceiverKeepsItsPort(t *testin
 
 func TestDevConsoleReportsADisabledPaneWithItsKey(t *testing.T) {
 	url, _ := startTestConsole(t, map[string]string{
-		"popcornwave.toml": consoleProject + "\n[dev.console.assets]\nenabled = false\n",
+		"popcornweb.toml": consoleProject + "\n[dev.console.assets]\nenabled = false\n",
 	})
 	page := body(t, url+"/")
 	if !strings.Contains(page, "dev.console.assets.enabled") {
@@ -127,7 +127,7 @@ func TestDevConsoleReportsADisabledPaneWithItsKey(t *testing.T) {
 
 func TestDisabledConsoleStartsNoListener(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": otelProject + "\n[dev.console]\nenabled = false\n",
+		"popcornweb.toml": otelProject + "\n[dev.console]\nenabled = false\n",
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestConsolePortCollisionIsReportedAndNotFatal(t *testing.T) {
 	port := first[strings.LastIndex(first, ":")+1:]
 
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": otelProject + "\n[dev.console]\nport = " + port + "\n",
+		"popcornweb.toml": otelProject + "\n[dev.console]\nport = " + port + "\n",
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestAssetPaneUsesTheBuildEligibilityTest(t *testing.T) {
 
 func TestDevelopmentServerComesFromTheDevelopmentConfig(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject,
+		"popcornweb.toml": consoleProject,
 		"config.dev.toml": "[server]\nport = 9123\napi_doc = \"scalar\"\napi_doc_path = \"/reference\"\n" +
 			"[server.public]\nmount = \"/static\"\n",
 	})
@@ -222,7 +222,7 @@ func TestDevelopmentServerComesFromTheDevelopmentConfig(t *testing.T) {
 // which path that is rather than leaving the link out.
 func TestAPIDocFallsBackToTheFrameworkDefaultPath(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject,
+		"popcornweb.toml": consoleProject,
 		"config.dev.toml":  "[server]\nport = 8080\napi_doc = \"scalar\"\n",
 	})
 	if url := readDevelopmentServer(root).APIDocURL(); url != "http://localhost:8080/docs" {
@@ -234,7 +234,7 @@ func TestAPIDocFallsBackToTheFrameworkDefaultPath(t *testing.T) {
 // which key would turn it on.
 func TestAPIDocIsEmptyWhenTheEndpointIsOff(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject,
+		"popcornweb.toml": consoleProject,
 		"config.dev.toml":  "[server]\nport = 8080\n",
 	})
 	if url := readDevelopmentServer(root).APIDocURL(); url != "" {
@@ -245,7 +245,7 @@ func TestAPIDocIsEmptyWhenTheEndpointIsOff(t *testing.T) {
 // An address pw could not read is left empty, so the index says undetermined
 // rather than printing a default that may be wrong.
 func TestDevelopmentServerIsEmptyWhenUnreadable(t *testing.T) {
-	server := readDevelopmentServer(writeProject(t, map[string]string{"popcornwave.toml": consoleProject}))
+	server := readDevelopmentServer(writeProject(t, map[string]string{"popcornweb.toml": consoleProject}))
 	if server.URL != "" || server.PublicMount != "" || server.APIDocURL() != "" {
 		t.Errorf("server = %+v, want every value undetermined", server)
 	}
@@ -255,7 +255,7 @@ func TestDevelopmentServerIsEmptyWhenUnreadable(t *testing.T) {
 // longer doubles as it, because the data pane announces to the same console and
 // would otherwise turn the overlay back on for a project that turned it off.
 func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, _ := loadProjectConfig(root)
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	console := startDevConsole(root, config, nil, nil, nil, stdout, stderr)
@@ -300,7 +300,7 @@ func TestOverlayInjectionFollowsTheConfiguration(t *testing.T) {
 // with a launcher that is on: a project that turned it off is not handed a
 // placement for something the application will not serve.
 func TestLauncherInjectionFollowsTheConfiguration(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, _ := loadProjectConfig(root)
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	console := startDevConsole(root, config, nil, nil, nil, stdout, stderr)
@@ -340,7 +340,7 @@ func TestLauncherInjectionFollowsTheConfiguration(t *testing.T) {
 }
 
 func TestOverlaySwitchesDefaultOnAndParse(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -349,7 +349,7 @@ func TestOverlaySwitchesDefaultOnAndParse(t *testing.T) {
 		t.Errorf("overlay=%v reload=%v, want both on by default", config.Console.Overlay, config.Console.Reload)
 	}
 	root = writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject + "\n[dev.console.overlay]\nenabled = false\nreload = false\n",
+		"popcornweb.toml": consoleProject + "\n[dev.console.overlay]\nenabled = false\nreload = false\n",
 	})
 	config, err = loadProjectConfig(root)
 	if err != nil {
@@ -361,7 +361,7 @@ func TestOverlaySwitchesDefaultOnAndParse(t *testing.T) {
 }
 
 func TestLauncherSwitchesDefaultOnAndParse(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)
@@ -374,7 +374,7 @@ func TestLauncherSwitchesDefaultOnAndParse(t *testing.T) {
 	}
 	for _, corner := range launcherCorners {
 		root = writeProject(t, map[string]string{
-			"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"" + corner + "\"\n",
+			"popcornweb.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"" + corner + "\"\n",
 		})
 		config, err = loadProjectConfig(root)
 		if err != nil {
@@ -385,7 +385,7 @@ func TestLauncherSwitchesDefaultOnAndParse(t *testing.T) {
 		}
 	}
 	root = writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\nenabled = false\n",
+		"popcornweb.toml": consoleProject + "\n[dev.console.launcher]\nenabled = false\n",
 	})
 	config, err = loadProjectConfig(root)
 	if err != nil {
@@ -401,7 +401,7 @@ func TestLauncherSwitchesDefaultOnAndParse(t *testing.T) {
 // chose. project.toolchain and project.database reject theirs the same way.
 func TestAnUnknownLauncherCornerIsAnError(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"middle\"\n",
+		"popcornweb.toml": consoleProject + "\n[dev.console.launcher]\ncorner = \"middle\"\n",
 	})
 	_, err := loadProjectConfig(root)
 	if err == nil {
@@ -419,7 +419,7 @@ func TestAnUnknownLauncherCornerIsAnError(t *testing.T) {
 // displayed address is a working one. What pw injects into the application is
 // still the receiver's own listener.
 func TestTheMountedPaneAcceptsOTLPAtItsOwnBase(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": consoleProject})
+	root := writeProject(t, map[string]string{"popcornweb.toml": consoleProject})
 	config, err := loadProjectConfig(root)
 	if err != nil {
 		t.Fatalf("load: %v", err)

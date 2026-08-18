@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // CSRFSecret is the per-session secret the check validates against, held in a

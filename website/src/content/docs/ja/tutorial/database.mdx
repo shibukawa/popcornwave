@@ -170,7 +170,7 @@ INSERT INTO memos (body) VALUES ({body})
 INSERT が差し出せるのはそれです。
 
 `{body}` はパラメータで、プリペアドステートメントのプレースホルダになります。ここでは `?`、
-PostgreSQL なら `$1`。決めるのは `popcornwave.toml` の `project.database` です。
+PostgreSQL なら `$1`。決めるのは `popcornweb.toml` の `project.database` です。
 生成器はテンプレート式を SQL テキストに連結しませんし、手書きのプレースホルダは拒否します。
 この書き方をしたステートメントがインジェクションになる余地はありません。境界はまさにそこで、
 パラメータが束縛するのは**値**であって、テーブル名でも列名でも並び順でもありません。
@@ -222,7 +222,7 @@ import (
 
 	"memoapp/queries" // 追加
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // init は2章のまま。ルートは変わらない。

@@ -1,11 +1,11 @@
 ---
-title: Popcorn Wave
+title: Popcorn Web
 description: net/http の上に直接構築された、TinyGo 志向の小さな Go ウェブアプリケーションフレームワーク。
 template: splash
-# これがないとタブが「Popcorn Wave | Popcorn Wave」になる。
+# これがないとタブが「Popcorn Web | Popcorn Web」になる。
 head:
   - tag: title
-    content: Popcorn Wave — Go 向けの小さなウェブアプリケーションフレームワーク
+    content: Popcorn Web — Go 向けの小さなウェブアプリケーションフレームワーク
 hero:
   tagline: net/http の上で動くサーバーレンダリングのウェブアプリケーション。型付きテンプレートと型付き SQL を事前生成します。
   image:
@@ -17,7 +17,7 @@ hero:
       link: /ja/tutorial/getting-started/
       icon: right-arrow
     - text: GitHub で見る
-      link: https://github.com/shibukawa/popcornwave
+      link: https://github.com/shibukawa/popcornweb
       icon: external
       variant: minimal
 ---
@@ -59,15 +59,15 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## 同じ Todo アプリを二通りで測る
 
-[`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo)
+[`examples/todo`](https://github.com/shibukawa/popcornweb/tree/main/examples/todo)
 には、ひとつの PostgreSQL テーブルに対して二通りに書いた Todo リストが入っています。
-片方は `net/http`・`html/template`・`encoding/json`・`pgx`、もう片方は Popcorn Wave。
+片方は `net/http`・`html/template`・`encoding/json`・`pgx`、もう片方は Popcorn Web。
 ルートは同じ 5 本、行も同じで、JSON の中身が食い違ったら計測ハーネスが測るのを
 拒否します。
 
 バイナリサイズ。Go 1.26.5 と TinyGo 0.41.1、darwin/arm64 です。
 
-| ビルド | `net/http` + pgx | Popcorn Wave |
+| ビルド | `net/http` + pgx | Popcorn Web |
 | --- | --- | --- |
 | ホスト `go build` | 18.98 MB | 19.66 MB |
 | ホスト `-ldflags="-s -w"` | 13.06 MB | 13.57 MB |
@@ -93,8 +93,8 @@ preview 1 にスレッドはないので、エンジンは意図的なコンパ�
 | | requests/s | HTML p95 |
 | --- | --- | --- |
 | `net/http` + pgx | 約 14,700 | 3.15〜3.39 ms |
-| Popcorn Wave・cookie セッション | 約 13,700 | 2.90〜3.21 ms |
-| Popcorn Wave・サーバー側セッション | 約 15,800 | 2.46〜2.66 ms |
+| Popcorn Web・cookie セッション | 約 13,700 | 2.90〜3.21 ms |
+| Popcorn Web・サーバー側セッション | 約 15,800 | 2.46〜2.66 ms |
 
 下 2 行はアプリケーションのコードが同一で、**最初のバイトはどちらもフレームワークが
 速い**。cookie セッションはレコード全体を毎リクエスト 2 回線に載せます。
@@ -108,5 +108,5 @@ preview 1 にスレッドはないので、エンジンは意図的なコンパ�
 [パフォーマンス](/ja/guides/architecture/performance/)に全内訳と、
 チューニングすべき残り 4 項目があります。
 
-[なぜ Popcorn Wave なのか](/ja/start/why-popcorn-wave/)では、生産性、性能、相互運用性が
+[なぜ Popcorn Web なのか](/ja/start/why-popcorn-web/)では、生産性、性能、相互運用性が
 この選択によってどう結び付くのかを説明します。

@@ -10,7 +10,7 @@ flow:
   trigger: api:cli-generate finds a .pw.html source
   steps:
     - id: parse
-      action: parse Popcorn Wave static template syntax without requiring standard html/template compatibility
+      action: parse Popcorn Web static template syntax without requiring standard html/template compatibility
     - id: resolve-model
       action: load the declared Go package and resolve exported fields, pointers, loop element types, map key and value types, and permitted helpers with go/types
     - id: resolve-json

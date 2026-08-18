@@ -89,7 +89,7 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/myapp ./cmd/myapp
 ビルダーを呼びます。
 
 [コンテナイメージ](/ja/guides/deployment/container-images/)ではこのコマンドを
-`Dockerfile.tinygo` の中で使っています。そもそも Popcorn Wave のビルドに
+`Dockerfile.tinygo` の中で使っています。そもそも Popcorn Web のビルドに
 ホストフェーズがある理由も、そちらにあります。
 
 ## 読み込む対象
@@ -172,7 +172,7 @@ Go のソースは報告しません。普通の Go コードはプロジェク�
 
 いつでも再生成できます。編集もコミットもしないでください。
 
-`cmd/<name>/popcornwave_bootstrap_pw_gen.go` は種類として例外です。ドキュメントシェルと
+`cmd/<name>/popcornweb_bootstrap_pw_gen.go` は種類として例外です。ドキュメントシェルと
 埋め込み公開アセットをバイナリにリンクするためのブランクインポートだけを含む生成
 ファイルで、これによりハンドラがそれらを参照する必要がなくなります。どちらも存在しない
 場合は自動的に削除されます。

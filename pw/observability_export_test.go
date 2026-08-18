@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // collector stands in for an OTLP/HTTP receiver and keeps the bodies it was

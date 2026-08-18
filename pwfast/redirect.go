@@ -6,9 +6,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/botdetect"
-	"github.com/shibukawa/popcornwave/internal/safeurl"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/botdetect"
+	"github.com/shibukawa/popcornweb/internal/safeurl"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )

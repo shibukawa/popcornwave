@@ -1,6 +1,6 @@
 package pw
 
-import "github.com/shibukawa/popcornwave/middlewares"
+import "github.com/shibukawa/popcornweb/middlewares"
 
 // PublicAssetURL is the URL a document should name for one of the
 // application's static assets, given its path inside the served tree.

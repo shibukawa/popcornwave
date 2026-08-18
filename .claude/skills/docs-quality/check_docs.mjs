@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mechanical checks for the Popcorn Wave documentation site.
+// Mechanical checks for the Popcorn Web documentation site.
 //
 // Run from the repository root:
 //   node .claude/skills/docs-quality/check_docs.mjs

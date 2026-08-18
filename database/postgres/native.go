@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 	"github.com/shibukawa/tinygodriver/database/pgx"
 	"github.com/shibukawa/tinygodriver/database/pgx/pgxpool"
@@ -118,7 +118,7 @@ func (tx *nativeTx) Rollback(ctx context.Context) error {
 type commandResult pgx.CommandTag
 
 func (result commandResult) LastInsertId() (int64, error) {
-	return 0, errors.New("popcornwave/database/postgres: LastInsertId is not supported by PostgreSQL; use RETURNING")
+	return 0, errors.New("popcornweb/database/postgres: LastInsertId is not supported by PostgreSQL; use RETURNING")
 }
 
 func (result commandResult) RowsAffected() (int64, error) {

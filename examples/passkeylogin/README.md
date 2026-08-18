@@ -54,16 +54,16 @@ endpoints speak and the ArrayBuffers the WebAuthn API wants.
 
 ## Tables
 
-Framework tables are prefixed `popcornwave_` and come from their own migration
+Framework tables are prefixed `popcornweb_` and come from their own migration
 files, beside the application's:
 
 | Migration | Tables | Owner |
 | --- | --- | --- |
 | [00001_init.sql](migrations/00001_init.sql) | `accounts`, `external_identities` | this application |
-| [00002_init_popcornwave_session.sql](migrations/00002_init_popcornwave_session.sql) | `popcornwave_session` | `plugin/session/rdb` |
-| [00003_init_popcornwave_auth.sql](migrations/00003_init_popcornwave_auth.sql) | `popcornwave_authstate`, `popcornwave_auth_allowlist`, `popcornwave_passkey_credential`, `popcornwave_auth_bootstrap` | `plugin/auth` |
+| [00002_init_popcornweb_session.sql](migrations/00002_init_popcornweb_session.sql) | `popcornweb_session` | `plugin/session/rdb` |
+| [00003_init_popcornweb_auth.sql](migrations/00003_init_popcornweb_auth.sql) | `popcornweb_authstate`, `popcornweb_auth_allowlist`, `popcornweb_passkey_credential`, `popcornweb_auth_bootstrap` | `plugin/auth` |
 
-`popcornwave_passkey_credential` holds the credentials. An application that
+`popcornweb_passkey_credential` holds the credentials. An application that
 owns its own credential storage installs `auth.SetCredentialStore` instead, and
 the framework then neither creates nor verifies that table.
 

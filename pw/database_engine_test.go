@@ -1,3 +1,3 @@
 package pw
 
-import _ "github.com/shibukawa/popcornwave/database/sqlite"
+import _ "github.com/shibukawa/popcornweb/database/sqlite"

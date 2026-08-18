@@ -3,7 +3,7 @@ id: decision:dynamodb-observability-seam
 type: decision
 title: Observe DynamoDB At The HTTP Client
 ---
-Popcorn Wave instruments the DynamoDB path by supplying the driver's HTTP client, because there is no executor seam the way api:instrumented-sql-executor has one.
+Popcorn Web instruments the DynamoDB path by supplying the driver's HTTP client, because there is no executor seam the way api:instrumented-sql-executor has one.
 
 ```yaml
 status: accepted

@@ -7,7 +7,7 @@ import (
 	"crypto/subtle"
 	"math/big"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 func (rp *RelyingParty) FinishRegistration(state CeremonyState, response RegistrationCredential) (RegistrationResult, error) {

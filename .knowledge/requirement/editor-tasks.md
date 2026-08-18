@@ -39,7 +39,7 @@ integration:
   devidp: the login url of requirement:contrib-devidp is surfaced the same way
 non_goals:
   - a UI over api:cli-init or api:cli-new, which are interactive and belong in a terminal
-  - a settings editor for popcornwave.toml
+  - a settings editor for popcornweb.toml
   - replacing the api:cli-dev terminal with a custom panel
 acceptance:
   - a generation error selected in the Problems view opens the source file at the failing position, not the generated file

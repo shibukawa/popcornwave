@@ -3,7 +3,7 @@ id: flow:passkey-login
 type: flow
 title: Passkey Login
 ---
-Passkey login resolves a verified credential to its local account and creates a normal Popcorn Wave session.
+Passkey login resolves a verified credential to its local account and creates a normal Popcorn Web session.
 
 ```yaml
 flow:

@@ -32,7 +32,7 @@ readonly_enforcement:
   blocked_by:
     finding: sqlbind emits the read-only-aware write resolver only when no framework executor resolver is configured
     cause: the framework resolver contract is func(context.Context) (SQLExecutor, error), which carries no statement access mode
-    effect: popcornwave configures that resolver, so generated writes never reach the check and the option has no effect
+    effect: popcornweb configures that resolver, so generated writes never reach the check and the option has no effect
     needs: a resolver contract that carries the access mode, or a second resolver symbol for write statements
   in_effect_today:
     - a depth 0 transaction on a readonly connection begins with sql.TxOptions read-only

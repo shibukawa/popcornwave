@@ -6,7 +6,7 @@ title: Page Render Runtime
 One pw-owned package supplies every symbol generated page code calls, so decision:page-render-binding needs no generation template of its own and applications never name it.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/pwpage
+package: github.com/shibukawa/popcornweb/pwpage
 audience: generated page tree code, like the generated-runtime boundary of concept:public-package-boundaries
 backing_pw_api:
   WriteHTMLPage: renders a page inside its own wrapper chain and the registered document, with the document outermost; it is the one thing this package could not compose itself, because the document is deliberately not reachable from outside pw

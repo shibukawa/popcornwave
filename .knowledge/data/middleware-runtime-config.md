@@ -3,7 +3,7 @@ id: data:middleware-runtime-config
 type: data
 title: Middleware Runtime Config
 ---
-The `middleware` binding selects and orders the Popcorn Wave middleware applied by Run and Middlewares.
+The `middleware` binding selects and orders the Popcorn Web middleware applied by Run and Middlewares.
 
 ```yaml
 switches:

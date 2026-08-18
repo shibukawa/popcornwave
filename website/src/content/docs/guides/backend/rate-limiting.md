@@ -125,7 +125,7 @@ redis.dsn = "${RATELIMIT_REDIS_DSN}"
 ```
 
 ```go
-import _ "github.com/shibukawa/popcornwave/ratelimitstore/redis"
+import _ "github.com/shibukawa/popcornweb/ratelimitstore/redis"
 ```
 
 The blank import links the backend; registration opens no connection, and the

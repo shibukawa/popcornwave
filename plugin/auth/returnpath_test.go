@@ -3,7 +3,7 @@ package auth
 import (
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
 )
 
 func TestLocalReturnPathRejectsOffSiteTargets(t *testing.T) {

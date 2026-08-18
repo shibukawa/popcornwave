@@ -113,7 +113,7 @@ connection opens, the room flashes as each message arrives, and stopping the
 server turns the badge to `reconnecting…` without the rest of the page moving.
 
 The guides are
-[Live Rendering](https://shibukawa.github.io/popcornwave/guides/cross-layer/live-rendering/),
-[Signals](https://shibukawa.github.io/popcornwave/guides/cross-layer/signals/),
+[Live Rendering](https://shibukawa.github.io/popcornweb/guides/cross-layer/live-rendering/),
+[Signals](https://shibukawa.github.io/popcornweb/guides/cross-layer/signals/),
 and
-[Component scripts](https://shibukawa.github.io/popcornwave/guides/interactivity/component-scripts/).
+[Component scripts](https://shibukawa.github.io/popcornweb/guides/interactivity/component-scripts/).

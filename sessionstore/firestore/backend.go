@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/database/firestore"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/database/firestore"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // Importing this package registers the firestore session backend and publishes
 // its kind:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/firestore"
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/firestore"
+//	import _ "github.com/shibukawa/popcornweb/database/firestore"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/firestore"
 //
 // Registration opens nothing. The client belongs to database/firestore, which
 // installs it into every request context, so this backend borrows one it did
@@ -36,7 +36,7 @@ func open(ctx context.Context, config pw.SessionConfig, _ pw.SessionResources) (
 	if _, opened := firestore.EnsureClient(ctx); !opened {
 		return session.Backend{}, errors.New(
 			`session.backend = "firestore" requires middleware.firestore.enabled and the ` +
-				`github.com/shibukawa/popcornwave/database/firestore import`)
+				`github.com/shibukawa/popcornweb/database/firestore import`)
 	}
 	store := NewStore(Options{Kind: config.Firestore.Kind})
 	// No Close, because the client is the host's. No Prune, because nothing

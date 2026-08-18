@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-Popcorn Wave は CSS の手法を 1 つに強制しません。コンポーネントスコープのスタイルは
+Popcorn Web は CSS の手法を 1 つに強制しません。コンポーネントスコープのスタイルは
 設定なしで使え、Tailwind CSS はオプトインのビルドツールです。両方を同じ
 コンポーネントで使っても、クラス名を奪い合いません。
 
@@ -31,7 +31,7 @@ export component Card(label: string): html {
 
 ## Tailwind CSS
 
-Popcorn Wave は**スタンドアロン**の Tailwind バイナリを実行します。`package.json` も
+Popcorn Web は**スタンドアロン**の Tailwind バイナリを実行します。`package.json` も
 `node_modules` も Node のロックファイルもありません。
 
 最短の方法は、プロジェクトの作成時に有効にすることです。
@@ -54,7 +54,7 @@ Tailwind を後から追加するには、スキャフォールドが作るも�
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": ["go@latest", "git@latest", "valkey@latest", "tailwindcss_4@4.1.18"],
-  "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
+  "shell": {"init_hook": ["echo 'Popcorn Web development environment'"]}
 }
 ```
 
@@ -86,7 +86,7 @@ import は Tailwind を開始しますが、テンプレートの場所までは
 `@import "tailwindcss"` の行はビルド前に検証されるので、壊れたエントリポイントは
 黙って空の CSS を出力するのではなくエラーとして報告されます。
 
-**3. `popcornwave.toml` で有効にする**
+**3. `popcornweb.toml` で有効にする**
 
 ```toml
 [assets.tailwind]

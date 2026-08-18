@@ -11,7 +11,7 @@ motivation:
   - a serverless deployment already paying for DynamoDB should not add a relational database for one table
   - api:session-store is a four-operation key-value contract, which is what this store is
 plugin:
-  import: popcornwave/sessionstore/dynamo
+  import: popcornweb/sessionstore/dynamo
   backend_name: dynamo
   config_prefix: session.dynamo
   registration: api:session-backend-plugin; the import registers the factory under the backend name, so session.backend selects it
@@ -19,7 +19,7 @@ plugin:
   client: the process client that middleware installs; the backend borrows it, so it returns no Close and opens nothing
   raw_store: it implements session.RawStore over already encoded payloads, so it never sees the application payload type; the host adds it back with session.Typed
 table:
-  declared_name: popcornwave_session, per rule:framework-owned-tables
+  declared_name: popcornweb_session, per rule:framework-owned-tables
   deployed_name: resolved by rule:dynamodb-table-naming like any other table, so a test prefix reaches it unchanged
   key: the record key hash as the partition key; no sort key
   definition_source: registered through decision:dynamodb-table-registry when the package is imported, so requirement:dynamodb-migration creates it with every other table

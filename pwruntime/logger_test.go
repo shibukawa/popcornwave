@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 func captureBackend(minimum Level) (*LogBackend, *CaptureSink) {

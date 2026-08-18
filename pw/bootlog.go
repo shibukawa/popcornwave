@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/bootblock"
-	"github.com/shibukawa/popcornwave/internal/configview"
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/bootblock"
+	"github.com/shibukawa/popcornweb/internal/configview"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -27,7 +27,7 @@ const (
 )
 
 // bootMessage is the stable message of the structured startup record.
-const bootMessage = "popcornwave started"
+const bootMessage = "popcornweb started"
 
 // redactedValue matches the mask configbind applies to the keys it recognizes
 // as sensitive, so a summary never shows two different marks for one idea.
@@ -195,7 +195,7 @@ func renderBootTree(report bootReport, listening string, style bootStyle) string
 var bootBannerArt = bootblock.Art
 
 func bootBanner(report bootReport, style bootStyle) []string {
-	name := "Popcorn Wave"
+	name := "Popcorn Web"
 	if version := frameworkVersion(); version != "" {
 		name += " " + version
 	}

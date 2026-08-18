@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 )
 
 // Discover validates the issuer metadata and fetches its initial signing key

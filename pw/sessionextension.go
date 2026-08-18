@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwsession"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/pwsession"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 func init() {
@@ -19,7 +19,7 @@ func init() {
 	})
 }
 
-// The session layer lives in popcornwave/pwsession, and every entry below is a
+// The session layer lives in popcornweb/pwsession, and every entry below is a
 // thin wrapper or a true alias of one declared there.
 //
 // It moved because almost none of a session is transport-shaped: the slot
@@ -39,7 +39,7 @@ type (
 // RegisterSessionBackend registers factory under name. A storage plugin calls
 // it from init, so a blank import is what puts a backend in a binary:
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 func RegisterSessionBackend(name string, factory SessionBackendFactory) {
 	pwsession.RegisterBackend(name, factory)
 }

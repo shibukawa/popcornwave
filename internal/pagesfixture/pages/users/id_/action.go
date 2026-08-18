@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 type renameRequest struct {

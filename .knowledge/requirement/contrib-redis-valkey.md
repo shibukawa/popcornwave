@@ -3,7 +3,7 @@ id: requirement:contrib-redis-valkey
 type: requirement
 title: TinyGo Redis and Valkey Compatibility
 ---
-Popcorn Wave supports Redis and Valkey through a tested external Go client and does not maintain a general Redis protocol package.
+Popcorn Web supports Redis and Valkey through a tested external Go client and does not maintain a general Redis protocol package.
 
 ```yaml
 integration: external dependency

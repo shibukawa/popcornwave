@@ -1,6 +1,6 @@
 # Change request: WriteStatus generates no encoder, and the formatter splits trailing comments
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.3, both confirmed still present in v0.4.7
 **Date:** 2026-08-09
 **Status:** fixed in v0.4.9, both asks taken as proposed; this framework is on it
@@ -155,7 +155,7 @@ generator: conflicting call patterns for <pkg>.WriteStatus
 That refusal is reasonable. It just means a consumer cannot fix this from
 outside the module.
 
-### What Popcorn Wave does meanwhile
+### What Popcorn Web does meanwhile
 
 Our `pw.WriteStatus` does not call `httpbind.WriteStatus`. It calls
 `httpbind.Write` through a `http.ResponseWriter` wrapper that rewrites the
@@ -245,7 +245,7 @@ commented-out worked example, so the first `pw fmt` in a new project inflates
 the reader's first look at the query language into a double-spaced block. We
 now run the formatter over our scaffold literals at write time so a new project
 passes `--check` immediately, which means this spacing is what every new
-Popcorn Wave project ships with until it is fixed.
+Popcorn Web project ships with until it is fixed.
 
 ### Suggested fix
 

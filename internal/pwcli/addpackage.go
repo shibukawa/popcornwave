@@ -74,12 +74,12 @@ func addPackage(ctx context.Context, root, module string, stdout io.Writer) erro
 	return nil
 }
 
-// appendPackageDeclaration writes the entry at the end of popcornwave.toml. It
+// appendPackageDeclaration writes the entry at the end of popcornweb.toml. It
 // appends rather than rewriting the document, so operator comments and hand
 // tuned values survive the edit, which is the same rule every other pw edit of
 // this file follows.
 func appendPackageDeclaration(root, module string) error {
-	path := filepath.Join(root, "popcornwave.toml")
+	path := filepath.Join(root, "popcornweb.toml")
 	current, err := os.ReadFile(path)
 	if err != nil {
 		return err

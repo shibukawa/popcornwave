@@ -30,7 +30,7 @@ storage:
   not_a_session: the entries are not data:session-record values and carry no token, so concept:session-storage-boundary is not crossed
   refused_backend: cookie, which has no server storage and no revocation, per decision:cookie-session-storage
   why_not_authstate: requirement:contrib-auth-state Take is destructive by contract, and a revocation entry is read many times and consumed never
-  owned_table: popcornwave_auth_revocation, under rule:framework-owned-tables, published by auth.MigrationSQL beside the allowlist table
+  owned_table: popcornweb_auth_revocation, under rule:framework-owned-tables, published by auth.MigrationSQL beside the allowlist table
 key_handling:
   designed: a hash of the issuer and the identifier, matching the key-hash discipline api:session-store already applies, because a leaked list should not be a list of live token names
   shipped: the raw identifier in the key_value column, keyed (issuer, kind, key_value); the hash discipline is not implemented as of 2026-08-14 and stands as the one open divergence from this policy

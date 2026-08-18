@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Popcorn Wave SQL",
+  "name": "Popcorn Web SQL",
   "scopeName": "source.pw.sql",
   "comment": "A .pw.sql file: the shared declaration header of source.pw, plus statement declarations whose bodies are SQL with template insertions. SQL literals, quoted identifiers, comments, and dollar-quoted strings are matched before any template form, because the sqlbind parser does not read template syntax inside them.",
   "patterns": [

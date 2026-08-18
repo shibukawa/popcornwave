@@ -35,7 +35,7 @@ export component Card(user: User): html { … }
 できません。private なコンポーネントも含みます。生成された宣言が同じパッケージを
 共有するからです。
 
-生成が読むのは `popcornwave.toml` の `generate.templates` と `generate.pages` が挙げる
+生成が読むのは `popcornweb.toml` の `generate.templates` と `generate.pages` が挙げる
 ディレクトリだけで、子パッケージへは降りていきません。どのディレクトリにも属さない
 `.pw.html` は黙って飛ばされるのではなく報告されます。
 [ビルドツール設定一覧](/ja/reference/build-configuration/)を参照してください。
@@ -663,7 +663,7 @@ export component ProductList(rows: Product[]): html { … }
 `scope` は `"private"` か `"public"` を取り、既定は `"private"` です。
 
 private なコンポーネントのキーには、描画した相手の識別子が前置されます。2人の読み手が同じ
-エントリに届くことはありません。Popcorn Wave はその値を
+エントリに届くことはありません。Popcorn Web はその値を
 `pw.RequestAuthentication(ctx).Subject` から渡します。セッションログインもパスキーもベアラ
 トークンも、ハンドラが走る前に1つのローカルアカウント識別子へ収束するからです。匿名リクエスト
 はそれを持ちません。識別子のないまま描画された private なコンポーネントは何も保存しません。
@@ -719,7 +719,7 @@ public なコンポーネントはパラメータだけでキーを作ります�
 ## ハイフン付きの要素
 
 ハイフンは HTML 自身のカスタム要素の目印なので、ハイフン付き要素の空間は宣言された
-ホワイトリストです。Popcorn Wave は今のところそこに何も宣言していないので、
+ホワイトリストです。Popcorn Web は今のところそこに何も宣言していないので、
 **`.pw.html` の中のハイフン付き要素はすべて生成エラー**になります。
 
 ```

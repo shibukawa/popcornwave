@@ -19,14 +19,14 @@ queries = []
 config = []
 `
 
-// writeProjectFixture writes popcornwave.toml with a valid generation source
+// writeProjectFixture writes popcornweb.toml with a valid generation source
 // list appended, and creates the directory that list names.
 func writeProjectFixture(t *testing.T, root, config string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(root, "handlers"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), config+fixtureSources)
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), config+fixtureSources)
 }
 
 func TestLoadProjectConfigTailwind(t *testing.T) {
@@ -202,7 +202,7 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	if !strings.Contains(files[".vscode/settings.json"], `"**/*_pw_gen.go": true`) {
 		t.Fatal("VS Code settings do not hide generated Go files")
 	}
-	if strings.Contains(files["popcornwave.toml"], "extra_watch") {
+	if strings.Contains(files["popcornweb.toml"], "extra_watch") {
 		t.Fatal("project scaffold contains the obsolete dev.extra_watch key")
 	}
 	for _, purpose := range []string{
@@ -211,8 +211,8 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 		"queries = [\"queries\"]",
 		"config = [\"cmd/fixture\"]",
 	} {
-		if !strings.Contains(files["popcornwave.toml"], purpose) {
-			t.Fatalf("project scaffold does not state %s:\n%s", purpose, files["popcornwave.toml"])
+		if !strings.Contains(files["popcornweb.toml"], purpose) {
+			t.Fatalf("project scaffold does not state %s:\n%s", purpose, files["popcornweb.toml"])
 		}
 	}
 	if !strings.Contains(files[".gitignore"], "\n*_pw_gen.go\n") {
@@ -234,11 +234,11 @@ func TestScaffoldFilesWithTailwind(t *testing.T) {
 	if !strings.HasPrefix(defaultTailwindOutput, extractedAssetDir+"/") {
 		t.Fatalf("Tailwind writes %q, which the %q ignore rule does not cover", defaultTailwindOutput, extractedAssetDir)
 	}
-	if !strings.Contains(files["popcornwave.toml"], "[dev.logs]\nenabled = true\ndirectory = \".log\"") {
+	if !strings.Contains(files["popcornweb.toml"], "[dev.logs]\nenabled = true\ndirectory = \".log\"") {
 		t.Fatal("project scaffold does not state local log defaults")
 	}
 	for name, want := range map[string]string{
-		"popcornwave.toml": "[dev.watch]\nincludes = []\nexcludes = []",
+		"popcornweb.toml": "[dev.watch]\nincludes = []\nexcludes = []",
 		"devbox.json":      "tailwindcss_4@4.1.18",
 		// Named through AssetURL rather than as a literal, so the Tailwind
 		// output is served under a revision segment and cached rather than
@@ -381,7 +381,7 @@ func TestSnapshotWatchFilesFollowsSourcesAndAssetsButNotTheBuiltTree(t *testing.
 	}
 	for _, included := range []string{
 		filepath.Join(root, "public.go"),
-		filepath.Join(root, "popcornwave.toml"),
+		filepath.Join(root, "popcornweb.toml"),
 		filepath.Join(root, "config.dev.toml"),
 		filepath.Join(root, "config", "config.stg.toml"),
 	} {
@@ -436,7 +436,7 @@ func TestLoadProjectConfigRequiresEveryGeneratePurpose(t *testing.T) {
 				}
 				block += purpose + " = []\n"
 			}
-			writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+			writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 				"[project]\nname = \"fixture\"\nmain = \".\"\n"+block)
 			_, err := loadProjectConfig(root)
 			if err == nil || !strings.Contains(err.Error(), "generate."+missing+" is required") {
@@ -453,7 +453,7 @@ func TestLoadProjectConfigAcceptsAnEmptyGeneratePurpose(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "handlers"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		"[project]\nname = \"fixture\"\nmain = \".\"\n\n[generate]\n"+
 			"handlers = [\"handlers\"]\ntemplates = []\nqueries = []\nconfig = []\n")
 	config, err := loadProjectConfig(root)
@@ -485,7 +485,7 @@ func TestLoadProjectConfigRejectsUnusableGenerateSources(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+			writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 				"[project]\nname = \"fixture\"\nmain = \".\"\n\n[generate]\nhandlers = "+testcase.value+
 					"\ntemplates = []\nqueries = []\nconfig = []\n")
 			_, err := loadProjectConfig(root)
@@ -503,7 +503,7 @@ func TestLoadProjectConfigNormalizesGenerateSources(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		"[project]\nname = \"fixture\"\nmain = \".\"\n\n[generate]\n"+
 			"handlers = [\"templates\", \"./handlers/\"]\ntemplates = []\nqueries = []\nconfig = []\n")
 	config, err := loadProjectConfig(root)

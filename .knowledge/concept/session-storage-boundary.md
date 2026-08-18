@@ -3,7 +3,7 @@ id: concept:session-storage-boundary
 type: concept
 title: Session Storage and Authentication Boundary
 ---
-The session package stores typed per-browser state and knows nothing about login; popcornwave/plugin/auth decides who the browser is, how well that is proved, and how long it stays true.
+The session package stores typed per-browser state and knows nothing about login; popcornweb/plugin/auth decides who the browser is, how well that is proved, and how long it stays true.
 
 ```yaml
 session_owns:

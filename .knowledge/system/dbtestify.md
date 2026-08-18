@@ -28,7 +28,7 @@ not_consumed:
   assertdb: binds concrete *testing.T and t.Context, and opens its own pool; decision:testutil-testing-interface rules it out
   httpapi: out of scope for requirement:test-data-seeding
   cli: replaced by api:cli-seed so one runtime configuration source stays authoritative
-added_for_popcornwave:
+added_for_popcornweb:
   released: v0.2.0 and v0.3.0
   rationale: decision:dbtestify-integration
   surface:

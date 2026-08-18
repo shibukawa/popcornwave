@@ -1,17 +1,17 @@
 // Package sqlite registers the SQLite dialect of the authentication state
 // store.
 //
-//	import _ "github.com/shibukawa/popcornwave/authstate/sqlite"
+//	import _ "github.com/shibukawa/popcornweb/authstate/sqlite"
 //
 // It registers no database/sql driver: an engine package under
-// popcornwave/database does that separately.
+// popcornweb/database does that separately.
 package sqlite
 
 import (
 	"context"
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 // Dialect is the registered engine name, which is also what a sqlite:// DSN

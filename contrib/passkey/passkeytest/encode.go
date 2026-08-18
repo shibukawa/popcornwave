@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/contrib/cbor"
+	"github.com/shibukawa/popcornweb/contrib/cbor"
 )
 
 // Authenticator data flags, from the WebAuthn authenticator data layout.

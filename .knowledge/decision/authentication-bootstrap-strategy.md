@@ -3,7 +3,7 @@ id: decision:authentication-bootstrap-strategy
 type: decision
 title: Authentication Bootstrap Strategy
 ---
-Popcorn Wave supports OIDC-backed account bootstrap with optional passkey login as the recommended default, plus explicit passkey-only deployments.
+Popcorn Web supports OIDC-backed account bootstrap with optional passkey login as the recommended default, plus explicit passkey-only deployments.
 
 ```yaml
 modes:

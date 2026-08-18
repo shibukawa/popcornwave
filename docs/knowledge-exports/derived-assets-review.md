@@ -183,10 +183,10 @@ non_goals:
 
 ## data:project-config
 
-popcornwave.toml contains only pw build and development tooling configuration; runtime application settings belong to configbind inputs.
+popcornweb.toml contains only pw build and development tooling configuration; runtime application settings belong to configbind inputs.
 
 ```yaml
-file: popcornwave.toml
+file: popcornweb.toml
 schema:
   project:
     name: myapp
@@ -670,7 +670,7 @@ rules:
 
 ## system:tinybind
 
-TinyBind is the generated binding, configuration, response, validation, streaming, and OpenAPI engine wrapped by the Popcorn Wave public APIs.
+TinyBind is the generated binding, configuration, response, validation, streaming, and OpenAPI engine wrapped by the Popcorn Web public APIs.
 
 ```yaml
 module: github.com/shibukawa/tinybind-go
@@ -696,7 +696,7 @@ defects:
     fix: each now takes the handle and checks it, which is what generator/configbind_doc.go already did three files away
     symptom_it_removed: a nil pointer dereference in go/token.(*File).Name, taking the calling process down
     trigger: a Go file in a generated directory that does not parse, most often a zero-byte one an editor has created and not yet written into
-    mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Wave out of the picture on 2026-08-02
+    mechanism: packages.Load returns a syntax entry for a file it could not parse, that entry reports token.NoPos, and a FileSet lookup of NoPos is nil; measured against golang.org/x/tools with Popcorn Web out of the picture on 2026-08-02
     downstream_containment_kept: api:cli-generate unparsable_source and its recover stay, because the pre-check names the file and the line where the generator would only name the directory, and the recover bounds every generation panic rather than this one
 asset_transform_seam:
   shipped: v0.3.1, in one commit that carried the hooks, the cache, the produced files, and the recorded dependency file together; read against the upstream tree on 2026-08-04
@@ -795,7 +795,7 @@ generator:
     - the same setter takes an optional table resolver function, run inside every runtime entry, which is the seam rule:dynamodb-table-naming installs
     - a declaration carries a required table clause, so a generated query names neither a client nor a table
     - a missing client is a named error rather than a panic, so an entry reached without the middleware fails as an ordinary error
-    - the declaration suffix is configurable through DynamoTemplatePattern and the output file name through DynamoQueryName, so Popcorn Wave brands both without renaming anything after generation
+    - the declaration suffix is configurable through DynamoTemplatePattern and the output file name through DynamoQueryName, so Popcorn Web brands both without renaming anything after generation
     - a declared query's attribute names are checked against the tags, and every attribute is aliased unconditionally so no reserved word reaches an expression literally
     - the string key-condition form remains as an unchecked escape hatch
     - table definition emission is suppressible as the named feature item-table, and the whole mode as item-codec
@@ -816,7 +816,7 @@ compatibility:
     behavior_change: discovery now skips tinybind's own generated files, which removes registrations a run could previously read back out of a generated registry
   route_tree_v0_2_6:
     additive: the header and the failure selector become configurable with defaults matching what v0.2.5 emitted
-    resolves_for_pw: api:cli-generate writes its own generated header, which the v0.2.5 filter could not recognize; registering the prefix is now the supported answer, so page tree output keeps the Popcorn Wave brand
+    resolves_for_pw: api:cli-generate writes its own generated header, which the v0.2.5 filter could not recognize; registering the prefix is now the supported answer, so page tree output keeps the Popcorn Web brand
   sql_v0_2_2: the SQL dialect became a required generation input, so a run that discovers a .pw.sql without one is a configuration error rather than a silent postgresql assumption
   sql_v0_2_3: the sqlite dialect is additive and emits the question placeholders sqlite already generated through mysql, so naming it changes no generated output
   dynamo_v0_2_8:
@@ -824,7 +824,7 @@ compatibility:
     module_graph: the module now requires system:tinygodriver v1.1.3, because a runtime package imports the DynamoDB client rather than only an example doing so
   dynamo_v0_2_9:
     additive: the query declaration is a new source kind and a new output file, so a project generating only codecs regenerates identically
-    answers: the downstream Popcorn Wave request, whose allocation decision:dynamodb-framework-scope records
+    answers: the downstream Popcorn Web request, whose allocation decision:dynamodb-framework-scope records
     closes: the read-path drift requirement:dynamodb-generation could not close on its own
   dynamo_v0_2_10:
     breaking: every runtime entry lost its client parameter and a declaration gained a required table clause, so v0.2.9 call sites and declarations both need editing
@@ -835,7 +835,7 @@ compatibility:
     taken_for: the unguarded position lookup above, which crashed api:cli-generate on a file an editor had created and not yet written into
     arrives_with: the boundary emission requirement:navigation-delta-rendering consumes, whose activation is opt-in per component except for generated route layouts, which take it automatically
     effect_on_pw: a concept:page-tree component now emits a boundary marker attribute and one update-manifest entry; the rendered document gains an attribute and loses nothing
-    measured: one page tree fixture regenerated, and the rest of the suite passed unchanged, so no Popcorn Wave source needed editing
+    measured: one page tree fixture regenerated, and the rest of the suite passed unchanged, so no Popcorn Web source needed editing
     superseded_by: v0.3.3 and the adoption decision:update-runtime-convergence records, so the markers are no longer inert; requirement:module-native-csrf is the half taken first
   html_v0_1_15: generated HTML APIs are not source-compatible with earlier direct-writer output
   html_v0_1_19: async parameters and async render entry points are additive, so existing templates and call sites keep compiling after regeneration
@@ -1077,7 +1077,7 @@ behavior:
   - walk each generate.pages root once, reporting every discovery problem in that walk rather than only the first
   - use the pw emitter of decision:page-render-binding for every page tree artifact, so generated pages call api:page-render-runtime rather than system:tinybind
   - run request binding over the packages a discovered tree reports, skipping the ones the generator reports nothing to generate for
-  - register the Popcorn Wave generated header prefix with every discovery pass, so nothing this command wrote is analyzed as a source on the next run
+  - register the Popcorn Web generated header prefix with every discovery pass, so nothing this command wrote is analyzed as a source on the next run
   - keep, per directory, only the artifacts whose purpose lists that directory
   - warn once per .pw.html, .pw.sql, or stale generated file found outside its purpose, naming the path and the key
   - use system:tinybind route and call analysis behind the pw API

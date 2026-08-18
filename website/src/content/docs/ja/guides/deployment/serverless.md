@@ -1,13 +1,13 @@
 ---
 title: サーバーレスホスティング
-description: Popcorn Wave が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる条件。
+description: Popcorn Web が対応する scale-to-zero / Functions ランタイムと、HTTP アダプターが必要になる条件。
 sidebar:
   order: 3
 ---
 
 「サーバーレス」には互換性のない複数の起動方式があります。区別すべきなのは、ホストが
 HTTP プロセスを起動するのか、export されたハンドラーを要求するのか、プロバイダー固有の
-イベントを渡すのかです。Popcorn Wave は最初の方式と、そこへ HTTP 変換できる方式に、
+イベントを渡すのかです。Popcorn Web は最初の方式と、そこへ HTTP 変換できる方式に、
 アプリケーションコードを変えずに対応します。
 
 | ホストの形 | 例 | 対応状況 |
@@ -49,7 +49,7 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 \
 ```
 
 アプリケーションの entry point はそのままです。アダプターは `AWS_LWA_PORT`、`PORT`、
-`8080` の順で転送先を決め、Popcorn Wave の listener も同じ割り当てに従います。生成先には
+`8080` の順で転送先を決め、Popcorn Web の listener も同じ割り当てに従います。生成先には
 Linux `bootstrap`、`config.prod.toml`、adapter version を固定した Dockerfile が入り、
 Dockerfile が `APP_ENV=prod` を設定します。
 
@@ -89,7 +89,7 @@ Vercel の Go runtime は `api/` 以下に `http.HandlerFunc` を export した 
 
 `pw build` は application module を隔離した source tree へコピーし、選択 backend の `main` を
 初期化関数へ変換します。Vercel には `api/Handler`、Cloud Run functions には Functions
-Framework の `PopcornWave` 登録を生成し、warm instance ごとに一度だけ初期化します。
+Framework の `PopcornWeb` 登録を生成し、warm instance ごとに一度だけ初期化します。
 
 `nethttp` は `pw.Middlewares`、`fasthttp` は `pwfast.Start` と framework の in-memory HTTP/1
 bridge を使うため、どちらも provider が要求する `http.HandlerFunc` を公開できます。生成 source は

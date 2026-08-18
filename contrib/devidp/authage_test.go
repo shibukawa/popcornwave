@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
-	"github.com/shibukawa/popcornwave/contrib/oidc"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
+	"github.com/shibukawa/popcornweb/contrib/oidc"
 )
 
 // browser keeps the provider's own session cookie across visits, which is what

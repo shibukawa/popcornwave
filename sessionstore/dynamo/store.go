@@ -5,8 +5,8 @@
 // itself belongs to database/dynamo, which this package reads from the request
 // context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/dynamo"
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/database/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/dynamo"
 //
 // Nothing here sweeps expired records. A record is judged expired when it is
 // read and cannot be renewed once dead, so correctness never waits for a
@@ -20,14 +20,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/dynamo"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/database/dynamo"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
 
 // DeclaredTable is the name source uses. A deployment maps it onto its own
 // through middleware.dynamo, like any other table.
-const DeclaredTable = "popcornwave_session"
+const DeclaredTable = "popcornweb_session"
 
 // Attribute names. keyAttribute is named once and used by both the table
 // definition and the item, so the two cannot drift.

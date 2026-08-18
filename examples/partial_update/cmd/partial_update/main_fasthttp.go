@@ -6,7 +6,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornweb/pwfast"
 	"partial_update/pages"
 )
 

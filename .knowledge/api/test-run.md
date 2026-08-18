@@ -6,7 +6,7 @@ title: Isolated TestRun
 testutil.TestRun executes an application from a deep copy of every registered framework and application configuration.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/testutil
+package: github.com/shibukawa/popcornweb/testutil
 testing_interface: decision:testutil-testing-interface
 surface:
   - TestRun(t TestingT, handler, customize, ...RunOption) *Server

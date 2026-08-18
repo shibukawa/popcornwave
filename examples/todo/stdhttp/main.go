@@ -30,7 +30,7 @@ type Todo struct {
 }
 
 // todoListResponse wraps the array so that GET /api/todos answers with the same
-// body shape as the Popcorn Wave service, which is what makes the two
+// body shape as the Popcorn Web service, which is what makes the two
 // comparable under load.
 type todoListResponse struct {
 	Todos []Todo `json:"todos"`

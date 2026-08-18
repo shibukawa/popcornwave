@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 // DecodeRegistrationCredential strictly decodes one bounded browser response.

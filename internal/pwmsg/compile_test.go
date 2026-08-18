@@ -73,11 +73,11 @@ agree:
 go %s
 
 require (
-	github.com/shibukawa/popcornwave v0.0.0
+	github.com/shibukawa/popcornweb v0.0.0
 	github.com/shibukawa/tinybind-go v0.5.13
 )
 
-replace github.com/shibukawa/popcornwave => %s
+replace github.com/shibukawa/popcornweb => %s
 `, goVersion(t, root), root)
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		t.Fatal(err)

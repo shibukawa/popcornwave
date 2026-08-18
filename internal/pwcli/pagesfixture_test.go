@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 )
 
@@ -23,7 +23,7 @@ import (
 var updateFixture = flag.Bool("update", false, "rewrite the committed page tree fixture")
 
 // fixtureConfig is the project shape of internal/pagesfixture: one page tree
-// and nothing else. The fixture has no popcornwave.toml of its own, because a
+// and nothing else. The fixture has no popcornweb.toml of its own, because a
 // second project root inside this module would be found by any command run from
 // a subdirectory.
 func fixtureConfig(t *testing.T) (string, projectConfig) {
@@ -142,7 +142,7 @@ func TestFastHTTPBuildConstrainsOnlyTheGeneratedFilesNamingNetHTTP(t *testing.T)
 			// net/http is not the test here: a derived binder names it for the
 			// status constants and is still fasthttp-only code. What must not
 			// survive is the first transport's runtime and its value types.
-			for _, first := range []string{`"github.com/shibukawa/popcornwave/pw"`, "http.ResponseWriter", "*http.Request"} {
+			for _, first := range []string{`"github.com/shibukawa/popcornweb/pw"`, "http.ResponseWriter", "*http.Request"} {
 				if bytes.Contains(change.source, []byte(first)) {
 					t.Errorf("%s is generated for the fasthttp build and names %s", change.path, first)
 				}

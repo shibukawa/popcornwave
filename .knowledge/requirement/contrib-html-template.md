@@ -3,7 +3,7 @@ id: requirement:contrib-html-template
 type: requirement
 title: Generated HTML Templates
 ---
-contrib/htmltemplate compiles a Popcorn Wave-specific typed template language and Go data models into reflection-free HTML and JSON writer functions.
+contrib/htmltemplate compiles a Popcorn Web-specific typed template language and Go data models into reflection-free HTML and JSON writer functions.
 
 ```yaml
 runtime_package: contrib/htmltemplate
@@ -11,7 +11,7 @@ generator: system:pw-cli
 flow: flow:template-generation
 generation_entrypoints:
   - api:cli-generate
-  - package-local go:generate directive invoking Popcorn Wave CLI
+  - package-local go:generate directive invoking Popcorn Web CLI
 input:
   templates: configured HTML template source files
   binding: template name plus same-package Go data type in data:project-config

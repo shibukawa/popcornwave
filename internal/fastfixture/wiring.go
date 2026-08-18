@@ -2,7 +2,7 @@
 
 package fastfixture
 
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 
 // The route table, registered the ordinary way.
 //

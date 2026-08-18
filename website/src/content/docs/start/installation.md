@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the pw command through Homebrew, Nix, a release archive, or the Go toolchain, and add Popcorn Wave to a Go module.
+description: Install the pw command through Homebrew, Nix, a release archive, or the Go toolchain, and add Popcorn Web to a Go module.
 sidebar:
   order: 1
 ---
@@ -24,7 +24,7 @@ The formula installs a prebuilt binary from the tagged release, on macOS
 ### Nix
 
 ```sh
-nix run github:shibukawa/popcornwave#pw -- version
+nix run github:shibukawa/popcornweb#pw -- version
 ```
 
 That runs `pw` without installing anything. To put it on `PATH`, add the flake's
@@ -42,7 +42,7 @@ you want the host toolchain without Devbox.
 ### Release archive
 
 Every tag publishes one archive per target plus a `checksums.txt`, on the
-[releases page](https://github.com/shibukawa/popcornwave/releases). Extraction
+[releases page](https://github.com/shibukawa/popcornweb/releases). Extraction
 yields `pw` directly, with no directory prefix, so verifying the checksum and
 moving the binary onto your `PATH` is the whole procedure. Windows is covered
 here and by no other channel.
@@ -50,7 +50,7 @@ here and by no other channel.
 ### Go toolchain
 
 ```sh
-go install github.com/shibukawa/popcornwave/cmd/pw@latest
+go install github.com/shibukawa/popcornweb/cmd/pw@latest
 ```
 
 This works and stays supported. It is listed last because it needs a Go
@@ -90,21 +90,21 @@ Each command has its own page under [pw command](/pw/overview/).
 
 ## The library
 
-Popcorn Wave requires **Go 1.26 or later**.
+Popcorn Web requires **Go 1.26 or later**.
 
 For a new project, [`pw init`](/pw/project/init/) writes a `go.mod` that already
 requires the framework; no manual `go get` is needed. An existing module needs
 one additional step:
 
 ```sh
-go get github.com/shibukawa/popcornwave
+go get github.com/shibukawa/popcornweb
 ```
 
 Application code imports the [`pw`](/guides/frontend/handlers/) package, which is
 the stable application-facing API:
 
 ```go
-import "github.com/shibukawa/popcornwave/pw"
+import "github.com/shibukawa/popcornweb/pw"
 ```
 
 ## Devbox (optional)

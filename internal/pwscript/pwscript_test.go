@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwscript"
+	"github.com/shibukawa/popcornweb/internal/pwscript"
 )
 
 // The idiomatic shape, which is the one an author writes and the only one this

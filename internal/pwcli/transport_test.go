@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 )
@@ -63,7 +63,7 @@ func TestTheDerivedHandlersTakeTheSecondTransportsRequest(t *testing.T) {
 	source := string(onlyArtifact(t, byKind, generator.ArtifactTransport).Content)
 	for _, want := range []string{
 		"//go:build fasthttp",
-		`pw "github.com/shibukawa/popcornwave/pwfast"`,
+		`pw "github.com/shibukawa/popcornweb/pwfast"`,
 		"func APIHandler(ctx *fasthttp.RequestCtx)",
 		// The shared helper, which is why admission closes over the call graph:
 		// deriving the handler and leaving the function it hands the request to
@@ -188,7 +188,7 @@ func TestARefusalNamingAFrameworkEntryIsReportedAsAFrameworkDefect(t *testing.T)
 	if !strings.Contains(ordinary.Error(), "no dialect") {
 		t.Errorf("an ordinary generation failure lost its reason:\n%s", ordinary)
 	}
-	if strings.Contains(ordinary.Error(), "defect in Popcorn Wave") {
+	if strings.Contains(ordinary.Error(), "defect in Popcorn Web") {
 		t.Errorf("an ordinary generation failure was blamed on the framework:\n%s", ordinary)
 	}
 
@@ -198,7 +198,7 @@ func TestARefusalNamingAFrameworkEntryIsReportedAsAFrameworkDefect(t *testing.T)
 			Kind:     generator.RefusalUnknownCall,
 			Detail:   "passes r to pw.SomethingUnregistered, whose transport arguments are undeclared",
 		}})).Error()
-	if !strings.Contains(message, "defect in Popcorn Wave") {
+	if !strings.Contains(message, "defect in Popcorn Web") {
 		t.Errorf("a refusal on a pw call reads as an application mistake:\n%s", message)
 	}
 
@@ -208,7 +208,7 @@ func TestARefusalNamingAFrameworkEntryIsReportedAsAFrameworkDefect(t *testing.T)
 			Kind:     generator.RefusalUnknownCall,
 			Detail:   "passes r to tracing.Start, whose transport arguments are undeclared",
 		}})).Error()
-	if strings.Contains(application, "defect in Popcorn Wave") {
+	if strings.Contains(application, "defect in Popcorn Web") {
 		t.Errorf("a refusal on a third-party call was blamed on the framework:\n%s", application)
 	}
 	if !strings.Contains(application, "remedy:") {

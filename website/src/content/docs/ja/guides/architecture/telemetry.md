@@ -1,12 +1,12 @@
 ---
 title: テレメトリ
-description: アプリケーションログ、トレース、開発診断、ローカルJSONL、DuckDB分析をPopcorn Waveがどう接続するか。
+description: アプリケーションログ、トレース、開発診断、ローカルJSONL、DuckDB分析をPopcorn Webがどう接続するか。
 sidebar:
   order: 7
 ---
 
 テレメトリは、性質の異なる二つの問いに答えます。ログは個々の判断や失敗を説明し、
-トレースは一つのリクエストが処理と時間をどう通過したかを示します。Popcorn Wave は両者を
+トレースは一つのリクエストが処理と時間をどう通過したかを示します。Popcorn Web は両者を
 関連付けつつ、開発環境と本番環境に同じ出力先を強制しません。
 
 ## テレメトリのモデル
@@ -23,7 +23,7 @@ package handlers
 import (
     "net/http"
 
-    "github.com/shibukawa/popcornwave/pw"
+    "github.com/shibukawa/popcornweb/pw"
 )
 
 func showAccount(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +127,7 @@ flushで終わります。各境界スパンはそこからフラグメントを
 間違った親にぶら下がります。
 
 ```go
-import "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+import "github.com/shibukawa/popcornweb/contrib/otel/otelhttp"
 
 client := otelhttp.NewClient(http.DefaultClient)
 request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -303,7 +303,7 @@ enabled = true
 
 DuckDB は任意で導入する外部ツールであり、`pw` は同梱、インストール、実行のいずれも行いません。
 データベースへ取り込まずに複数回の実行を横断して検索できます。プロジェクトルートで
-実行するか、glob を設定済みディレクトリへ合わせてください。Popcorn Wave のエージェントSkillも
+実行するか、glob を設定済みディレクトリへ合わせてください。Popcorn Web のエージェントSkillも
 このスキーマを知っているため、「直近1時間で繰り返したエラーを見せて」のような質問からクエリを
 作れます。
 
@@ -371,7 +371,7 @@ ORDER BY timestamp;
 
 ## 本番環境の出力先
 
-`pw dev` 以外で Popcorn Wave がローカルログファイルを作ることはありません。本番ログは
+`pw dev` 以外で Popcorn Web がローカルログファイルを作ることはありません。本番ログは
 プラットフォームのログ収集器に向けた標準出力上の構造化 JSON となり、OTLP は設定済みの
 エンドポイントへ送られます。ファイルの所有、ローテーション、保持期間、アクセス制御、削除は、
 アプリケーションコンテナではなくデプロイ先のプラットフォームが管理します。
@@ -392,7 +392,7 @@ ORDER BY timestamp;
 または対応する `OTEL_*` 環境変数から
 [アプリケーション設定一覧](/ja/reference/configuration/#observability)で設定します。ローカル保存の
 スイッチは、デプロイ済みアプリケーションではなく開発プロセスを制御するため、
-`popcornwave.toml` に属します。
+`popcornweb.toml` に属します。
 
 OTLP は、リクエスト処理がコレクタを待たないよう上限付きキューを使い、満杯ならレコードを
 破棄します。設定された間隔で未充足のバッチも送り、終了時には期限付きの最終flushを行います。

@@ -90,7 +90,7 @@
 {"category": "concept", "id": "concept:project-layout", "path": ".knowledge/concept/project-layout.md", "role": "supporting", "title": "Generated Project Layout", "type": "concept"}
 {"category": "concept", "id": "concept:public-package-boundaries", "path": ".knowledge/concept/public-package-boundaries.md", "role": "supporting", "title": "Public Package Boundaries", "type": "concept"}
 {"category": "concept", "id": "concept:session-storage-boundary", "path": ".knowledge/concept/session-storage-boundary.md", "role": "supporting", "title": "Session Storage and Authentication Boundary", "type": "concept"}
-{"category": "concept", "id": "concept:template-source-dialects", "path": ".knowledge/concept/template-source-dialects.md", "role": "supporting", "title": "Popcorn Wave Source Dialects", "type": "concept"}
+{"category": "concept", "id": "concept:template-source-dialects", "path": ".knowledge/concept/template-source-dialects.md", "role": "supporting", "title": "Popcorn Web Source Dialects", "type": "concept"}
 {"category": "structure", "id": "data:account-bootstrap-credential", "path": ".knowledge/data/account-bootstrap-credential.md", "role": "supporting", "title": "Account Bootstrap Credential", "type": "data"}
 {"category": "structure", "id": "data:auth-state-record", "path": ".knowledge/data/auth-state-record.md", "role": "supporting", "title": "Authentication State Record", "type": "data"}
 {"category": "structure", "id": "data:authentication-runtime-config", "path": ".knowledge/data/authentication-runtime-config.md", "role": "supporting", "title": "Authentication Runtime Config", "type": "data"}
@@ -162,7 +162,7 @@
 {"category": "constraint", "id": "decision:browser-suite-seeding", "path": ".knowledge/decision/browser-suite-seeding.md", "role": "supporting", "title": "Browser Suite Seeding Route", "type": "decision"}
 {"category": "constraint", "id": "decision:buffered-fragment-delivery", "path": ".knowledge/decision/buffered-fragment-delivery.md", "role": "supporting", "title": "Buffered Fragment Delivery", "type": "decision"}
 {"category": "constraint", "id": "decision:cache-key-interface", "path": ".knowledge/decision/cache-key-interface.md", "role": "supporting", "title": "A Cache Key Is An Interface, Not A Shape", "type": "decision"}
-{"category": "constraint", "id": "decision:canonical-popcornwave-skill-source", "path": ".knowledge/decision/canonical-popcornwave-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Wave Skill Source", "type": "decision"}
+{"category": "constraint", "id": "decision:canonical-popcornweb-skill-source", "path": ".knowledge/decision/canonical-popcornweb-skill-source.md", "role": "supporting", "title": "Canonical Popcorn Web Skill Source", "type": "decision"}
 {"category": "constraint", "id": "decision:cli-release-pipeline", "path": ".knowledge/decision/cli-release-pipeline.md", "role": "supporting", "title": "Hand-written CLI Release Pipeline", "type": "decision"}
 {"category": "constraint", "id": "decision:committed-package-artifacts", "path": ".knowledge/decision/committed-package-artifacts.md", "role": "supporting", "title": "Committed Package Artifacts", "type": "decision"}
 {"category": "constraint", "id": "decision:component-handler-namespace", "path": ".knowledge/decision/component-handler-namespace.md", "role": "supporting", "title": "Component Handler Namespace", "type": "decision"}
@@ -417,7 +417,7 @@
 {"category": "objective", "id": "requirement:api-server-scaffold", "path": ".knowledge/requirement/api-server-scaffold.md", "role": "primary", "title": "API Server Preset Scaffold", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-i18n", "path": ".knowledge/requirement/application-i18n.md", "role": "primary", "title": "Application Internationalization", "type": "requirement"}
 {"category": "objective", "id": "requirement:application-middleware-registration", "path": ".knowledge/requirement/application-middleware-registration.md", "role": "primary", "title": "Numbered Middleware Chain Registration", "type": "requirement"}
-{"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Wave Application User Experience", "type": "requirement"}
+{"category": "objective", "id": "requirement:application-user-experience", "path": ".knowledge/requirement/application-user-experience.md", "role": "primary", "title": "Popcorn Web Application User Experience", "type": "requirement"}
 {"category": "objective", "id": "requirement:asset-content-verification", "path": ".knowledge/requirement/asset-content-verification.md", "role": "primary", "title": "Asset Content Verification", "type": "requirement"}
 {"category": "objective", "id": "requirement:async-html-rendering", "path": ".knowledge/requirement/async-html-rendering.md", "role": "primary", "title": "Async HTML Rendering", "type": "requirement"}
 {"category": "objective", "id": "requirement:auth-security-remediation", "path": ".knowledge/requirement/auth-security-remediation.md", "role": "primary", "title": "Authentication Security Remediation", "type": "requirement"}
@@ -555,7 +555,7 @@
 {"category": "objective", "id": "requirement:proxied-request-identity", "path": ".knowledge/requirement/proxied-request-identity.md", "role": "primary", "title": "Proxied Request Identity", "type": "requirement"}
 {"category": "objective", "id": "requirement:public-asset-delivery", "path": ".knowledge/requirement/public-asset-delivery.md", "role": "primary", "title": "Public Asset Delivery", "type": "requirement"}
 {"category": "objective", "id": "requirement:pw-call-registration", "path": ".knowledge/requirement/pw-call-registration.md", "role": "primary", "title": "Every pw Call Taking The Transport Is Registered", "type": "requirement"}
-{"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Wave Language Server", "type": "requirement"}
+{"category": "objective", "id": "requirement:pw-language-server", "path": ".knowledge/requirement/pw-language-server.md", "role": "primary", "title": "Popcorn Web Language Server", "type": "requirement"}
 {"category": "objective", "id": "requirement:pwfast-update-surface", "path": ".knowledge/requirement/pwfast-update-surface.md", "role": "primary", "title": "The Update Surface On The Second Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-diagnostics", "path": ".knowledge/requirement/query-diagnostics.md", "role": "primary", "title": "Database Query Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:query-navigation-interception", "path": ".knowledge/requirement/query-navigation-interception.md", "role": "primary", "title": "Query Navigation Interception", "type": "requirement"}
@@ -648,5 +648,5 @@
 {"category": "interface", "id": "ui:tutorial-memo-app", "path": ".knowledge/ui/tutorial-memo-app.md", "role": "primary", "title": "Tutorial Memo Application", "type": "ui"}
 {"category": "objective", "id": "vision:contrib", "path": ".knowledge/vision/contrib.md", "role": "primary", "title": "TinyGo Contrib Vision", "type": "vision"}
 {"category": "objective", "id": "vision:editor-support", "path": ".knowledge/vision/editor-support.md", "role": "primary", "title": "Editor Support Vision", "type": "vision"}
-{"category": "objective", "id": "vision:popcorn-wave", "path": ".knowledge/vision/popcorn-wave.md", "role": "primary", "title": "Popcorn Wave Vision", "type": "vision"}
+{"category": "objective", "id": "vision:popcorn-web", "path": ".knowledge/vision/popcorn-web.md", "role": "primary", "title": "Popcorn Web Vision", "type": "vision"}
 {"category": "objective", "id": "vision:web-application-styles", "path": ".knowledge/vision/web-application-styles.md", "role": "primary", "title": "Classic and Modern Web Styles", "type": "vision"}

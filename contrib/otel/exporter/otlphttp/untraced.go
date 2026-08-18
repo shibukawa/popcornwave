@@ -3,7 +3,7 @@ package otlphttp
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+	"github.com/shibukawa/popcornweb/contrib/otel/otelhttp"
 )
 
 // untraced returns client with any tracing frames taken off its transport.

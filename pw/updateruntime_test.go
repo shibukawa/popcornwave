@@ -1,7 +1,7 @@
 package pw
 
 import (
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 	"os"
 	"os/exec"
 	"path/filepath"

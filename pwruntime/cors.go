@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
 )
 
 // CORSConfig is the cross-origin admission policy.
@@ -119,7 +119,7 @@ func (c CORSConfig) Validate() error {
 		return nil
 	}
 	if len(c.AllowedOrigins) == 0 {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins is empty; an enabled policy admitting no origin marks nothing")
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins is empty; an enabled policy admitting no origin marks nothing")
 	}
 	wildcard := false
 	for _, origin := range c.AllowedOrigins {
@@ -132,7 +132,7 @@ func (c CORSConfig) Validate() error {
 		}
 	}
 	if wildcard && len(c.AllowedOrigins) > 1 {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins mixes %q with named origins; the wildcard is the whole list or none of it", corsWildcard)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins mixes %q with named origins; the wildcard is the whole list or none of it", corsWildcard)
 	}
 	if err := validateTokens("security.cors.allowed_methods", c.AllowedMethods); err != nil {
 		return err
@@ -145,21 +145,21 @@ func (c CORSConfig) Validate() error {
 	}
 	if c.AllowCredentials {
 		if wildcard {
-			return fmt.Errorf("popcornwave: security.cors.allow_credentials cannot be used with the %q origin; a browser drops a credentialed response carrying it", corsWildcard)
+			return fmt.Errorf("popcornweb: security.cors.allow_credentials cannot be used with the %q origin; a browser drops a credentialed response carrying it", corsWildcard)
 		}
 		for _, header := range c.AllowedHeaders {
 			if header == corsWildcard {
-				return fmt.Errorf("popcornwave: security.cors.allowed_headers cannot use %q with allow_credentials, for the same reason the origin cannot", corsWildcard)
+				return fmt.Errorf("popcornweb: security.cors.allowed_headers cannot use %q with allow_credentials, for the same reason the origin cannot", corsWildcard)
 			}
 		}
 		for _, pattern := range c.Include {
 			if pattern == "/**" {
-				return fmt.Errorf("popcornwave: security.cors.allow_credentials with an include of \"/**\" grants a cross-origin read of every authenticated page and the live stream; name the paths being opened")
+				return fmt.Errorf("popcornweb: security.cors.allow_credentials with an include of \"/**\" grants a cross-origin read of every authenticated page and the live stream; name the paths being opened")
 			}
 		}
 	}
 	if c.MaxAge < 0 {
-		return fmt.Errorf("popcornwave: security.cors.max_age cannot be negative")
+		return fmt.Errorf("popcornweb: security.cors.max_age cannot be negative")
 	}
 	return nil
 }
@@ -173,23 +173,23 @@ func (c CORSConfig) Validate() error {
 // deployment can have meant to name.
 func validateOrigin(origin string) error {
 	if origin == "" || strings.EqualFold(origin, "null") {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins entry %q is not an origin", origin)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins entry %q is not an origin", origin)
 	}
 	if !validHeaderValue(origin) {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins entry %q contains an invalid header value", origin)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins entry %q contains an invalid header value", origin)
 	}
 	parsed, err := url.Parse(origin)
 	if err != nil {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins entry %q is not a URL: %w", origin, err)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins entry %q is not a URL: %w", origin, err)
 	}
 	switch parsed.Scheme {
 	case "http", "https":
 	default:
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins entry %q must use http or https", origin)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins entry %q must use http or https", origin)
 	}
 	if parsed.Host == "" || parsed.User != nil || parsed.Opaque != "" ||
 		parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("popcornwave: security.cors.allowed_origins entry %q must be scheme://host[:port] with no path, query, fragment, or userinfo", origin)
+		return fmt.Errorf("popcornweb: security.cors.allowed_origins entry %q must be scheme://host[:port] with no path, query, fragment, or userinfo", origin)
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func validateTokens(key string, values []string) error {
 			continue
 		}
 		if value == "" || !isHTTPToken(value) {
-			return fmt.Errorf("popcornwave: %s entry %q is not a valid HTTP token", key, value)
+			return fmt.Errorf("popcornweb: %s entry %q is not a valid HTTP token", key, value)
 		}
 	}
 	return nil
@@ -266,11 +266,11 @@ func ResolveCORS(config CORSConfig, csrfHeader string) (ResolvedCORS, error) {
 	}
 	include, err := pathpattern.Compile(config.Include)
 	if err != nil {
-		return ResolvedCORS{}, fmt.Errorf("popcornwave: security.cors.include: %w", err)
+		return ResolvedCORS{}, fmt.Errorf("popcornweb: security.cors.include: %w", err)
 	}
 	exclude, err := pathpattern.Compile(config.Exclude)
 	if err != nil {
-		return ResolvedCORS{}, fmt.Errorf("popcornwave: security.cors.exclude: %w", err)
+		return ResolvedCORS{}, fmt.Errorf("popcornweb: security.cors.exclude: %w", err)
 	}
 	resolved := ResolvedCORS{
 		enabled:     true,

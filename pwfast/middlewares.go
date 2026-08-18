@@ -5,8 +5,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

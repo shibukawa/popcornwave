@@ -63,7 +63,7 @@ deviceはuser codeとverification URIを受け取り、開発者がブラウザ�
 意図的にありません。Client Credentialsはend-userを伴わずclient自身として動く用途であり、
 Device Authorizationの代わりにはなりません。これをimportしたアプリケーションは`pw build`が
 拒否します。詳細は
-[`contrib/devidp`](https://github.com/shibukawa/popcornwave/tree/main/contrib/devidp)
+[`contrib/devidp`](https://github.com/shibukawa/popcornweb/tree/main/contrib/devidp)
 を参照してください。
 
 テストでは `testutil.WithIdentityProvider` が同じプロバイダを起動し、

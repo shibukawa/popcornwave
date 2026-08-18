@@ -118,7 +118,7 @@ const (
 // generated from this catalog, so an identifier a report prints always has an
 // entry to link to, and a check added without documentation fails the test that
 // compares the generated page with the checked-in one.
-const DocsBase = "https://shibukawa.github.io/popcornwave/appendix/diagnostics/"
+const DocsBase = "https://shibukawa.github.io/popcornweb/appendix/diagnostics/"
 
 // DocsURL returns the entry for this check. The anchor is the heading the
 // generated page writes for it.

@@ -10,7 +10,7 @@ import (
 	// pwruntime rather than pw, because this file has no build tag: a source
 	// names no transport, so both builds compile it, and only one of them has
 	// pw. pwruntime.NamedSignal is pw.NamedSignal under its other name.
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // LoadRoomTitle is an ordinary async external: it answers once, and the

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // SignInHint is what the login screen may show about the last person who used

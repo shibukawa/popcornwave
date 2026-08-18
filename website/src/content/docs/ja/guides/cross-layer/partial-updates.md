@@ -62,17 +62,17 @@ validator_key = "${HTML_UPDATE_VALIDATOR_KEY}"
 export component RenameForm(orderID: string): html {
 <script component>
   export function setup({ el: form, teardown }) {
-    if (!window.popcornwave) return;
+    if (!window.popcornweb) return;
 
     async function submit(event) {
       event.preventDefault();
       const response = await fetch(form.action, {
         method: "POST",
-        headers: window.popcornwave.updateHeaders(),
+        headers: window.popcornweb.updateHeaders(),
         credentials: "same-origin",
         body: new FormData(form),
       });
-      await window.popcornwave.apply(response);
+      await window.popcornweb.apply(response);
     }
 
     form.addEventListener("submit", submit);
@@ -98,10 +98,10 @@ export component RenameForm(orderID: string): html {
 JavaScriptから各経路を直接始めることもできます。
 
 ```js
-if (window.popcornwave) {
-  await window.popcornwave.update({ sort: "newest" });
-  await window.popcornwave.navigate("/orders/17");
-  await window.popcornwave.redraw("card-17", { orderID: 17 });
+if (window.popcornweb) {
+  await window.popcornweb.update({ sort: "newest" });
+  await window.popcornweb.navigate("/orders/17");
+  await window.popcornweb.redraw("card-17", { orderID: 17 });
 }
 ```
 

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 	"github.com/shibukawa/tinybind-go/htmlbind/delta"
@@ -593,7 +593,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 	// head element and every component it calls statically.
 	if head := fragment.Head(); len(head) > 0 {
 		WriteProblem(w, r, InternalServerError(fmt.Errorf(
-			"popcornwave: HTML fragment declares head contributions a fragment response cannot deliver: %v", head)))
+			"popcornweb: HTML fragment declares head contributions a fragment response cannot deliver: %v", head)))
 		return
 	}
 	// Nothing classifies the client here: one branch means one representation, so

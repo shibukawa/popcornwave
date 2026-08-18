@@ -171,7 +171,7 @@ type executor interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-// dbStore is the framework-owned store over the popcornwave_ tables. It is used
+// dbStore is the framework-owned store over the popcornweb_ tables. It is used
 // only when the application installed no store of its own.
 type dbStore struct {
 	db *sql.DB

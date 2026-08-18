@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// writePackageFixture writes a package-kind popcornwave.toml. A package has no
+// writePackageFixture writes a package-kind popcornweb.toml. A package has no
 // entry point, so the fixture never carries project.main, and generate.queries
 // stays empty because a generated query cannot be published for an unknown
 // engine.
@@ -179,7 +179,7 @@ func TestLoadPackageProjectRejectsQueries(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "queries"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"), `[project]
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"), `[project]
 name = "widget"
 kind = "package"
 
@@ -312,7 +312,7 @@ func TestPlanBootstrapLinkRemovesBootstrapWhenNothingIsDeclared(t *testing.T) {
 	}
 	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
 	writeTestFile(t, filepath.Join(mainDir, "main.go"), "package main\n\nfunc main() {}\n")
-	writeTestFile(t, filepath.Join(mainDir, "popcornwave_bootstrap_pw_gen.go"), "package main\n")
+	writeTestFile(t, filepath.Join(mainDir, "popcornweb_bootstrap_pw_gen.go"), "package main\n")
 	config := projectConfig{Main: "./cmd/fixture"}
 	changes, err := planBootstrapLink(root, config, nil, nil)
 	if err != nil {

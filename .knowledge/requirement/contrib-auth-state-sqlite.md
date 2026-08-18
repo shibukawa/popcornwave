@@ -20,7 +20,7 @@ options:
   - maximum key, encoded payload, and prune batch sizes with hard caps
 record: data:auth-state-record
 schema:
-  table: popcornwave_authstate
+  table: popcornweb_authstate
   columns:
     - namespace TEXT NOT NULL
     - key TEXT NOT NULL

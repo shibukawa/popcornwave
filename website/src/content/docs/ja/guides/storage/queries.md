@@ -22,7 +22,7 @@ SQL は SQL のまま見えますが、Go との境界には型が付きます�
 もので、TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回
 走らせるときも同じコマンドです。
 
-走査の対象はモジュール全体ではありません。`popcornwave.toml` が目的ごとに
+走査の対象はモジュール全体ではありません。`popcornweb.toml` が目的ごとに
 ディレクトリを挙げていて、`.pw.sql` は `queries` の目的に属します。
 
 ```toml
@@ -123,7 +123,7 @@ SELECT id, name FROM users WHERE id = {id}
 SQL の構造ではありません。テーブル名、カラム名、演算子、ソート方向は差し替えられません。
 
 ジェネレータが出力するプレースホルダの構文 — PostgreSQL なら `$1`、MySQL と SQLite
-なら `?` — は `popcornwave.toml` の `project.database` で決まります。書くのはどちらでも
+なら `?` — は `popcornweb.toml` の `project.database` で決まります。書くのはどちらでも
 `{name}` で、変わるのはコンパイル結果だけです。
 [データベースを選ぶ](/ja/pw/project/init/#データベースを選ぶ)を参照。
 

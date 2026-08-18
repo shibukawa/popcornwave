@@ -7,9 +7,9 @@ package skills
 
 import "embed"
 
-// PopcornWave is the framework-usage skill: the guideline an AI coding agent
-// loads to write templates, queries, and configuration in a Popcorn Wave
+// PopcornWeb is the framework-usage skill: the guideline an AI coding agent
+// loads to write templates, queries, and configuration in a Popcorn Web
 // project, and the pw commands it checks its work with.
 //
-//go:embed all:popcornwave-skill
-var PopcornWave embed.FS
+//go:embed all:popcornweb-skill
+var PopcornWeb embed.FS

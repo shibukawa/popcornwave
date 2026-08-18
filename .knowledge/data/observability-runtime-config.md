@@ -3,7 +3,7 @@ id: data:observability-runtime-config
 type: data
 title: Observability Runtime Config
 ---
-The `observability` binding configures the Popcorn Wave logger, severity filtering, trace creation, and optional requirement:contrib-otel export as one policy.
+The `observability` binding configures the Popcorn Web logger, severity filtering, trace creation, and optional requirement:contrib-otel export as one policy.
 
 ```yaml
 registration: automatically registered by pw

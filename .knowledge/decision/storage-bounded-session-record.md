@@ -28,7 +28,7 @@ why_this_does_not_re_split_the_policy:
   still_true: those three stay together under [auth]
   different_question: how long a table may carry abandoned rows is not one of them, so it is not the policy being split
 sweep:
-  moved: from popcornwave/plugin/auth to the framework session extension
+  moved: from popcornweb/plugin/auth to the framework session extension
   reason: the records are the framework's; a deployment with no login still writes them for a session.ServerOnly slot, and abandonment rather than logout is how most sessions end
   kept_in_auth: the single-use ceremony records of requirement:contrib-auth-state, which that package owns
 rules:

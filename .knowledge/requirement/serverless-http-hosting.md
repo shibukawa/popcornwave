@@ -3,7 +3,7 @@ id: requirement:serverless-http-hosting
 type: requirement
 title: Serverless HTTP Hosting
 ---
-One Popcorn Wave application binary for either backend runs unchanged on scale-to-zero HTTP container services and HTTP-forwarding function hosts.
+One Popcorn Web application binary for either backend runs unchanged on scale-to-zero HTTP container services and HTTP-forwarding function hosts.
 
 ```yaml
 runtime_contract:

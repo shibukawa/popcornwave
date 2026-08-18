@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/internal/safeurl"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/safeurl"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/fasthttpupdate"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -214,11 +214,11 @@ func applyHeader(r *fasthttp.RequestCtx, header http.Header) {
 // errUnsafeNavigation reports a navigation target this framework will not hand
 // to a browser. It is a programming error rather than a request error: the
 // handler chose the target, so the fix is in the handler.
-var errUnsafeNavigation = errors.New("popcornwave: navigation target is not a URL a browser can follow without running script")
+var errUnsafeNavigation = errors.New("popcornweb: navigation target is not a URL a browser can follow without running script")
 
 // errUpdatesDisabled reports an update entry called by a project that never
 // enabled the feature, which is a wiring mistake rather than a request one.
-var errUpdatesDisabled = errors.New("popcornwave: partial updates are not enabled; set html.update.enabled")
+var errUpdatesDisabled = errors.New("popcornweb: partial updates are not enabled; set html.update.enabled")
 
 // ServeUpdate answers a negotiated streamed navigation with the delta of one
 // chain, and reports whether it did.

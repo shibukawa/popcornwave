@@ -9,7 +9,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 const testKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

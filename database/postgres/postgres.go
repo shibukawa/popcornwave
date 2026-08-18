@@ -2,7 +2,7 @@
 //
 // Blank-import it from the application entry point to link it:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/postgres"
+//	import _ "github.com/shibukawa/popcornweb/database/postgres"
 //
 // A TinyGo build needs -scheduler=threads. Under the cooperative scheduler a
 // blocking socket call holds the whole runtime, so the driver's cancellation
@@ -10,7 +10,7 @@
 package postgres
 
 import (
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/tinygodriver/database/pgx/stdlib"
 )
 

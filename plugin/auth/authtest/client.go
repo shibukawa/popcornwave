@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // NewClient returns an HTTP client whose jar holds a real login session for the

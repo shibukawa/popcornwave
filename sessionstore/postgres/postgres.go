@@ -1,16 +1,16 @@
 // Package postgres registers the PostgreSQL dialect of the session store.
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/postgres"
 //
 // The import contributes the dialect and, through it, the rdb session backend.
-// The database connection itself comes from popcornwave/database/postgres,
+// The database connection itself comes from popcornweb/database/postgres,
 // which an application imports separately.
 package postgres
 
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/sessionstore"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

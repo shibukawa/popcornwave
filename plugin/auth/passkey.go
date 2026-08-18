@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/passkey"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/passkey"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // passkeyStateNamespace isolates ceremony records from the OIDC correlation

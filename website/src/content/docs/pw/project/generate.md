@@ -91,7 +91,7 @@ compile the project themselves and will not run generation for you. Run this
 first, in the working tree, and invoke the builder second.
 
 [Container Images](/guides/deployment/container-images/) uses this command in
-`Dockerfile.tinygo`, and explains why a Popcorn Wave build has a host phase at
+`Dockerfile.tinygo`, and explains why a Popcorn Web build has a host phase at
 all.
 
 ## What it reads
@@ -175,7 +175,7 @@ Generated Go is build output, not source:
 
 They can always be reproduced. Do not edit or commit them.
 
-`cmd/<name>/popcornwave_bootstrap_pw_gen.go` is the exception in kind rather
+`cmd/<name>/popcornweb_bootstrap_pw_gen.go` is the exception in kind rather
 than in rule: it is a generated file of blank imports that links the document
 shell and the embedded public assets into the binary, so no handler has to
 reference them. It is removed automatically when neither exists.

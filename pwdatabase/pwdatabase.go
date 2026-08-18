@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/database"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // state is the pool set this process opened. It is process-wide because a pool
@@ -168,7 +168,7 @@ func openConnection(config pwconfig.RDBConnectionConfig, label string) (pwruntim
 	}
 	target, err := pwconfig.Target(config.DSN)
 	if err != nil {
-		return connection, fmt.Errorf("popcornwave: connection %s: %w", label, err)
+		return connection, fmt.Errorf("popcornweb: connection %s: %w", label, err)
 	}
 	connection.Driver = target.Dialect
 	ctx, cancel := context.WithTimeout(context.Background(), config.ConnectTimeout)
@@ -183,18 +183,18 @@ func openConnection(config pwconfig.RDBConnectionConfig, label string) (pwruntim
 			ConnMaxIdleTime: config.ConnMaxIdleTime,
 		})
 		if err != nil {
-			return connection, fmt.Errorf("popcornwave: open database %s: %w", label, err)
+			return connection, fmt.Errorf("popcornweb: open database %s: %w", label, err)
 		}
 		if err := native.Ping(ctx); err != nil {
 			_ = native.Close()
-			return connection, fmt.Errorf("popcornwave: connect database %s: %w", label, err)
+			return connection, fmt.Errorf("popcornweb: connect database %s: %w", label, err)
 		}
 		connection.Native = native
 		return connection, nil
 	}
 	db, err := target.Open()
 	if err != nil {
-		return connection, fmt.Errorf("popcornwave: open database %s: %w", label, err)
+		return connection, fmt.Errorf("popcornweb: open database %s: %w", label, err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
@@ -202,7 +202,7 @@ func openConnection(config pwconfig.RDBConnectionConfig, label string) (pwruntim
 	db.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return connection, fmt.Errorf("popcornwave: connect database %s: %w", label, err)
+		return connection, fmt.Errorf("popcornweb: connect database %s: %w", label, err)
 	}
 	connection.DB = db
 	return connection, nil
@@ -235,15 +235,15 @@ func SelectSessionDB(ctx context.Context) (context.Context, error) {
 func writableGroupFor(ctx context.Context, configured, key string) (string, error) {
 	config := pwruntime.ResolveConfig[pwconfig.MiddlewareConfig](ctx).RDB
 	if !config.Enabled {
-		return "", errors.New("popcornwave: middleware.rdb.enabled is false")
+		return "", errors.New("popcornweb: middleware.rdb.enabled is false")
 	}
 	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
-		return "", fmt.Errorf("popcornwave: %w", err)
+		return "", fmt.Errorf("popcornweb: %w", err)
 	}
 	group, err := pwconfig.ResolveWritableGroup(config, connections, strings.TrimSpace(configured), key)
 	if err != nil {
-		return "", fmt.Errorf("popcornwave: %w", err)
+		return "", fmt.Errorf("popcornweb: %w", err)
 	}
 	return group, nil
 }

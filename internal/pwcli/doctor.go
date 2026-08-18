@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 )
 
 const doctorUsage = "usage: pw doctor [--env=token|all]... [--config-path=path] [--format=text|json] [--strict] [--online]"

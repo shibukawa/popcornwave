@@ -3,7 +3,7 @@ package templates
 import (
 	"net/url"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // RuntimeScriptURL backs the external declaration in document.pw.html.

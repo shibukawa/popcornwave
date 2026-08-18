@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave のプロジェクト構成は、フォルダツリーを見るだけでは理解できません。
+Popcorn Web のプロジェクト構成は、フォルダツリーを見るだけでは理解できません。
 プロジェクト全体では `pw` がアプリケーションのビルドと開発環境の起動を担い、
 個々の処理ではハンドラがリクエストを受け取ってレスポンスを返します。フォルダ構造は、
 この2つの役割をつなぐものです。
@@ -21,7 +21,7 @@ Go コードを生成し、マイグレーションとアセットのビルド�
 データベース操作、テンプレートの storybook、診断機能も動いています。
 
 <figure>
-<svg viewBox="0 0 700 410" role="img" aria-label="pw プロジェクトツールが開発環境を抱える図。ライフサイクルのコマンドはテンプレート、SQL、Go のソースを読み、アプリケーションバイナリを作る。pw dev の中では監視、生成、マイグレーション、ビルド、再起動がバイナリを動かし、開発用 IdP、テレメトリ、ログ、データベースコンソール、storybook、doctor が支える。popcornwave.toml は pw が読み、実行時設定、環境変数、フラグはアプリケーションバイナリが読む。">
+<svg viewBox="0 0 700 410" role="img" aria-label="pw プロジェクトツールが開発環境を抱える図。ライフサイクルのコマンドはテンプレート、SQL、Go のソースを読み、アプリケーションバイナリを作る。pw dev の中では監視、生成、マイグレーション、ビルド、再起動がバイナリを動かし、開発用 IdP、テレメトリ、ログ、データベースコンソール、storybook、doctor が支える。popcornweb.toml は pw が読み、実行時設定、環境変数、フラグはアプリケーションバイナリが読む。">
   <defs>
     <marker id="pw-arrow-ja" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity="0.65"/>
@@ -84,7 +84,7 @@ Go コードを生成し、マイグレーションとアセットのビルド�
     <text x="71" y="99">assets · testdata</text>
     <text x="71" y="194">データベースと</text>
     <text x="71" y="211">ローカルサービス</text>
-    <text x="71" y="312">popcornwave.toml</text>
+    <text x="71" y="312">popcornweb.toml</text>
     <text x="71" y="329">project/tool の設定</text>
     <text x="414" y="394">config.{env}.toml · 環境変数 · アプリケーションのフラグ</text>
   </g>
@@ -115,11 +115,11 @@ watcher、stylesheet tool、標準プロトコルを、各チームが README �
 
 | 入力 | 読むもの | 決めるもの |
 | --- | --- | --- |
-| `popcornwave.toml` | `pw` | プロジェクトルート、main package、生成範囲、migration、assets、開発ツール |
+| `popcornweb.toml` | `pw` | プロジェクトルート、main package、生成範囲、migration、assets、開発ツール |
 | `config.{APP_ENV}.toml` | application binary | server、database、authentication、session、observability、アプリケーション設定 |
 | 環境変数とアプリケーションのフラグ | application binary | 実行環境での runtime 設定の上書き |
 
-`dev.logs` が `popcornwave.toml` にあるのは、アプリケーションの隣で動く開発プロセスを
+`dev.logs` が `popcornweb.toml` にあるのは、アプリケーションの隣で動く開発プロセスを
 制御するからです。`server.port` は実際に bind するバイナリの設定なので
 `config.dev.toml` に置きます。本番でも境界は同じです。リリースバイナリには runtime 設定が
 必要ですが、自分をビルドしたプロジェクトのフォルダ構成を読む理由はありません。
@@ -132,7 +132,7 @@ query package から浅く始めます。利用者や所有者の異なる領域
 
 ```text
 myapp/
-├── popcornwave.toml
+├── popcornweb.toml
 ├── config.dev.toml
 ├── cmd/myapp/main.go
 ├── templates/
@@ -169,7 +169,7 @@ feature package の形は、小さな scaffold と同じです。
 // webroot/admin/index.go
 package admin
 
-import "github.com/shibukawayoshiki/popcornwave/pw"
+import "github.com/shibukawayoshiki/popcornweb/pw"
 
 var mux = pw.NewServeMux()
 
@@ -236,7 +236,7 @@ feature が一般名の package へ散らばります。境界ごとに request 
 型と mapper を作っても、新しく増える知識は値のコピー方法だけかもしれません。レビュー時間、
 バイナリ、人間の注意、AI が読むコンテキストには、どれも実在するコストがかかります。
 
-Popcorn Wave の既定は逆です。feature の内部は浅く保ち、Go package と mux で feature を
+Popcorn Web の既定は逆です。feature の内部は浅く保ち、Go package と mux で feature を
 合成し、共有所有が生まれてから共有 package を取り出します。異なる知識を持つ、または実在する
 依存の向きを反転させる。layer は、そのどちらかを担って初めて置く理由を得ます。
 
@@ -261,7 +261,7 @@ transaction boundary は、アプリケーションが何を許し、どのよ�
 | client-side enhancement | 任意 |
 
 <figure>
-<svg viewBox="0 0 700 210" role="img" aria-label="リクエストが生成された型付きバインダを通って標準の net/http ハンドラに入る。ハンドラはデータベースへ向けて生成されたクエリ関数を呼び、HTML 出力へ向けて生成されたテンプレート関数を呼ぶ。Popcorn Wave のレスポンスヘルパが最終的な HTTP レスポンスを書く。request、response writer、context、redirect、status の判断はハンドラに残る。">
+<svg viewBox="0 0 700 210" role="img" aria-label="リクエストが生成された型付きバインダを通って標準の net/http ハンドラに入る。ハンドラはデータベースへ向けて生成されたクエリ関数を呼び、HTML 出力へ向けて生成されたテンプレート関数を呼ぶ。Popcorn Web のレスポンスヘルパが最終的な HTTP レスポンスを書く。request、response writer、context、redirect、status の判断はハンドラに残る。">
   <defs>
     <marker id="handler-arrow-ja" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" opacity="0.65"/>
@@ -361,7 +361,7 @@ template parameter の渡し忘れ、不正な出力 context、binding error は
 ### 原則: common sense を残し、境界を生成する
 
 `net/http` を置き換えると、Go 開発者、library、debugger、test が共有している知識まで
-捨てることになります。Popcorn Wave は mux pattern、handler signature、request context、
+捨てることになります。Popcorn Web は mux pattern、handler signature、request context、
 middleware model、redirect、status code をそのまま使います。
 
 ただし、馴染みがあることと、表現間のデータ移動を毎回手で書くことは別です。request binding、

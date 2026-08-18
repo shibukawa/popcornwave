@@ -17,7 +17,7 @@ client:
   no_constructor_argument: matching requirement:contrib-auth-state-dynamo, since system:tinybind carries the client in the context
   missing: the driver's no-client error, surfaced as the contract error of each store
 tables:
-  declared_names: popcornwave_auth_allowlist, popcornwave_passkey_credential, and popcornwave_auth_bootstrap, unchanged from rule:framework-owned-tables
+  declared_names: popcornweb_auth_allowlist, popcornweb_passkey_credential, and popcornweb_auth_bootstrap, unchanged from rule:framework-owned-tables
   definitions: handwritten, not generated, for the reason requirement:dynamodb-session-store gives; this package is the only reader and writer of these items
   registration: decision:dynamodb-table-registry, from init, so requirement:dynamodb-migration creates all three
   conditional_verification: rule:framework-owned-tables applies unchanged; a table is verified only when the selected mode reads it and no application store is installed

@@ -10,9 +10,9 @@ import (
 
 	"auction/internal/lobby"
 	"auction/queries"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/pwpage"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/pwpage"
 )
 
 func Load(w http.ResponseWriter, r *http.Request) {

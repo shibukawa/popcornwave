@@ -11,7 +11,7 @@ sidebar:
 
 ```
    .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
+ .(   ) (   ).    Popcorn Web v0.1.0
 (   o     o   )   started at 2026-07-27 23:31:04 JST
 (    \___/    )   env dev · config.dev.toml
  '-.__.___.__-'
@@ -42,7 +42,7 @@ listening on http://localhost:8080
 だけが流れます。
 
 ```json
-{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornwave started",
+{"time":"2026-07-27T23:31:04+09:00","level":"INFO","msg":"popcornweb started",
  "environment":"dev","config_file":"config.dev.toml",
  "listening":"http://localhost:8080",
  "config":{"server":{"port":"8080"},"session":{"enabled":"false"}},

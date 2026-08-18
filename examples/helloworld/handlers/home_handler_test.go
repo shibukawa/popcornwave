@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/testutil"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/testutil"
 	_ "helloworld"
 	_ "helloworld/templates"
 )
@@ -45,7 +45,7 @@ func TestHomeRendersNestedDocumentAndIncrementsCounter(t *testing.T) {
 		body := string(bodyBytes)
 		for _, fragment := range []string{
 			"<!doctype html>",
-			"<title>Hello World · Popcorn Wave</title>",
+			"<title>Hello World · Popcorn Web</title>",
 			"Hello, ",
 			"World!",
 			expected,

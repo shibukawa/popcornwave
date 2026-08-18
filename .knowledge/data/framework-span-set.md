@@ -3,12 +3,12 @@ id: data:framework-span-set
 type: data
 title: Framework Span Set
 ---
-The spans Popcorn Wave opens inside a request root span, so a trace shows which branch a response took, how long the first paint held, and which statements it ran.
+The spans Popcorn Web opens inside a request root span, so a trace shows which branch a response took, how long the first paint held, and which statements it ran.
 
 ```yaml
 configuration: data:observability-runtime-config observability.trace
 root: the request server span of requirement:contrib-otel, opened by the tracing middleware whenever export exists or observability.trace.enabled is on
-scope: github.com/shibukawa/popcornwave
+scope: github.com/shibukawa/popcornweb
 render:
   name: "render <mode>"
   kind: internal

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

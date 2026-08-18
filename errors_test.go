@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	petitweb "github.com/shibukawa/popcornwave"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	petitweb "github.com/shibukawa/popcornweb"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	httpbind "github.com/shibukawa/tinybind-go"
 )
 

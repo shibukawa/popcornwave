@@ -8,7 +8,7 @@ import (
 
 	"websocket_chat/handlers"
 
-	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornweb/pwfast"
 )
 
 func main() {

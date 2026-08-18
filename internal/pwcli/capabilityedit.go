@@ -55,7 +55,7 @@ func setPagesPurpose(state projectState, values []string) (string, error) {
 	if len(state.config.Generate.Pages) > 0 {
 		return setGeneratePurpose(state, capabilityPageTreePurpose, values)
 	}
-	source, err := os.ReadFile(filepath.Join(state.root, "popcornwave.toml"))
+	source, err := os.ReadFile(filepath.Join(state.root, "popcornweb.toml"))
 	if err != nil {
 		return "", err
 	}
@@ -78,7 +78,7 @@ func setPagesPurpose(state projectState, values []string) (string, error) {
 	}
 	if !inserted {
 		if table != "generate" {
-			return "", fmt.Errorf("popcornwave.toml: no [generate] table to add %s to", capabilityPageTreePurpose)
+			return "", fmt.Errorf("popcornweb.toml: no [generate] table to add %s to", capabilityPageTreePurpose)
 		}
 		if !strings.HasSuffix(out.String(), "\n") {
 			out.WriteString("\n")
@@ -88,11 +88,11 @@ func setPagesPurpose(state projectState, values []string) (string, error) {
 	return out.String(), nil
 }
 
-// setGeneratePurpose rewrites one generate purpose in popcornwave.toml. The
+// setGeneratePurpose rewrites one generate purpose in popcornweb.toml. The
 // key is edited in place rather than appended, because every purpose is
 // required and therefore already present.
 func setGeneratePurpose(state projectState, purpose string, values []string) (string, error) {
-	source, err := os.ReadFile(filepath.Join(state.root, "popcornwave.toml"))
+	source, err := os.ReadFile(filepath.Join(state.root, "popcornweb.toml"))
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +119,7 @@ func setGeneratePurposeIn(source, purpose string, values []string) (string, erro
 		out.WriteString(line)
 	}
 	if !replaced {
-		return "", fmt.Errorf("popcornwave.toml: generate.%s not found", purpose)
+		return "", fmt.Errorf("popcornweb.toml: generate.%s not found", purpose)
 	}
 	return out.String(), nil
 }
@@ -127,7 +127,7 @@ func setGeneratePurposeIn(source, purpose string, values []string) (string, erro
 // setProjectDatabase records the engine .pw.sql sources are generated for,
 // replacing an existing key or writing one under [project]. It takes the
 // document rather than reading the file, so it composes with the other edits a
-// plan makes to popcornwave.toml instead of overwriting them.
+// plan makes to popcornweb.toml instead of overwriting them.
 func setProjectDatabase(document, engine string) (string, error) {
 	assignment := "database = " + strconv.Quote(engine) + "\n"
 	table := ""
@@ -152,7 +152,7 @@ func setProjectDatabase(document, engine string) (string, error) {
 	}
 	if !written {
 		if table != "project" {
-			return "", fmt.Errorf("popcornwave.toml: [project] not found")
+			return "", fmt.Errorf("popcornweb.toml: [project] not found")
 		}
 		out.WriteString(assignment)
 	}
@@ -202,7 +202,7 @@ func devboxScaffold(packages []string) string {
 	return `{
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
   "packages": [` + quotedList(packages) + `],
-  "shell": {"init_hook": ["echo 'Popcorn Wave development environment'"]}
+  "shell": {"init_hook": ["echo 'Popcorn Web development environment'"]}
 }
 `
 }

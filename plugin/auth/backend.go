@@ -4,14 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/shibukawa/popcornwave/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwdatabase"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Backend names. rdb is the default and the behavior every project had before
@@ -76,10 +76,10 @@ var backendState struct {
 // rather than a configuration one.
 func RegisterBackend(name string, factory BackendFactory) {
 	if strings.TrimSpace(name) == "" {
-		panic("popcornwave/plugin/auth: empty backend name")
+		panic("popcornweb/plugin/auth: empty backend name")
 	}
 	if factory == nil {
-		panic("popcornwave/plugin/auth: backend " + name + " has no factory")
+		panic("popcornweb/plugin/auth: backend " + name + " has no factory")
 	}
 	backendState.Lock()
 	defer backendState.Unlock()
@@ -87,7 +87,7 @@ func RegisterBackend(name string, factory BackendFactory) {
 		backendState.factories = make(map[string]BackendFactory)
 	}
 	if _, taken := backendState.factories[name]; taken {
-		panic("popcornwave/plugin/auth: backend " + name + " is already registered")
+		panic("popcornweb/plugin/auth: backend " + name + " is already registered")
 	}
 	backendState.factories[name] = factory
 }
@@ -145,7 +145,7 @@ func init() {
 	RegisterBackend(BackendRDB, openRelationalBackend)
 }
 
-// openRelationalBackend is the framework default: the popcornwave_ tables of
+// openRelationalBackend is the framework default: the popcornweb_ tables of
 // rule:framework-owned-tables, over the middleware database.
 func openRelationalBackend(ctx context.Context, config Config, resources Resources) (Backend, error) {
 	if resources.DB == nil {

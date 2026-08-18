@@ -3,7 +3,7 @@ package pwcli
 import (
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/devconsole"
+	"github.com/shibukawa/popcornweb/internal/devconsole"
 )
 
 // devReporter says what phase the developer loop is in, to the terminal region

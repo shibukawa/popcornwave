@@ -5,18 +5,18 @@ sidebar:
   order: 7
 ---
 
-ページの一部だけに React を置くことはできます。境界は明快です。Popcorn Wave は
+ページの一部だけに React を置くことはできます。境界は明快です。Popcorn Web は
 ドキュメントと周囲の HTML を描画し、React は 1 つの要素の**内側だけ**を管理します。
 
 難しいのは mount そのものではありません。サーバーフラグメントがその要素をあとで
 差し替えるとき、古い React ルートを誰が片づけ、新しいルートを誰が起動するかです。
-カスタム要素でも実現できますが、Popcorn Wave にはすでに必要なライフサイクルがあります。
+カスタム要素でも実現できますが、Popcorn Web にはすでに必要なライフサイクルがあります。
 [コンポーネントスクリプト](/ja/guides/interactivity/component-scripts/)は描画された
 インスタンスごとに `setup` を走らせ、差し替え前にその teardown を呼びます。
 
 ## 依存とスクリプトビルド
 
-React はビルド時の npm 依存です。ブラウザへ配るときは、Popcorn Wave のアセット
+React はビルド時の npm 依存です。ブラウザへ配るときは、Popcorn Web のアセット
 パイプラインが依存をエントリへバンドルします。
 
 ```bash
@@ -45,7 +45,7 @@ npm install --save-dev typescript @types/react @types/react-dom
 `package-lock.json` もコミットしてください。次にスクリプト変換を有効にします。
 
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [assets.scripts]
 enabled = true
 ```
@@ -122,10 +122,10 @@ window.mountCounter = (el: HTMLElement, initial: number) => {
 };
 ```
 
-`mountCounter` は Popcorn Wave の API ではありません。アセットビルドが生成した bundle を、
+`mountCounter` は Popcorn Web の API ではありません。アセットビルドが生成した bundle を、
 生成済みコンポーネントモジュールから呼ぶためだけのアプリケーション側の橋です。
 
-`<section>` 自体は Popcorn Wave が管理し、`setup` の起動後はその内側を React が
+`<section>` 自体は Popcorn Web が管理し、`setup` の起動後はその内側を React が
 管理します。周囲の見出し、フォーム、一覧まで React のルートへ入れる必要はありません。
 
 ランタイムは最初のページでも、部分更新や live 更新で挿入されたインスタンスでも
@@ -144,7 +144,7 @@ light DOM を使っていることにも意味があります。React が作る�
 
 ## `createRoot` でよく、`hydrateRoot` ではない
 
-Popcorn Wave が出した fallback のボタンは React のサーバー描画結果ではありません。
+Popcorn Web が出した fallback のボタンは React のサーバー描画結果ではありません。
 そのため、ここでは `createRoot` が最初の `render` で内側を置き換えるのが正しい動作です。
 
 見た目が同じだからと `hydrateRoot` を使うのは安全ではありません。hydration は
@@ -155,7 +155,7 @@ Go のテンプレートと React コンポーネントで同じ DOM を二重�
 サーバーから必要なのが初期値だけなら、`data-*` 属性か JSON を渡して client render
 するほうが小さな境界になります。本当の React SSR と hydration が必要なら、Node.js の
 レンダラ、React のストリーミング形式、Go 側とのデプロイ境界を含む別の構成です。
-Popcorn Wave はそれを提供していません。
+Popcorn Web はそれを提供していません。
 
 ## フラグメントと DOM の所有権
 
@@ -164,7 +164,7 @@ Popcorn Wave はそれを提供していません。
 
 | 操作 | 所有者 |
 | --- | --- |
-| `.counter` の配置、`data-initial` | Popcorn Wave のテンプレート |
+| `.counter` の配置、`data-initial` | Popcorn Web のテンプレート |
 | `setup` 後の `.counter` の子ノード | React |
 | 島の外にある一覧やフォームの差し替え | htmx またはアプリケーションの swap コード |
 | 島を含む領域全体の再描画 | サーバー。古い島は unmount、新しい島は mount |

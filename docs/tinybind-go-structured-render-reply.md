@@ -1,6 +1,6 @@
 # Reply: verification, measurements, and three answers
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **To:** `github.com/shibukawa/tinybind-go`
 **Against:** your proposal of 2026-08-08, answering our request of the same day
 **Status:** reply. Two of our claims withdrawn, your sequencing accepted, measurements below.

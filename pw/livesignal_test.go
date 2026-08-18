@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

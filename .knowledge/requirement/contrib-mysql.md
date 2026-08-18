@@ -3,7 +3,7 @@ id: requirement:contrib-mysql
 type: requirement
 title: MySQL Driver Consumption
 ---
-Popcorn Wave consumes the system:tinygodriver MySQL and MariaDB driver, which registers the name mysql and carries a separately licensed TinyGo fork.
+Popcorn Web consumes the system:tinygodriver MySQL and MariaDB driver, which registers the name mysql and carries a separately licensed TinyGo fork.
 
 ```yaml
 package: github.com/shibukawa/tinygodriver/database/sql/mysql
@@ -40,7 +40,7 @@ tinygo_behavior:
   measured: 200 sequential queries opened 201 server connections before the fix and 0 after, matching standard Go
   timeouts: the DSN timeout parameter has no effect; read timeout, write timeout, and query deadlines work
   transport: IPv4 TCP only; no Unix socket and no IPv6
-popcorn_wave_scope:
+popcorn_web_scope:
   - pin the tested system:tinygodriver version per requirement:tinygodriver-adoption
   - link the package only where the DSN scheme selects it
   - keep multi-statements and local infile disabled
@@ -53,7 +53,7 @@ acceptance:
   - requirement:test-data-seeding seeds and asserts through the mysql system:dbtestify dialect
   - credentials never reach logs, errors, config views, or process arguments
 non_goals:
-  - a Popcorn Wave MySQL protocol implementation
+  - a Popcorn Web MySQL protocol implementation
   - protocol compression, LOAD DATA LOCAL, or the replication protocol
   - Unix domain sockets or IPv6 under TinyGo
 protocol: https://dev.mysql.com/doc/dev/mysql-server/latest/PAGE_PROTOCOL.html

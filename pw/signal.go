@@ -3,7 +3,7 @@ package pw
 import (
 	"errors"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // A signal is a named instruction a live source sends to client code, travelling

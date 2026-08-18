@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwfast"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwfast"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
@@ -32,7 +32,7 @@ func main() {
 		fail(fmt.Errorf("usage: fastonly <config.toml>"))
 	}
 	pwconfig.SetLoadOptions(configbind.LoadOptions{
-		Vendor: "popcornwave-fastonly", Tool: "fastonly", FileName: "config.toml",
+		Vendor: "popcornweb-fastonly", Tool: "fastonly", FileName: "config.toml",
 		ExplicitConfigPath: os.Args[1], Args: []string{}, Environ: []string{"APP_ENV=dev"},
 	})
 	if err := pwconfig.Parse(); err != nil {

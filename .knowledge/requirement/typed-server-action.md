@@ -63,7 +63,7 @@ shipped_upstream_2026_08_14:
   one_thing_it_added: the published name is on every action rather than only a typed one, so a raw action is called as rename where its address still carries Rename; this framework read the Go name and now reads Published
   wrapper_rather_than_the_function: the registration names the generated entry point, so a declared function may stay unexported and the lower-case opt-out stops meaning anything under a declaration
   wired_here: pw.ServerAction, the declaration on both transports' handler shapes, and the per-package hand-off from routetree Result.Actions to the binding phase
-  the_identifier_had_to_be_stated: a path's last element is not the package name for either module — tinybind-go is httpbind and popcornwave is pw — which is why the module made it a declared field
+  the_identifier_had_to_be_stated: a path's last element is not the package name for either module — tinybind-go is httpbind and popcornweb is pw — which is why the module made it a declared field
   two_defects_stopped_it_compiling:
     where: docs/tinybind-go-typed-action-wiring-report.md, measured by declaring one in the page tree fixture
     split_artifact: the argument struct is analysed with an empty source path while the wrapper is emitted into every per-source artifact, so the decoder the wrapper names lands in a different file; the encode half reaches the right one, so only decoding is missing

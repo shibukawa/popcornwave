@@ -13,7 +13,7 @@ modes:
   registered:
     admit: a verified claim of the identity matches a row registered in advance for that issuer
     lookup: api:auth-allowlist-store
-    storage: popcornwave_auth_allowlist through rule:framework-owned-tables, unless an application installed a store
+    storage: popcornweb_auth_allowlist through rule:framework-owned-tables, unless an application installed a store
     row: issuer, claim name, expected value, and an operator note
     compared_claims: auth.oidc.registered_claims, defaulting to auth.oidc.identity_claim alone
     match: any compared claim, so a deployment may also recognize someone registered by another attribute

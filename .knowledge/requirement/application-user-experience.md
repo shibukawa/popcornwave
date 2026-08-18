@@ -1,13 +1,13 @@
 ---
 id: requirement:application-user-experience
 type: requirement
-title: Popcorn Wave Application User Experience
+title: Popcorn Web Application User Experience
 ---
 This is the authoritative application-facing specification; when an older catalog decision conflicts, this requirement and its referenced concepts take precedence.
 
 ```yaml
 product:
-  vision: vision:popcorn-wave
+  vision: vision:popcorn-web
   package_boundary: concept:public-package-boundaries
   entry_point: concept:application-entry-point
 cli:

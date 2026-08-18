@@ -10,7 +10,7 @@ import (
 // The rate limiter's configuration lives here for the same reason CSRFConfig
 // does: it is what a deployment writes, both transports build a frame from it,
 // and neither of them owns it. The counters, the store registry and the
-// bucketing are popcornwave/pwratelimit's, which this package must not name.
+// bucketing are popcornweb/pwratelimit's, which this package must not name.
 
 // Rate limit backend names a deployment selects with ratelimit.backend.
 const (

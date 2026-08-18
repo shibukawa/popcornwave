@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

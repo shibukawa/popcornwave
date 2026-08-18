@@ -7,7 +7,7 @@ authtest installs an authenticated request context without a server, and testuti
 
 ```yaml
 packages:
-  - github.com/shibukawa/popcornwave/plugin/auth/authtest
+  - github.com/shibukawa/popcornweb/plugin/auth/authtest
 ladder: decision:test-authentication-seams
 authtest:
   implemented: plugin/auth/authtest, with the api:cli-build guard registered

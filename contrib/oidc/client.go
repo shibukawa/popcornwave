@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
-	"github.com/shibukawa/popcornwave/contrib/jwt"
-	"github.com/shibukawa/popcornwave/contrib/oauth"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
 )
 
 const (

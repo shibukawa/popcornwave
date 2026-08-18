@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwobservability"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwobservability"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // captureProcessLog installs a backend that records what the framework says

@@ -179,7 +179,7 @@ which is what keeps a large table from becoming a large allocation. `sql.exec`
 returns a `sql.Result`, which is what an INSERT has to offer.
 
 `{body}` is a parameter, and it becomes a prepared-statement placeholder — `?`
-here, `$1` on PostgreSQL, decided by `project.database` in `popcornwave.toml`.
+here, `$1` on PostgreSQL, decided by `project.database` in `popcornweb.toml`.
 The generator will not concatenate a template expression into SQL text and
 rejects a handwritten placeholder, so a statement written this way cannot become
 an injection. The boundary is exactly that: parameters bind **values**, never
@@ -235,7 +235,7 @@ import (
 
 	"memoapp/queries" // new
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // init is unchanged from chapter 2; the routes stay as they were.

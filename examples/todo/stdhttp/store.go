@@ -12,7 +12,7 @@ import (
 
 // store is the seam the two database layers plug into.
 //
-// It exists for one measurement. The Popcorn Wave service reaches PostgreSQL
+// It exists for one measurement. The Popcorn Web service reaches PostgreSQL
 // through database/sql wrapping pgx, and this service reached it through pgx's
 // own pool, so a throughput difference between them could have been the
 // framework or could have been those two layers. Selecting the layer with

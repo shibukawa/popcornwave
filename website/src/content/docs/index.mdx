@@ -1,11 +1,11 @@
 ---
-title: Popcorn Wave
+title: Popcorn Web
 description: A small, TinyGo-oriented web application framework for Go, built directly on net/http.
 template: splash
-# Without this the browser tab reads "Popcorn Wave | Popcorn Wave".
+# Without this the browser tab reads "Popcorn Web | Popcorn Web".
 head:
   - tag: title
-    content: Popcorn Wave — a small web application framework for Go
+    content: Popcorn Web — a small web application framework for Go
 hero:
   tagline: Server-rendered web applications on plain net/http, with typed templates and typed SQL generated ahead of time.
   image:
@@ -18,7 +18,7 @@ hero:
       link: /tutorial/getting-started/
       icon: right-arrow
     - text: View on GitHub
-      link: https://github.com/shibukawa/popcornwave
+      link: https://github.com/shibukawa/popcornweb
       icon: external
       variant: minimal
 ---
@@ -61,15 +61,15 @@ import that layer, it does not pay for it.
 
 ## The same todo app, measured twice
 
-[`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo)
+[`examples/todo`](https://github.com/shibukawa/popcornweb/tree/main/examples/todo)
 holds one todo list written twice against one PostgreSQL table — once with
-`net/http`, `html/template`, `encoding/json` and `pgx`, once with Popcorn Wave.
+`net/http`, `html/template`, `encoding/json` and `pgx`, once with Popcorn Web.
 Same five routes, same rows, and the harness refuses to measure them if their
 JSON bodies disagree.
 
 Binary size, Go 1.26.5 and TinyGo 0.41.1 on darwin/arm64:
 
-| Build | `net/http` + pgx | Popcorn Wave |
+| Build | `net/http` + pgx | Popcorn Web |
 | --- | --- | --- |
 | host `go build` | 18.98 MB | 19.66 MB |
 | host `-ldflags="-s -w"` | 13.06 MB | 13.57 MB |
@@ -96,8 +96,8 @@ session lives:
 | | requests/s | HTML p95 |
 | --- | --- | --- |
 | `net/http` + pgx | ~14,700 | 3.15–3.39 ms |
-| Popcorn Wave, cookie session | ~13,700 | 2.90–3.21 ms |
-| Popcorn Wave, server-side session | ~15,800 | 2.46–2.66 ms |
+| Popcorn Web, cookie session | ~13,700 | 2.90–3.21 ms |
+| Popcorn Web, server-side session | ~15,800 | 2.46–2.66 ms |
 
 Same application code in both framework rows, and the framework is quicker to
 first byte in both. A cookie session puts the whole record on the wire twice per
@@ -111,5 +111,5 @@ against **37 µs** for one loopback query.
 [Performance](/guides/architecture/performance/) has the full breakdown and the
 four other settings worth tuning.
 
-[Why Popcorn Wave](/start/why-popcorn-wave/) explains how that choice connects
+[Why Popcorn Web](/start/why-popcorn-web/) explains how that choice connects
 productivity, performance, and interoperability.

@@ -52,9 +52,9 @@ DSN のスキームがエンジンを選びます。`database/sql` のドライ�
 
 | スキーム | エンジン | インポート |
 | --- | --- | --- |
-| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornwave/database/sqlite"` |
-| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
-| `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
+| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornweb/database/sqlite"` |
+| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornweb/database/postgres"` |
+| `mysql://` | MySQL、MariaDB | `_ "github.com/shibukawa/popcornweb/database/mysql"` |
 
 このインポートは `pw init` が書きます。無い場合、プールは開くのを拒否し、登録されていない
 ドライバを探して `database/sql` の奥で失敗する代わりに、追加すべきインポートを名指しします。
@@ -67,7 +67,7 @@ DSN です。MySQL では、DSN 自身が指定していなければ `parseTime=
 
 解決されたエンジンは、フレームワークの残りが読むダイアレクトも決めます。セーブポイントの
 対応可否、`EXPLAIN` の構文、マイグレーションランナーのダイアレクトはすべてそこから来ます。
-スキームは `popcornwave.toml` の `project.database` と一致させてください。一方はどのドライバが
+スキームは `popcornweb.toml` の `project.database` と一致させてください。一方はどのドライバが
 クエリを実行するかを、もう一方は `pw generate` がどの構文にコンパイルしたかを決めています。
 
 PostgreSQL だけは、リクエストを `database/sql` ではなく pgx のネイティブプールで処理します。

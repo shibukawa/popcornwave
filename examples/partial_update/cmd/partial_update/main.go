@@ -8,7 +8,7 @@ import (
 
 	"partial_update/pages"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {

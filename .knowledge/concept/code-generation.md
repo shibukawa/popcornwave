@@ -71,7 +71,7 @@ behavior:
   - walk each generate.pages root once, reporting every discovery problem in that walk rather than only the first
   - use the pw emitter of decision:page-render-binding for every page tree artifact, so generated pages call api:page-render-runtime rather than system:tinybind
   - run request binding over the packages a discovered tree reports, skipping the ones the generator reports nothing to generate for
-  - register the Popcorn Wave generated header prefix with every discovery pass, so nothing this wrote is analyzed as a source on the next run
+  - register the Popcorn Web generated header prefix with every discovery pass, so nothing this wrote is analyzed as a source on the next run
   - keep, per directory, only the artifacts whose purpose lists that directory
   - warn once per .pw.html, .pw.sql, or stale generated file found outside its purpose, naming the path and the key
   - use system:tinybind route and call analysis behind the pw API

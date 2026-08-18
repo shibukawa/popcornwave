@@ -32,7 +32,7 @@ resolution:
 configuration:
   library_api: parser and generator options accept adapters programmatically
   cli: generator accepts a versioned analysis configuration file
-  popcorn_wave: api:cli-generate supplies the system:tinygodriver httpmux adapter
+  popcorn_web: api:cli-generate supplies the system:tinygodriver httpmux adapter
 diagnostics:
   - report unsupported registration calls with source position and suggested adapter fields
   - reject invalid argument indexes, unknown grammars, and duplicate adapter identities

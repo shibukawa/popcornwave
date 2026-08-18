@@ -3,7 +3,7 @@ package middlewares
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // InjectResources publishes the process runtime resources, such as loaded

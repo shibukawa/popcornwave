@@ -30,7 +30,7 @@ keyring.secret = "${SESSION_KEYRING_SECRET}"
 
 ```go
 // cmd/myapp/main.go — ストレージはオプトインなので、バックエンドは import でもあります。
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 よくある間違いは1つ、import を書かずにバックエンドだけ設定することです。エラーが直し方を
@@ -38,7 +38,7 @@ import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
 
 ```
 session.backend = "rdb" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 例外は `cookie` で、何も保存しないので import も要りません。置き場所を用意する前から
@@ -108,7 +108,7 @@ session.ttl = "12h"     # 身元の証明がどれだけ有効か
 | --- | --- | --- |
 | `rdb.source` | `"middleware"` | `middleware.rdb` のプールを再利用。受け付ける値はこれだけで、他は起動時に拒否される |
 | `rdb.group` | *(空)* | テーブルを持つ接続グループ。空なら write グループ |
-| `rdb.table` | `"popcornwave_session"` | |
+| `rdb.table` | `"popcornweb_session"` | |
 
 SQLite、PostgreSQL、MySQL はそれぞれ自分のパッケージ（`sessionstore/sqlite`、
 `sessionstore/postgres`、`sessionstore/mysql`）と自分の方言のマイグレーションで届きます。
@@ -158,7 +158,7 @@ Redis と Valkey のどちらでも動き、使うのは `GET`、`SET`、`SET XX
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `dynamo.table` | `"popcornwave_session"` | 宣言上のテーブル名 |
+| `dynamo.table` | `"popcornweb_session"` | 宣言上のテーブル名 |
 | `dynamo.consistent_read` | `false` | 強い一貫性は読み込みキャパシティを倍払う |
 
 `middleware.dynamo` が既に開いたクライアントを借りるので、自前のエンドポイントも
@@ -168,7 +168,7 @@ Redis と Valkey のどちらでも動き、使うのは `GET`、`SET`、`SET XX
 
 | キー | 既定値 | 意味 |
 | --- | --- | --- |
-| `firestore.kind` | `"popcornwave_session"` | セッションレコードを保存する entity kind |
+| `firestore.kind` | `"popcornweb_session"` | セッションレコードを保存する entity kind |
 
 `middleware.firestore` が開いたクライアントを借り、各セッションを強整合で読みます。
 更新時はエンティティを読み、version の precondition を付けて全体を書き直すため、

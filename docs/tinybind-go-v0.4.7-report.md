@@ -1,6 +1,6 @@
 # Two defects in v0.4.7, and one still open from v0.4.6
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.4.7
 **Reports:** what the header split cost, and what an unmodified v0.4.7 does to a client that follows the guide
 **Answered:** v0.4.8 — all three closed, and a fourth found while closing them. Kept for the record of the round; see the notes below each item for what shipped.

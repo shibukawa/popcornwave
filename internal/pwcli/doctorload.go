@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/configview"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/internal/pwtree"
+	"github.com/shibukawa/popcornweb/internal/configview"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwtree"
 	"github.com/shibukawa/tinybind-go/configbind"
 
 	// The framework's configuration definitions register during this import, so
@@ -17,7 +17,7 @@ import (
 	// application would. Only the metadata is used: whether a binding is
 	// actually linked into the project is answered by its import graph, because
 	// the CLI links plugins a given project may not.
-	_ "github.com/shibukawa/popcornwave/pw"
+	_ "github.com/shibukawa/popcornweb/pw"
 )
 
 // configValue is one key as the host resolved it for a diagnosed environment.
@@ -58,7 +58,7 @@ func loadEnvironmentConfig(root, env, explicitPath string, environ []string) (en
 		explicitPath = filepath.Join(root, filepath.FromSlash(explicitPath))
 	}
 	result, err := configbind.Load(configbind.LoadOptions{
-		Vendor:               "popcornwave",
+		Vendor:               "popcornweb",
 		Tool:                 "pw-doctor",
 		FileName:             pwenv.NeutralFileName,
 		Args:                 []string{},

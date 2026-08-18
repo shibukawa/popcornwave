@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/dbseed"
-	"github.com/shibukawa/popcornwave/internal/devconsole"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
+	"github.com/shibukawa/popcornweb/internal/devconsole"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 )
 
 func runDev(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -453,7 +453,7 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 			state[path] = fileState{size: info.Size(), modTime: info.ModTime()}
 			return nil
 		}
-		if !included[filepath.Clean(path)] && name != "popcornwave.toml" && !pwenv.IsFileName(name) &&
+		if !included[filepath.Clean(path)] && name != "popcornweb.toml" && !pwenv.IsFileName(name) &&
 			!strings.HasSuffix(name, ".go") &&
 			!strings.HasSuffix(name, ".pw.html") && !strings.HasSuffix(name, ".pw.sql") {
 			return nil

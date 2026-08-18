@@ -21,7 +21,7 @@ rules:
   - one Go type and prefix identify one binding
   - api:runtime-configuration parses every registered binding together
   - user-defined types and prefixes use the same registration and provenance behavior
-  - no Popcorn Wave-owned root configuration struct is required
+  - no Popcorn Web-owned root configuration struct is required
 first_release: one configuration load per process
 registry: data:runtime-config-registry
 ```

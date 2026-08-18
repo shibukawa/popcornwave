@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

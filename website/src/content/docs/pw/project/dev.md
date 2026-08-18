@@ -35,7 +35,7 @@ that did not prints the rows that moved.
 - the project's own Go, `.pw.html`, and `.pw.sql` sources;
 - the migration directory;
 - the Tailwind input, when Tailwind is enabled;
-- anything matched by `dev.watch.includes` in `popcornwave.toml`.
+- anything matched by `dev.watch.includes` in `popcornweb.toml`.
 
 The walk covers the module, not the `[generate]` purposes: any Go source is a
 rebuild input, including files no purpose generates from. `.git`, `vendor`,

@@ -10,7 +10,7 @@ status: proposed
 serves: requirement:alternate-http-backend-readiness
 measured: 2026-08-11 on the merge of the fasthttp branch into main
 method:
-  containment: go list -tags fasthttp -deps <pkg> must not contain github.com/shibukawa/popcornwave/pw
+  containment: go list -tags fasthttp -deps <pkg> must not contain github.com/shibukawa/popcornweb/pw
   surface: go doc -all ./pw vs ./pwfast, each missing name then searched across every shared leaf
   call_registry: pw exported funcs taking http.ResponseWriter or *http.Request, diffed against the patterns in internal/pwgen/options.go
 already_holds:

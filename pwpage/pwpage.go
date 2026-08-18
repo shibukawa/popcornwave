@@ -13,7 +13,7 @@ package pwpage
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // Router is what the generated Register installs on. Registration needs one

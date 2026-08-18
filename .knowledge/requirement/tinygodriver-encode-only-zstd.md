@@ -10,11 +10,11 @@ status: delivered
 delivered_by: tinygodriver v1.2.4, which took both asks at once — the fork encodes zstd through compress/zstd under TinyGo, so no tag is needed and the codec is kept rather than dropped
 measured_after: a TinyGo fasthttp helloworld links with -tags fasthttp alone at 5.59 MiB and serves
 serves: decision:tinygo-fasthttp-needs-nozstd
-scope: this concept records what popcornwave would ask of tinygodriver; the work and the decision are tinygodriver's
+scope: this concept records what popcornweb would ask of tinygodriver; the work and the decision are tinygodriver's
 already_provided_nothing_to_add:
   fasthttp_fork: a drop-in fasthttp whose patches are recorded in fasthttp/PATCHES.md
   fasthttp_nozstd: the tag that makes the TinyGo build link, already present and already measured there
-  fasthttprouter: vendored, and popcornwave already imports it
+  fasthttprouter: vendored, and popcornweb already imports it
   fasthttpwebsocket: a fasthttp/websocket fork whose server half needed no patches, which is the library requirement:contrib-websocket would build on when that work starts
 first_ask_tag_the_split_on_tinygo:
   change: zstd.go takes "!fasthttp_nozstd && !tinygo" and zstd_disabled.go takes "fasthttp_nozstd || tinygo"
@@ -30,7 +30,7 @@ the_second_ask:
     klauspost: 2.40 MB of TinyGo binary, encode and decode
     fasthttp_nozstd: 0 MB, no zstd at all, and a client offering only zstd is served identity
   proposed_middle: tinygodriver's own compress/zstd encoder at 0.08 MB, encode only
-  why_it_fits_a_web_framework: a server compresses responses and rarely reads a compressed request body, so the decode half is what popcornwave pays for and does not use
+  why_it_fits_a_web_framework: a server compresses responses and rarely reads a compressed request body, so the decode half is what popcornweb pays for and does not use
   ratio_is_no_longer_the_objection: that encoder now fits FSE tables per block and codes literals, landing at 8.2% and 11.0% against deflate's 11.6% and 13.3%
   what_blocks_it:
     - compress/zstd excludes decoding, so BodyUnzstd, AppendUnzstdBytes and the FS pre-compressed .zst read have nothing to call
@@ -39,7 +39,7 @@ the_second_ask:
   and_the_decoder_is_the_whole_problem: both symbols TinyGo cannot link are decoder-side, per decision:tinygo-fasthttp-needs-nozstd, so dropping decode is not a side effect of this ask but the point of it
   recorded_upstream: tinygodriver fasthttp/PATCHES.md already names this as coherent to want and explicitly not what the tag does today, so this is a shared conclusion rather than a new proposal
 smaller_asks:
-  discoverability: the tag is documented in PATCHES.md, which is not where someone building a popcornwave app looks; naming it in the fasthttp README's TinyGo section would have saved the wrong conclusion recorded in decision:tinygo-fasthttp-needs-nozstd
+  discoverability: the tag is documented in PATCHES.md, which is not where someone building a popcornweb app looks; naming it in the fasthttp README's TinyGo section would have saved the wrong conclusion recorded in decision:tinygo-fasthttp-needs-nozstd
   net_http_import: tinygodriver/fasthttp imports net/http, so a fasthttp binary still links it; whether that is separable is unmeasured here and may be load-bearing for the fork
 acceptance:
   - a TinyGo fasthttp build can advertise zstd without linking klauspost

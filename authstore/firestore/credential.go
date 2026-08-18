@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
 )

@@ -1,14 +1,14 @@
 # sessionstore
 
 A `database/sql` backed `session.RawStore`. The package owns the
-`popcornwave_session` table and never inspects application tables.
+`popcornweb_session` table and never inspects application tables.
 
 The engine is not compiled in here. One package per engine describes its
 dialect and registers it, and that import is what makes `session.backend =
 "rdb"` resolve — against that engine and no other:
 
 ```go
-import _ "github.com/shibukawa/popcornwave/sessionstore/postgres"
+import _ "github.com/shibukawa/popcornweb/sessionstore/postgres"
 ```
 
 `sqlite`, `postgres`, and `mysql` are implemented. They share every statement

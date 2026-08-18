@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/shibukawa/popcornwave/pwstory"
+	"github.com/shibukawa/popcornweb/pwstory"
 )
 
 // devStorybook is the harness process and the pane the console reaches it

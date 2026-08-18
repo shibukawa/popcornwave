@@ -18,7 +18,7 @@ package middlewares
 import (
 	"strings"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // RevisionedCacheControl is what an asset reached through its revision segment

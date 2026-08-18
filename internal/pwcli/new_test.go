@@ -169,7 +169,7 @@ func TestNewHandlerScaffoldsAMuxForANewPackage(t *testing.T) {
 // and generate nothing from it, so the command stops instead.
 func TestNewHandlerRefusesHTMLOutsideTheTemplatePurpose(t *testing.T) {
 	root := writeScaffoldedProject(t, initOptions{Name: "fixture", TinyGo: true, Devbox: true, Database: true, Auth: authNone})
-	config := filepath.Join(root, "popcornwave.toml")
+	config := filepath.Join(root, "popcornweb.toml")
 	source, err := os.ReadFile(config)
 	if err != nil {
 		t.Fatal(err)

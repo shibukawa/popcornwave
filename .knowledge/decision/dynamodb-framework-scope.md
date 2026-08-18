@@ -3,7 +3,7 @@ id: decision:dynamodb-framework-scope
 type: decision
 title: What The DynamoDB Binding Layer Left To The Framework
 ---
-system:tinybind v0.2.9 answered a downstream request by keeping three items, sending two to the driver, and assigning four to Popcorn Wave because the seams they need already exist.
+system:tinybind v0.2.9 answered a downstream request by keeping three items, sending two to the driver, and assigning four to Popcorn Web because the seams they need already exist.
 
 ```yaml
 status: accepted upstream 2026-07-31, recorded here as the work allocation
@@ -34,8 +34,8 @@ assigned_here:
     specified_by: requirement:dynamodb-page-cursor
     signature_question: upstream cautions that a signature must cover whatever scopes the query; that requirement answers it by keeping the scope in the key condition, where a forged cursor cannot reach past it, and by naming the filter case that would change the answer
 beyond_the_four:
-  auth_state: requirement:contrib-auth-state-dynamo, which was never assigned because it is a Popcorn Wave contract with no upstream half at all
-  auth_backend: requirement:dynamodb-auth-backend, the same shape; plugin/auth is entirely a Popcorn Wave contract
+  auth_state: requirement:contrib-auth-state-dynamo, which was never assigned because it is a Popcorn Web contract with no upstream half at all
+  auth_backend: requirement:dynamodb-auth-backend, the same shape; plugin/auth is entirely a Popcorn Web contract
 resolved_ask:
   what: a context-resolved form of the generated query function, asked for after v0.2.9
   answered_by: system:tinybind, which carries the client in the context and made the table clause a required part of a declaration

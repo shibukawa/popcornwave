@@ -199,7 +199,7 @@ console off.
 The launcher takes the bottom left, because the bottom right is where
 applications put their own floating controls. When it is in the way anyway — a
 sticky footer, a widget of your own — move it rather than working around it.
-`pw init` writes the corner into `popcornwave.toml` so it is there to edit:
+`pw init` writes the corner into `popcornweb.toml` so it is there to edit:
 
 ```toml
 [dev.console.launcher]

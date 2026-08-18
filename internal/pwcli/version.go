@@ -9,7 +9,7 @@ import (
 )
 
 // version is written only by the release linker through
-// -ldflags "-X github.com/shibukawa/popcornwave/internal/pwcli.version=1.2.3".
+// -ldflags "-X github.com/shibukawa/popcornweb/internal/pwcli.version=1.2.3".
 var version string
 
 type versionInfo struct {

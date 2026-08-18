@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	pwPackage      = "github.com/shibukawa/popcornwave/pw"
-	runtimePackage = "github.com/shibukawa/popcornwave/pwruntime"
+	pwPackage      = "github.com/shibukawa/popcornweb/pw"
+	runtimePackage = "github.com/shibukawa/popcornweb/pwruntime"
 	htmlbindImport = "github.com/shibukawa/tinybind-go/htmlbind"
 )
 

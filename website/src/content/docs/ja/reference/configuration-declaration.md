@@ -214,7 +214,7 @@ default  <  TOML ファイル  <  環境変数  <  コマンドラインオプ�
 
 環境を選ぶのは `APP_ENV` で、それがプロジェクト内のファイル名を決めます。`dev`、`stg`、
 `prod`、あるいは小文字・数字・`-`・`_` からなる任意のトークンを受け付けます。不正なトークンは
-`ParseConfig` を失敗させ、未設定か空なら `dev` です。Popcorn Wave は次のうち最初に読めた
+`ParseConfig` を失敗させ、未設定か空なら `dev` です。Popcorn Web は次のうち最初に読めた
 ファイルを読みます。
 
 1. `./config.{APP_ENV}.toml`

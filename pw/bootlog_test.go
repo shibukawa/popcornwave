@@ -13,8 +13,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/shibukawa/popcornwave/internal/bootblock"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/bootblock"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/cliparser"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
@@ -38,7 +38,7 @@ func sampleBootReport() bootReport {
 func TestRenderBootTreeGroupsKeysBySection(t *testing.T) {
 	rendered := renderBootTree(sampleBootReport(), "http://localhost:8080", bootStyle{})
 	for _, want := range []string{
-		"Popcorn Wave",
+		"Popcorn Web",
 		"started at 2026-07-27 23:31:04 UTC",
 		"env dev · config.dev.toml",
 		"├─ middleware",

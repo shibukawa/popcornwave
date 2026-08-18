@@ -3,7 +3,7 @@ package pw
 import (
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 // The framework's configuration and its resolved environment are process state

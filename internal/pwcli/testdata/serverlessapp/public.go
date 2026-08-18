@@ -4,7 +4,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornweb/middlewares"
 )
 
 //go:embed all:dist/public

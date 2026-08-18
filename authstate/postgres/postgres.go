@@ -1,9 +1,9 @@
 // Package postgres registers the PostgreSQL dialect of the authentication
 // state store.
 //
-//	import _ "github.com/shibukawa/popcornwave/authstate/postgres"
+//	import _ "github.com/shibukawa/popcornweb/authstate/postgres"
 //
-// The database connection itself comes from popcornwave/database/postgres,
+// The database connection itself comes from popcornweb/database/postgres,
 // which an application imports separately.
 package postgres
 
@@ -11,7 +11,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 // Dialect is the registered engine name, which is also what a postgres:// or

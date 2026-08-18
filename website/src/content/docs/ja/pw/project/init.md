@@ -1,6 +1,6 @@
 ---
 title: pw init
-description: 動く Popcorn Wave プロジェクトを作成する。
+description: 動く Popcorn Web プロジェクトを作成する。
 sidebar:
   order: 1
 ---
@@ -89,7 +89,7 @@ Go なのはそのためです。前提を置かない側であり、ルーテ�
 
 `--db` は 5 つのことを一度に決めます。`config.dev.toml` の DSN、最初の
 マイグレーションを書く方言、`devbox.json` に入る開発サーバー、バイナリが
-リンクするドライバ、そして `popcornwave.toml` の `project.database` です。
+リンクするドライバ、そして `popcornweb.toml` の `project.database` です。
 最後の 1 つは `pw generate` が読み、`.pw.sql` をどのプレースホルダ構文に
 コンパイルするかを決めます。既定が SQLite なのは、アプリケーションのほかに
 起動するものが何もないからです。
@@ -104,7 +104,7 @@ Go なのはそのためです。前提を置かない側であり、ルーテ�
 エンジンを登録します。
 
 ```go
-import _ "github.com/shibukawa/popcornwave/database/postgres"
+import _ "github.com/shibukawa/popcornweb/database/postgres"
 ```
 
 スキャフォールドが書く資格情報は `config.dev.toml` の開発用の値です。そこに書かれた
@@ -118,7 +118,7 @@ import _ "github.com/shibukawa/popcornwave/database/postgres"
 `project.database` は、生成のためにプロジェクトがエンジンを表明する唯一の場所です。
 ジェネレータ側に暗黙の既定はありません。黙って仮定した方言は、エンジンが最初の
 クエリで拒否するプレースホルダを出力してしまうからです。`pw generate` は
-`popcornwave.toml` に書かれたものだけを渡します。
+`popcornweb.toml` に書かれたものだけを渡します。
 
 ```toml
 [project]
@@ -139,7 +139,7 @@ database = "postgres"   # sqlite、postgres、mysql
 
 ## ツールチェインを変更する
 
-選んだコンパイラは `popcornwave.toml` の `project.toolchain` に記録され、ハンドラ
+選んだコンパイラは `popcornweb.toml` の `project.toolchain` に記録され、ハンドラ
 パッケージが使う mux の型を決めます。既定であるホスト専用のプロジェクトは
 `http.ServeMux` のままで、TinyGo プロジェクトは両方のツールチェインで同じ import が
 通るよう `pw.ServeMux` を経由します。生成はどちらも検出するので、違いはスキャフォールド
@@ -148,7 +148,7 @@ database = "postgres"   # sqlite、postgres、mysql
 あとから自動で切り替えるコマンドはありません。変更がアプリケーション側のソースにも及ぶためです。
 手作業で行う場合は 4 か所です。
 
-1. `popcornwave.toml` の `project.toolchain` を `tinygo` か `go` にする
+1. `popcornweb.toml` の `project.toolchain` を `tinygo` か `go` にする
 2. 各ハンドラパッケージの `index.go` で mux の型とアクセサを差し替える
 3. `devbox.json` の `tinygo@latest` を足すか外す
 4. TinyGo 専用の netdev 登録 `tinygohelper.go` を足すか外す。これがないと TinyGo
@@ -173,7 +173,7 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 します。
 
 ローカルエミュレータは [`pw dev`](/ja/pw/project/dev/) が起動する開発用認証プロバイダ
-です。`pw init` は `popcornwave.toml` に `dev.idp.enabled` を設定し、初期ユーザー2人分の
+です。`pw init` は `popcornweb.toml` に `dev.idp.enabled` を設定し、初期ユーザー2人分の
 `devidp.toml` を書き出します。issuer とクライアント資格情報は `pw dev` が注入するので、
 コミットする設定ファイルにプロバイダの情報は一切書かれません。
 
@@ -205,8 +205,8 @@ OIDC 系を選ぶと、**ローカルエミュレータ**か**外部プロバイ
 // cmd/myapp/main.go — pw init が書き出します
 import (
 	// セッションと、ログインの儀式が使う単回限りのレコード。
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 ```
 
@@ -225,7 +225,7 @@ import を書かずにバックエンドを設定した場合は、最初のリ�
 
 ```
 session.backend = "redis" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 ```
 
 回答は書き出される内容も変えます。`rdb` はセッションテーブルのマイグレーションを書き、
@@ -255,8 +255,8 @@ export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 
 | 答え | 書き出されるもの |
 | --- | --- |
-| `claude`（既定） | `.claude/skills/popcornwave/` — Claude Code が発見するディレクトリ |
-| `agents` | `.agents/skills/popcornwave/` — 他のコーディングエージェントが読む共通レイアウト |
+| `claude`（既定） | `.claude/skills/popcornweb/` — Claude Code が発見するディレクトリ |
+| `agents` | `.agents/skills/popcornweb/` — 他のコーディングエージェントが読む共通レイアウト |
 | `none` | 何も置かない |
 
 コピーは Markdown だけで、ランタイムには何のコストもかかりません。置くのが既定なのは
@@ -265,7 +265,7 @@ export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 プロジェクトは `--skills=none` を渡すか、`.vscode/` を消すのと同じ感覚であとから
 ディレクトリごと削除してください。ファイルはプロジェクトを作った `pw` バイナリから
 来ており、あとから更新するコマンドはありません。フレームワークを更新して新しい
-ガイドラインが欲しくなったら、リポジトリの `skills/popcornwave-skill/` から現行の
+ガイドラインが欲しくなったら、リポジトリの `skills/popcornweb-skill/` から現行の
 ツリーをコピーしてください。
 
 ## 検証
@@ -278,7 +278,7 @@ export SESSION_KEYRING_SECRET=$(openssl rand -base64 32)
 
 ```
 myapp/
-├── popcornwave.toml           プロジェクト名、main パッケージ、生成対象ディレクトリ
+├── popcornweb.toml           プロジェクト名、main パッケージ、生成対象ディレクトリ
 ├── config.dev.toml            APP_ENV=dev のランタイム設定
 ├── go.mod
 ├── devbox.json / devbox.lock  Go + Valkey（--tailwind なら tailwindcss も）
@@ -295,22 +295,22 @@ myapp/
 ├── migrations/00001_init.sql  初期スキーマ、goose 形式（データベース選択時）
 ├── public/.keep               空ツリーの番兵。配信されない
 ├── public.go                  public/ を埋め込んで登録する
-├── .claude/skills/popcornwave/  同梱のエージェントスキル（--skills で移動または省略）
+├── .claude/skills/popcornweb/  同梱のエージェントスキル（--skills で移動または省略）
 ├── .vscode/settings.json      **/*_pw_gen.go を隠す
 └── .gitignore                 *_pw_gen.go などのビルド生成物を除外
 ```
 
-`popcornwave.toml` には、いま作ったディレクトリが `[generate]` の各用途に振り分けて
+`popcornweb.toml` には、いま作ったディレクトリが `[generate]` の各用途に振り分けて
 書かれます。[`pw generate`](/ja/pw/project/generate/) はこれらのリストだけを読み、
 既定値を持たないためです。スターターのページテンプレートはハンドラの隣にあるので
 `handlers` は `handlers` と `templates` の両方に現れ、アプリケーションが設定を登録する
 `cmd/myapp` は `config` に現れます。
 
 OIDC 系のモードで `--devidp` を付けると、選択できる開発用ユーザーの一覧である
-`devidp.toml` も書き出し、`popcornwave.toml` に `[dev.idp]` を追加します。
+`devidp.toml` も書き出し、`popcornweb.toml` に `[dev.idp]` を追加します。
 
 `--tailwind` を付けると、さらに `assets/app.css` と `public/generated/app.css` を書き、
-`popcornwave.toml` に `[assets.tailwind]` ブロックを追加し、`devbox.json` に
+`popcornweb.toml` に `[assets.tailwind]` ブロックを追加し、`devbox.json` に
 `tailwindcss` をピン留めし、ドキュメントシェルからスタイルシートをリンクします。
 `package.json` も Node のロックファイルも作られません。あとから有効にする方法は
 [スタイリング](/ja/guides/frontend/styling/)を参照してください。

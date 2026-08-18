@@ -6,15 +6,15 @@
 // kind; the client itself belongs to database/firestore, which this package
 // reads from the request context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/firestore"
-//	import _ "github.com/shibukawa/popcornwave/authstate/firestore"
+//	import _ "github.com/shibukawa/popcornweb/database/firestore"
+//	import _ "github.com/shibukawa/popcornweb/authstate/firestore"
 //
 // Nothing here sweeps expired records. Take decides expiry from the stored
 // deadline, so correctness never waits for a deletion; removing the bytes is a
 // TTL policy on the expires_at property, which a deployment applies to the kind
 // it owns:
 //
-//	gcloud firestore fields ttls update expires_at --collection-group=popcornwave_authstate --enable-ttl
+//	gcloud firestore fields ttls update expires_at --collection-group=popcornweb_authstate --enable-ttl
 //
 // The sqlite adapter publishes Prune because a bounded DELETE is cheap there.
 // Here the equivalent is a query over every ceremony record ever written, which
@@ -28,15 +28,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/database/firestore"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/database/firestore"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
 )
 
 // DeclaredKind is the entity kind. A kind is intrinsic to the type rather than
 // a deployment fact, so nothing maps it onto another name.
-const DeclaredKind = "popcornwave_authstate"
+const DeclaredKind = "popcornweb_authstate"
 
 // Property names, each named once so the encoder and the decoder cannot drift.
 const (

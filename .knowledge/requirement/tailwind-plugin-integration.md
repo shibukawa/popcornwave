@@ -3,7 +3,7 @@ id: requirement:tailwind-plugin-integration
 type: requirement
 title: Tailwind Plugin Integration
 ---
-Tailwind plugins use Tailwind v4 CSS directives without a Popcorn Wave plugin API or plugin-specific runtime integration.
+Tailwind plugins use Tailwind v4 CSS directives without a Popcorn Web plugin API or plugin-specific runtime integration.
 
 ```yaml
 declaration:

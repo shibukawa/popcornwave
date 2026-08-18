@@ -60,7 +60,7 @@ identity_claim = "employee_number"
 admission = "authenticated"
 auto_provision = true
 # Set admission = "registered" to admit only identities that were inserted into
-# popcornwave_auth_allowlist beforehand.
+# popcornweb_auth_allowlist beforehand.
 # registered_claims = ["sub", "email"]
 # The development provider serves plain HTTP on loopback; a real issuer must be
 # HTTPS.

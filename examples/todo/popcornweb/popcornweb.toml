@@ -1,0 +1,25 @@
+[project]
+name = "popcornweb"
+main = "./cmd/popcornweb"
+toolchain = "tinygo"
+database = "postgres"
+
+# Each purpose reads only the directories it lists, and nothing else. A source
+# directory is invisible to that purpose until it appears here.
+[generate]
+handlers = ["handlers"]
+templates = ["handlers", "templates"]
+queries = ["queries"]
+config = ["cmd/popcornweb"]
+# A page tree root is one generation run: every directory below it holding a
+# page template is a route, and the registration is generated.
+pages = []
+# The dynamo-tagged types and .pw.dynamo queries of the DynamoDB store, which is
+# its own purpose because it shares no source kind with the SQL path.
+dynamo = []
+
+# pw dev walks the module for rebuild inputs. Add what the walk misses, and
+# exclude a subtree that only makes the walk slower.
+[dev.watch]
+includes = []
+excludes = []

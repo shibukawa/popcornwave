@@ -32,7 +32,7 @@ renewal:
   - align cookie lifetime with authoritative server expiry
   - any request counts as activity, including a live-connection reconnect an unattended page makes on its own; requirement:presence-signal is the wanted replacement
 login:
-  - popcornwave/plugin/auth writes its own slot and calls Rotate, per policy:session-security
+  - popcornweb/plugin/auth writes its own slot and calls Rotate, per policy:session-security
   - rotation preserves every other slot, so state written before the login survives it
   - rotation promotes every session.Private slot into the server backend and expires its anonymous cookie, per decision:slot-declared-placement
   - a failed promotion leaves the anonymous record intact and the login unfinished

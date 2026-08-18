@@ -31,7 +31,7 @@ validation_surfaced_by_pw:
   - a field carrying dynamodbav without dynamo is a generation error naming both spellings
   - a duplicate attribute, a second partitionkey, a sortkey without one, and a non-key-typed key field are generation errors
   - two types resolving to one declared table name, per rule:dynamodb-table-naming
-  rule: Popcorn Wave reports these; it adds no second validator, mirroring how flow:sql-generation defers to system:tinybind
+  rule: Popcorn Web reports these; it adds no second validator, mirroring how flow:sql-generation defers to system:tinybind
 dialect: none; unlike flow:sql-generation there is no engine variant to pass, so project.database is not read for this purpose
 read_path: requirement:dynamodb-typed-queries owns it; this requirement covers the item path only, which is where the codec, the key builder, and the table definition come from
 feature_suppression:

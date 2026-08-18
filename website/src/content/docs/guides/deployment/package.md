@@ -1,6 +1,6 @@
 ---
 title: Component Packages
-description: Publishing a reusable capability as a Go module, and installing one by naming it in popcornwave.toml.
+description: Publishing a reusable capability as a Go module, and installing one by naming it in popcornweb.toml.
 sidebar:
   order: 3
 ---
@@ -82,7 +82,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 //go:embed assets migrations

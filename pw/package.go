@@ -57,22 +57,22 @@ var packageGeneration atomic.Uint64
 // or calls its own Register.
 func RegisterPackage(pkg Package) {
 	if strings.TrimSpace(pkg.Module) == "" {
-		panic("popcornwave: empty package module")
+		panic("popcornweb: empty package module")
 	}
 	if pkg.Migrations != nil && strings.TrimSpace(pkg.MigrationStem) == "" {
-		panic("popcornwave: package " + pkg.Module + " has migrations with no stem")
+		panic("popcornweb: package " + pkg.Module + " has migrations with no stem")
 	}
 	packageState.Lock()
 	defer packageState.Unlock()
 	for _, existing := range packageState.registered {
 		if existing.Module == pkg.Module {
-			panic("popcornwave: duplicate package " + pkg.Module)
+			panic("popcornweb: duplicate package " + pkg.Module)
 		}
 		// Two packages sharing a stem would write into one version table and
 		// prefix their tables identically, so each would see the other's applied
 		// versions as its own.
 		if pkg.MigrationStem != "" && existing.MigrationStem == pkg.MigrationStem {
-			panic("popcornwave: packages " + existing.Module + " and " + pkg.Module + " share the migration stem " + pkg.MigrationStem)
+			panic("popcornweb: packages " + existing.Module + " and " + pkg.Module + " share the migration stem " + pkg.MigrationStem)
 		}
 	}
 	packageState.registered = append(packageState.registered, pkg)

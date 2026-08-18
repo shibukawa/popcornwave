@@ -3,7 +3,7 @@ id: requirement:tutorial-page-tree-chapter
 type: requirement
 title: Tutorial Page Tree Chapter
 ---
-A fifth tutorial chapter moves one route of the memo application into a concept:page-tree and uses it to introduce the three update models that make a Popcorn Wave page different from a template rendered once.
+A fifth tutorial chapter moves one route of the memo application into a concept:page-tree and uses it to introduce the three update models that make a Popcorn Web page different from a template rendered once.
 
 ```yaml
 audience: actor:application-developer

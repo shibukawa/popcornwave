@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/database"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/database"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // The connection groups are resolved here rather than beside the pools they
@@ -130,7 +130,7 @@ func containsString(values []string, want string) bool {
 func Target(configured string) (database.Target, error) {
 	target, err := database.Resolve(configured)
 	if err != nil {
-		return database.Target{}, fmt.Errorf("popcornwave: %w", err)
+		return database.Target{}, fmt.Errorf("popcornweb: %w", err)
 	}
 	return target, nil
 }
@@ -141,24 +141,24 @@ func Target(configured string) (database.Target, error) {
 // without reimplementing group resolution.
 func (config RDBConfig) MigrationDSN() (string, error) {
 	if !config.Enabled {
-		return "", errors.New("popcornwave: middleware.rdb.enabled is false")
+		return "", errors.New("popcornweb: middleware.rdb.enabled is false")
 	}
 	connections, err := ResolveConnections(config)
 	if err != nil {
-		return "", fmt.Errorf("popcornwave: %w", err)
+		return "", fmt.Errorf("popcornweb: %w", err)
 	}
 	group, err := ResolveMigrationGroup(config, connections)
 	if err != nil {
-		return "", fmt.Errorf("popcornwave: %w", err)
+		return "", fmt.Errorf("popcornweb: %w", err)
 	}
 	for _, connection := range connections {
 		if connection.Group != group {
 			continue
 		}
 		if _, err := Target(connection.DSN); err != nil {
-			return "", fmt.Errorf("popcornwave: %w", err)
+			return "", fmt.Errorf("popcornweb: %w", err)
 		}
 		return connection.DSN, nil
 	}
-	return "", fmt.Errorf("popcornwave: migration group %q has no connection", group)
+	return "", fmt.Errorf("popcornweb: migration group %q has no connection", group)
 }

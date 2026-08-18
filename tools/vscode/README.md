@@ -1,12 +1,12 @@
-# Popcorn Wave for Visual Studio Code
+# Popcorn Web for Visual Studio Code
 
-Syntax highlighting for the three Popcorn Wave source dialects:
+Syntax highlighting for the three Popcorn Web source dialects:
 
 | File | Language | Body |
 | --- | --- | --- |
-| `*.pw.html` | Popcorn Wave HTML | HTML, with slots and async boundaries |
-| `*.pw.sql` | Popcorn Wave SQL | SQL of the project's configured engine |
-| `*.pw.dynamo` | Popcorn Wave DynamoDB | a `table` and `key` clause list |
+| `*.pw.html` | Popcorn Web HTML | HTML, with slots and async boundaries |
+| `*.pw.sql` | Popcorn Web SQL | SQL of the project's configured engine |
+| `*.pw.dynamo` | Popcorn Web DynamoDB | a `table` and `key` clause list |
 
 All three share one declaration header — `package`, `import`, `type`, `enum`,
 `external`, and an `export`ed `component` or `statement` — and one set of
@@ -22,7 +22,7 @@ Document**.
 Formatting runs the tinybind formatter itself, compiled to WebAssembly with
 TinyGo and bundled in the extension. No `pw` binary is spawned, nothing is
 downloaded, and no network is touched, so the extension works on a file opened
-with no workspace, no `popcornwave.toml`, and no `pw` on `PATH`, and is fully
+with no workspace, no `popcornweb.toml`, and no `pw` on `PATH`, and is fully
 supported in an untrusted workspace.
 
 There is still **no language server, no diagnostics, and no completion**.
@@ -51,7 +51,7 @@ The bundled formatter is a fixed tinybind version (currently v0.3.2),
 independent of the one your project pins. If they differ, this extension and
 your CI can disagree about canonical form. A `pw fmt` delegation that removes
 this is planned; this version always uses the bundled module and says so once
-per session in the Popcorn Wave output channel.
+per session in the Popcorn Web output channel.
 
 ## Accuracy
 

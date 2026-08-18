@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/fasttestutil"
-	"github.com/shibukawa/popcornwave/pwtest"
-	"github.com/shibukawa/popcornwave/testutil"
+	"github.com/shibukawa/popcornweb/fasttestutil"
+	"github.com/shibukawa/popcornweb/pwtest"
+	"github.com/shibukawa/popcornweb/testutil"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

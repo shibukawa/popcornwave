@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+	"github.com/shibukawa/popcornweb/contrib/otel/otelhttp"
 )
 
 type namedTransport struct{ name string }

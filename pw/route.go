@@ -3,7 +3,7 @@ package pw
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornweb/middlewares"
 )
 
 // SetRoute records which route this response belongs to, so a metric is keyed by

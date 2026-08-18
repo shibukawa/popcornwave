@@ -41,7 +41,7 @@ generated_names:
   registry: routes_pw_gen.go
   reason: policy:generated-artifacts already excludes **/*_pw_gen.go from version control and the editor, so the tree needs no new ignore rule
 generated_header:
-  rule: page tree output carries the Popcorn Wave header api:cli-generate writes elsewhere, and the emitter's paired prefix is registered with the discovery pass
+  rule: page tree output carries the Popcorn Web header api:cli-generate writes elsewhere, and the emitter's paired prefix is registered with the discovery pass
   why_registration: discovery skips a generated file by header prefix, and it recognizes only system:tinybind's own; an unregistered generated registry is analyzed as hand-written code, which turns every page registration into a documented route
   pairing: the prefix comes from the emitter rather than a second constant, so the registered string cannot drift from the header
   since: v0.2.6, which made the header settable; before it the only safe choice was keeping the upstream header

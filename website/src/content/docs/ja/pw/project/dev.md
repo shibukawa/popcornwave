@@ -34,7 +34,7 @@ pw dev
 - プロジェクト自身の Go、`.pw.html`、`.pw.sql` のソース
 - マイグレーションディレクトリ
 - Tailwind が有効な場合はその入力ファイル
-- `popcornwave.toml` の `dev.watch.includes` に一致するもの
+- `popcornweb.toml` の `dev.watch.includes` に一致するもの
 
 走査の範囲は `[generate]` の用途ではなくモジュール全体です。どの用途も生成に使わない
 ファイルを含め、Go のソースはすべて再ビルドの入力だからです。`.git`、`vendor`、

@@ -226,7 +226,7 @@ clear the value a lower layer supplied; a present key always overrides.
 `APP_ENV` selects the environment and therefore the project-local filename. It
 accepts `dev`, `stg`, `prod`, or any other token of lowercase letters, digits,
 `-`, and `_`; an invalid token fails `ParseConfig`, and unset or empty means
-`dev`. Popcorn Wave reads the first readable file of:
+`dev`. Popcorn Web reads the first readable file of:
 
 1. `./config.{APP_ENV}.toml`
 2. `./config/config.{APP_ENV}.toml`

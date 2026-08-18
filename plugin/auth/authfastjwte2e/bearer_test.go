@@ -163,12 +163,12 @@ func TestTheSchemeIsMatchedCaseInsensitively(t *testing.T) {
 // the graph is what is checked and not the import list.
 func TestTheBinaryLinksNoNetHTTPRuntime(t *testing.T) {
 	output, err := exec.Command("go", "list", "-deps",
-		"github.com/shibukawa/popcornwave/plugin/auth/authfastjwte2e").CombinedOutput()
+		"github.com/shibukawa/popcornweb/plugin/auth/authfastjwte2e").CombinedOutput()
 	if err != nil {
 		t.Fatalf("go list: %v\n%s", err, output)
 	}
 	for _, line := range strings.Split(string(output), "\n") {
-		if strings.TrimSpace(line) == "github.com/shibukawa/popcornwave/pw" {
+		if strings.TrimSpace(line) == "github.com/shibukawa/popcornweb/pw" {
 			t.Fatal("this package depends on the net/http runtime, so the fixture proves nothing")
 		}
 	}

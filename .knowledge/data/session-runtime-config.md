@@ -7,7 +7,7 @@ The `[session]` binding selects where per-browser state lives and how its token 
 
 ```yaml
 registration: automatically registered by pw
-declaration: the struct lives in popcornwave/sessionconfig and pw re-exports it as a true alias, per decision:framework-owned-session-extension
+declaration: the struct lives in popcornweb/sessionconfig and pw re-exports it as a true alias, per decision:framework-owned-session-extension
 scope: placement and cookie policy; every lifetime is declared by data:authentication-runtime-config, per decision:session-lifetime-owned-by-auth
 fields:
   enabled: bool
@@ -59,12 +59,12 @@ plugin_fields:
     rdb.table: string
     rdb.busy_timeout: duration
   sessionstore/dynamo:
-    dynamo.table: declared table name, default popcornwave_session, resolved by rule:dynamodb-table-naming
+    dynamo.table: declared table name, default popcornweb_session, resolved by rule:dynamodb-table-naming
     dynamo_has_no_endpoint: data:dynamodb-runtime-config already opens the client this backend borrows
     dynamo.consistent_read: bool, default false, per decision:dynamodb-session-read-consistency
 moved_out:
   keys: ttl, idle_timeout, and renewal_interval
-  to: the auth.session binding, whose struct lives in popcornwave/sessionconfig and which popcornwave/plugin/auth binds
+  to: the auth.session binding, whose struct lives in popcornweb/sessionconfig and which popcornweb/plugin/auth binds
   reason: decision:session-lifetime-owned-by-auth
   read_by: pw, which enforces the durations without importing the plugin that declares them
   transitional: a configuration still carrying session.ttl fails startup naming the auth.session key that replaced it, rather than being ignored
@@ -105,7 +105,7 @@ rules:
   - dedicated source opens a separately owned pool and requires session.rdb.dsn
   - dedicated source delegates DSN handling to separately imported database/sql drivers
   - reject dedicated source when its canonical connection identity equals middleware.rdb.dsn; select middleware source instead
-  - Popcorn Wave initially guarantees rdb with requirement:contrib-sqlite, including sqlite://:memory:
+  - Popcorn Web initially guarantees rdb with requirement:contrib-sqlite, including sqlite://:memory:
   - reject unimported backends and unregistered RDB drivers at startup
   - the dynamo backend carries no endpoint or credential of its own, because data:dynamodb-runtime-config already holds them
   - the dynamo backend rejects a configured ttl longer than what the deployment can expire, since decision:dynamodb-session-expiry leaves removal to TTL

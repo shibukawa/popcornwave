@@ -34,7 +34,7 @@ rows in the old database stay in the old database.
 
 Five things change together.
 
-**`project.database` in `popcornwave.toml`.** This is what `pw generate` reads
+**`project.database` in `popcornweb.toml`.** This is what `pw generate` reads
 to know which placeholder syntax your `.pw.sql` sources compile to. Change it
 and regenerate, or the typed query functions keep emitting the old dialect's
 placeholders.
@@ -42,21 +42,21 @@ placeholders.
 <Tabs syncKey="engine">
 <TabItem label="SQLite">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "sqlite"
 ```
 </TabItem>
 <TabItem label="Postgres">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "postgres"
 ```
 </TabItem>
 <TabItem label="MySQL">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "mysql"
 ```
@@ -97,7 +97,7 @@ so the binary carries only the driver it uses.
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukaway/popcornwave/database/sqlite"
+	_ "github.com/shibukaway/popcornweb/database/sqlite"
 )
 ```
 </TabItem>
@@ -105,7 +105,7 @@ import (
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukawa/popcornwave/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
 )
 ```
 </TabItem>
@@ -113,7 +113,7 @@ import (
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukawa/popcornwave/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
 )
 ```
 </TabItem>
@@ -140,7 +140,7 @@ import (
 </Tabs>
 
 **Your migrations, by hand.** This is the part that costs real time, and there
-is no tool for it. Popcorn Wave compiles `.pw.sql` for one dialect; it does not
+is no tool for it. Popcorn Web compiles `.pw.sql` for one dialect; it does not
 translate between them, so `AUTOINCREMENT` does not become `SERIAL` and
 `datetime('now')` does not become `NOW()` because you changed a key. Every DDL
 statement in `migrations/` and every non-portable expression in `queries/` is a
@@ -149,15 +149,15 @@ file you open and rewrite.
 Two more things change if the project has a login, and neither is obvious.
 
 **The framework's own migrations are in the old dialect too.** A login project
-carries `..._init_popcornwave_auth.sql`, and an `rdb` session backend adds
-`..._init_popcornwave_session.sql`. Those are the framework's DDL, not yours —
+carries `..._init_popcornweb_auth.sql`, and an `rdb` session backend adds
+`..._init_popcornweb_session.sql`. Those are the framework's DDL, not yours —
 `BLOB` against `BYTEA`, `WITHOUT ROWID` against nothing — and no command
 re-emits them. Get the new ones by scaffolding a throwaway project on the target
 engine with the same answers and copying its files across:
 
 ```sh
 pw init --yes --db=postgres --auth=oidc --session=redis --router=discovered /tmp/probe
-cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
+cp /tmp/probe/migrations/*_init_popcornweb_*.sql migrations/
 ```
 
 Keep your own version numbers if they differ; only the bodies are being
@@ -170,7 +170,7 @@ replaced.
 // cmd/myapp/main.go
 import (
 	// Was authstate/sqlite.
-	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+	_ "github.com/shibukawa/popcornweb/authstate/postgres"
 )
 ```
 
@@ -209,7 +209,7 @@ rdb.source = "middleware"
 // cmd/myapp/main.go
 import (
 	// Was sessionstore/redis.
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 ```
 
@@ -248,7 +248,7 @@ pw add discovered   # or: pw add registered
 ```
 
 What you end up with is both trees. That is the supported shape — an API in
-`handlers/` and a website in `pages/` is a normal Popcorn Wave project — but if
+`handlers/` and a website in `pages/` is a normal Popcorn Web project — but if
 you meant to move rather than to add, deleting the original tree is a manual
 step nothing does for you.
 
@@ -299,7 +299,7 @@ claim.values = ["acme"]
 Turning on revocation, or choosing the `registered` admission mode, adds
 server-side state to this project. Choose `rdb`, `dynamo`, or `firestore` as the
 auth backend and install that capability first. With `rdb`, run `pw migrate up`
-for the `popcornwave_revoked_token` schema; the other stores follow their own
+for the `popcornweb_revoked_token` schema; the other stores follow their own
 deployment policies.
 
 ## Changing the project kind

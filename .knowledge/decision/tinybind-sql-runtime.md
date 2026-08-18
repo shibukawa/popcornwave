@@ -33,7 +33,7 @@ generation_validation:
 removed:
   - per-package tinybind_shared_pw_gen.go runtime duplication
   - _tinybindSafeMutation runtime token heuristic
-popcorn_wave_scope:
+popcorn_web_scope:
   - consume the corrected TinyBind release
   - retain the existing configured executor resolver
   - regenerate SQL artifacts

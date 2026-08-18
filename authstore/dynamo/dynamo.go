@@ -7,8 +7,8 @@
 // package registers all three tables; the client itself belongs to
 // database/dynamo, which these stores read from the request context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/dynamo"
-//	import _ "github.com/shibukawa/popcornwave/authstore/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/database/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/authstore/dynamo"
 //
 // The driver has no TransactWriteItems, so a first passkey enrollment cannot be
 // one unit of work here. CredentialStore fixes an order instead: the bootstrap
@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/dynamo"
+	"github.com/shibukawa/popcornweb/database/dynamo"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"
 )
@@ -30,9 +30,9 @@ import (
 // Declared table names. They are the names plugin/auth already owns; a
 // deployment maps them onto its own through middleware.dynamo.
 const (
-	DeclaredAllowlistTable  = "popcornwave_auth_allowlist"
-	DeclaredCredentialTable = "popcornwave_passkey_credential"
-	DeclaredBootstrapTable  = "popcornwave_auth_bootstrap"
+	DeclaredAllowlistTable  = "popcornweb_auth_allowlist"
+	DeclaredCredentialTable = "popcornweb_passkey_credential"
+	DeclaredBootstrapTable  = "popcornweb_auth_bootstrap"
 )
 
 // maxItemBytes is the DynamoDB item limit. A record over it is refused here,

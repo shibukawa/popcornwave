@@ -16,7 +16,7 @@ surface:
 placement: pw, beside api:request-context-accessors, with the naming of policy:request-scoped-accessor-shape
 locale_type:
   opaque: it carries a dense index the segment tables of decision:message-code-shape are addressed by
-  public_in_pw: vision:popcorn-wave keeps handwritten code importing pw only, so the type cannot live in the generated package
+  public_in_pw: vision:popcorn-web keeps handwritten code importing pw only, so the type cannot live in the generated package
   constants: the generated message package exposes one per declared locale
   boundary_note: this is the concept:public-package-boundaries seam of this feature, since the value is meaningless without the generated tables
   crosses_into_templates_typed: the message binding of data:locale-bindings declares pw.Locale as its provider result, so a generated message symbol takes this type rather than a tag string, and system:tinybind passes it through without learning it

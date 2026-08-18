@@ -3,7 +3,7 @@ id: requirement:mvp-acceptance
 type: requirement
 title: MVP Acceptance Criteria
 ---
-The Popcorn Wave MVP is complete when the documented three-command startup yields a generated, testable, running Go application that preserves its TinyGo-compatible runtime design.
+The Popcorn Web MVP is complete when the documented three-command startup yields a generated, testable, running Go application that preserves its TinyGo-compatible runtime design.
 
 ```yaml
 criteria:
@@ -19,7 +19,7 @@ criteria:
   - api:cli-init creates stable public.go and flow:public-asset-build embeds originals with eligible .zstd sidecars
 quality:
   - CLI command tests cover success, collision, and failure paths
-  - generated project smoke test runs outside the Popcorn Wave repository
+  - generated project smoke test runs outside the Popcorn Web repository
   - no reflection-based field mapping is introduced
 optional_css_profile:
   - api:cli-init --tailwind creates a Devbox-pinned standalone Tailwind toolchain without Node project files

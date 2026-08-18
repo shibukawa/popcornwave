@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
 	"github.com/shibukawa/tinybind-go/templates/sqlbind"
 	"golang.org/x/tools/go/packages"
@@ -165,7 +165,7 @@ func TestEveryTransportTakingPwEntryHasAPattern(t *testing.T) {
 	registered := map[string]bool{}
 	for _, pattern := range options.Calls.Set {
 		if function := pattern.Target.Function; function != nil &&
-			function.PackagePath == "github.com/shibukawa/popcornwave/pw" {
+			function.PackagePath == "github.com/shibukawa/popcornweb/pw" {
 			registered[function.Name] = true
 		}
 	}
@@ -201,7 +201,7 @@ func TestEveryRegisteredCallHasSomewhereToLand(t *testing.T) {
 	}
 	for _, pattern := range options.Calls.Set {
 		function := pattern.Target.Function
-		if function == nil || function.PackagePath != "github.com/shibukawa/popcornwave/pw" {
+		if function == nil || function.PackagePath != "github.com/shibukawa/popcornweb/pw" {
 			continue
 		}
 		// Only a call with declared transport slots is one the transform

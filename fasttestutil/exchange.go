@@ -15,7 +15,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwtest"
+	"github.com/shibukawa/popcornweb/pwtest"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )

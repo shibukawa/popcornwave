@@ -1,4 +1,4 @@
-// Popcorn Wave update bootstrap.
+// Popcorn Web update bootstrap.
 //
 // The two halves above this file are libraries: the boundary runtime installs
 // its own custom elements because the parser needs them present, and the update
@@ -20,7 +20,7 @@ if (updateConfigMeta) {
 		// A malformed configuration disables updates rather than throwing during
 		// load. Throwing here would take the boundary runtime above down with
 		// it, and that half works without any of this.
-		console.error("Popcorn Wave: unreadable runtime configuration", error);
+		console.error("Popcorn Web: unreadable runtime configuration", error);
 	}
 	if (updateConfig) {
 		const runtime = createUpdateRuntime(updateConfig);

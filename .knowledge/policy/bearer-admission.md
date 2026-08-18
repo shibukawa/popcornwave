@@ -19,7 +19,7 @@ modes:
     provisioning: forbidden
   registered:
     admit: a verified claim matches a row registered in advance for this issuer
-    storage: the popcornwave_auth_allowlist table of policy:oidc-admission, under rule:framework-owned-tables
+    storage: the popcornweb_auth_allowlist table of policy:oidc-admission, under rule:framework-owned-tables
     lookup_failure: an error, never a denial, so an outage cannot silently change who may enter
 claim_rule:
   definition: policy:oidc-admission claim_rule, unchanged

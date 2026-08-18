@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

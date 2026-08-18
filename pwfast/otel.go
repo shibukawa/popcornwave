@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/propagation"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
@@ -59,7 +59,7 @@ func Otel(options ...OtelOption) Middleware {
 	if config.provider == nil {
 		config.provider = trace.DefaultProvider()
 	}
-	tracer := config.provider.Tracer("github.com/shibukawa/popcornwave/pwfast")
+	tracer := config.provider.Tracer("github.com/shibukawa/popcornweb/pwfast")
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
 			parent := trace.ContextWithSpanContext(r, extractedParent(&r.Request.Header))

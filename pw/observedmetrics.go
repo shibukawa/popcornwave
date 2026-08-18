@@ -1,9 +1,9 @@
 package pw
 
 import (
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // registerObservedMetrics registers the instruments that are read at collection

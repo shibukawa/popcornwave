@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )

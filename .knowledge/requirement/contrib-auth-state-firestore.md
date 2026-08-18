@@ -19,7 +19,7 @@ client:
   no_constructor_argument: firestorebind carries the client in the context, as dynamobind does for requirement:contrib-auth-state-dynamo
   missing: firestorebind's ErrNoClient, surfaced as requirement:contrib-auth-state ErrUnavailable
 kind:
-  name: popcornwave_authstate, per rule:framework-owned-tables
+  name: popcornweb_authstate, per rule:framework-owned-tables
   key: datastore.NameKey over the namespace and the correlation key joined
   why_joined: the same reason requirement:contrib-auth-state-dynamo gives, reached differently; here the concern is not one hot partition but one entity group, since an ancestor path would put every ceremony of one protocol into a group that serializes its writes
   no_ancestor: every ceremony record is its own entity group, so a login spike contends with nothing

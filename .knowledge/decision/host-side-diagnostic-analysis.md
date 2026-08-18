@@ -48,6 +48,6 @@ consequences:
   - the diagnosis is instant, side-effect free, and works on a project that does not compile
   - any environment can be diagnosed from any host, because no secret of that environment is needed
   - accuracy depends on the generated configbind metadata being current, so api:cli-doctor runs the api:cli-generate drift check first and downgrades the configuration sections when it fails
-  - framework binding metadata is read from the popcornwave module version in the project build list, not from the version compiled into the CLI, so a CLI newer than the project does not report keys the project does not have
+  - framework binding metadata is read from the popcornweb module version in the project build list, not from the version compiled into the CLI, so a CLI newer than the project does not report keys the project does not have
   - the analysis models what would be registered instead of observing it, so every gap it cannot resolve is stated as a limit
 ```

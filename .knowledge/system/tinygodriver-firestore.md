@@ -3,7 +3,7 @@ id: system:tinygodriver-firestore
 type: system
 title: tinygodriver Firestore Datastore Client
 ---
-The TinyGo-buildable client for Firestore in Datastore mode that Popcorn Wave configures and hands to system:tinybind firestorebind; it speaks the Datastore v1 JSON API directly.
+The TinyGo-buildable client for Firestore in Datastore mode that Popcorn Web configures and hands to system:tinybind firestorebind; it speaks the Datastore v1 JSON API directly.
 
 ```yaml
 package: github.com/shibukawa/tinygodriver/nosql/datastore
@@ -20,11 +20,11 @@ version_history:
   why_the_floor_moved_to_v1_1_8: the lazy transaction removes a round trip from every conditional write of decision:firestore-conditional-writes, which is a cost this backend pays per ceremony rather than a convenience
   why_v1_1_9_now: system:tinybind firestorebind requires it, so the two move together rather than this repository naming the higher one
 upstream_catalog: the tinygodriver repository ships its own concepts for the client, the value codec, the retry policy, the write preconditions, and the emulator endpoint; read them there rather than restating them
-recorded_here: only the facts a Popcorn Wave concept depends on
+recorded_here: only the facts a Popcorn Web concept depends on
 naming:
   driver_package: datastore, after the API it speaks
   binding: firestorebind, after the product
-  popcornwave_side: firestore everywhere, per decision:firestore-datastore-mode-only
+  popcornweb_side: firestore everywhere, per decision:firestore-datastore-mode-only
 constructor: New(projectID string, opts ...Option) (*Client, error)
 credentials:
   package: github.com/shibukawa/tinygodriver/cloud/google
@@ -81,13 +81,13 @@ errors:
   wrapper: "*datastore.Error with Op, Kind, StatusCode, Status, Message, Unwrap, Retryable"
   discrimination: the Status string, never the HTTP code, because ABORTED and ALREADY_EXISTS are both 409 and mean opposite things
   sentinels_used_by_pw: [ErrNoSuchEntity, ErrAlreadyExists, ErrAborted, ErrFailedPrecondition, ErrUnauthenticated, ErrPermissionDenied, ErrUnavailable, ErrTooManyKeys]
-  passthrough: the firestorebind layer of system:tinybind wraps with %w or not at all, so a Popcorn Wave caller matches these directly
+  passthrough: the firestorebind layer of system:tinybind wraps with %w or not at all, so a Popcorn Web caller matches these directly
 lookup_results:
   shape: Found, Missing and Deferred are three lists
   deferred: keys the server did not read, handed back rather than retried inside the call
   effect_here: an incomplete allowlist answer is an error rather than a non-match, exactly as requirement:dynamodb-auth-stores decided for an unprocessed batch key
 limits:
-  exported: as constants, so no Popcorn Wave concept copies a number out of Google's documentation
+  exported: as constants, so no Popcorn Web concept copies a number out of Google's documentation
   MaxLookupKeys: 1000, checked by GetMulti, which answers ErrTooManyKeys
   MaxRequestBytes: 10 MiB
   MaxTransactionBytes: 10 MiB

@@ -1,16 +1,16 @@
 // Package mysql registers the MySQL dialect of the session store.
 //
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/mysql"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/mysql"
 //
 // The import contributes the dialect and, through it, the rdb session backend.
-// The database connection itself comes from popcornwave/database/mysql, which
+// The database connection itself comes from popcornweb/database/mysql, which
 // an application imports separately.
 package mysql
 
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/sessionstore"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 

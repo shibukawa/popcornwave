@@ -3,10 +3,10 @@ id: api:firestore-package
 type: api
 title: database/firestore Package
 ---
-Importing github.com/shibukawa/popcornwave/database/firestore registers the Firestore configuration binding and opens the client into process state; operations are system:tinybind firestorebind's "On" entries taking the handle this package exposes, and generated queries resolve the same handle themselves.
+Importing github.com/shibukawa/popcornweb/database/firestore registers the Firestore configuration binding and opens the client into process state; operations are system:tinybind firestorebind's "On" entries taking the handle this package exposes, and generated queries resolve the same handle themselves.
 
 ```yaml
-import: github.com/shibukawa/popcornwave/database/firestore
+import: github.com/shibukawa/popcornweb/database/firestore
 import_style:
   form: a normal import, following decision:import-registered-session-plugins for the registration half
   effect_of_importing: data:firestore-runtime-config appears in the configuration schema and the extension registers itself from init

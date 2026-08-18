@@ -36,7 +36,7 @@ WHERE id = {id}
 The file opens with the Go package its generated code joins. Every `.pw.sql` in
 one directory compiles into one `_pw_gen.go` alongside the `.pw.html` output of
 that directory, and generation reads only the directories `generate.queries`
-lists in `popcornwave.toml`. A `.pw.sql` outside every listed directory is
+lists in `popcornweb.toml`. A `.pw.sql` outside every listed directory is
 reported rather than silently skipped.
 
 `generate.queries` must be empty in a [component
@@ -52,7 +52,7 @@ placeholder syntax, and a package cannot know its consumer's.
 
 ## The dialect
 
-The placeholder token comes from `project.database` in `popcornwave.toml`:
+The placeholder token comes from `project.database` in `popcornweb.toml`:
 `$1`, `$2`, … for `postgres`, and `?` for `mysql` and `sqlite`. You write
 `{name}` either way and the generated signatures are identical, so switching
 engines changes the emitted SQL text and nothing you call.
@@ -402,7 +402,7 @@ of their own name and their case is unconstrained.
 
 ## Generated signatures
 
-Popcorn Wave generates the **context-resolved** form under the declared names.
+Popcorn Web generates the **context-resolved** form under the declared names.
 No exported function takes a `*sql.DB` or a `*sql.Tx`; the executor comes from
 the context, which is why the same function works inside a transaction and
 outside one.

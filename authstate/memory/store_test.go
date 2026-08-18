@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 func TestStoreTakeIsSingleUse(t *testing.T) {

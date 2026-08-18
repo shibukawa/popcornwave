@@ -10,7 +10,7 @@ import (
 )
 
 // packageManifest is the package section of a component package's
-// popcornwave.toml. It declares what the module publishes, and it exists as a
+// popcornweb.toml. It declares what the module publishes, and it exists as a
 // file rather than as Go because every reader needs the answer before anything
 // is compiled: pw generate must know what to import in order to emit the import,
 // and pw migrate applies a package's stream without an application binary at
@@ -108,7 +108,7 @@ func loadPackageManifest(document minitoml.Document) (packageManifest, error) {
 		return packageManifest{}, err
 	}
 	if manifest.Module == "" {
-		return packageManifest{}, fmt.Errorf("popcornwave.toml: package.module is required")
+		return packageManifest{}, fmt.Errorf("popcornweb.toml: package.module is required")
 	}
 	for _, binding := range []struct {
 		key    string
@@ -139,14 +139,14 @@ func loadPackageManifest(document minitoml.Document) (packageManifest, error) {
 	} {
 		values, err := array(document, binding.key)
 		if err != nil {
-			return packageManifest{}, fmt.Errorf("popcornwave.toml: %s: %w", binding.key, err)
+			return packageManifest{}, fmt.Errorf("popcornweb.toml: %s: %w", binding.key, err)
 		}
 		*binding.target = values
 	}
 	if value, ok := document.Get("package.assets.declared"); ok {
 		manifest.Assets, err = value.AsBool()
 		if err != nil {
-			return packageManifest{}, fmt.Errorf("popcornwave.toml: package.assets.declared: %w", err)
+			return packageManifest{}, fmt.Errorf("popcornweb.toml: package.assets.declared: %w", err)
 		}
 	}
 	if err := manifest.validate(); err != nil {
@@ -157,16 +157,16 @@ func loadPackageManifest(document minitoml.Document) (packageManifest, error) {
 
 func (m packageManifest) validate() error {
 	if strings.TrimSpace(m.Module) != m.Module || m.Module == "" {
-		return fmt.Errorf("popcornwave.toml: package.module must be a module path")
+		return fmt.Errorf("popcornweb.toml: package.module must be a module path")
 	}
 	for _, engine := range m.Requires.Engines {
 		if !validEngine(engine) {
-			return fmt.Errorf("popcornwave.toml: package.requires.engines %q must be %s", engine, engineNames())
+			return fmt.Errorf("popcornweb.toml: package.requires.engines %q must be %s", engine, engineNames())
 		}
 	}
 	for _, engine := range m.Migrations.Engines {
 		if !validEngine(engine) {
-			return fmt.Errorf("popcornwave.toml: package.migrations.engines %q must be %s", engine, engineNames())
+			return fmt.Errorf("popcornweb.toml: package.migrations.engines %q must be %s", engine, engineNames())
 		}
 	}
 	// A package declaring support for an engine its schema was never written for
@@ -175,33 +175,33 @@ func (m packageManifest) validate() error {
 	if m.Migrations.Dir != "" {
 		for _, engine := range m.Requires.Engines {
 			if !slices.Contains(m.Migrations.Engines, engine) {
-				return fmt.Errorf("popcornwave.toml: package.migrations.engines does not cover %q, which package.requires.engines declares", engine)
+				return fmt.Errorf("popcornweb.toml: package.migrations.engines does not cover %q, which package.requires.engines declares", engine)
 			}
 		}
 	}
 	if m.Migrations.Dir != "" {
 		if filepath.IsAbs(m.Migrations.Dir) {
-			return fmt.Errorf("popcornwave.toml: package.migrations.dir must be relative to the module")
+			return fmt.Errorf("popcornweb.toml: package.migrations.dir must be relative to the module")
 		}
 		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(m.Migrations.Dir)))
 		if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-			return fmt.Errorf("popcornwave.toml: package.migrations.dir must name a directory inside the module")
+			return fmt.Errorf("popcornweb.toml: package.migrations.dir must name a directory inside the module")
 		}
 		if m.Migrations.Stem == "" {
-			return fmt.Errorf("popcornwave.toml: package.migrations.stem is required beside package.migrations.dir; it names the version table and the package's own tables")
+			return fmt.Errorf("popcornweb.toml: package.migrations.stem is required beside package.migrations.dir; it names the version table and the package's own tables")
 		}
 	}
 	if m.Migrations.Stem != "" && m.Migrations.Dir == "" {
-		return fmt.Errorf("popcornwave.toml: package.migrations.stem names a stream package.migrations.dir does not locate")
+		return fmt.Errorf("popcornweb.toml: package.migrations.stem names a stream package.migrations.dir does not locate")
 	}
 	if m.Migrations.Stem != "" && !validMigrationStem(m.Migrations.Stem) {
-		return fmt.Errorf("popcornwave.toml: package.migrations.stem %q must be lowercase letters, digits, and underscores", m.Migrations.Stem)
+		return fmt.Errorf("popcornweb.toml: package.migrations.stem %q must be lowercase letters, digits, and underscores", m.Migrations.Stem)
 	}
 	// Cross-package component resolution does not exist upstream: an external
 	// declaration still has no spelling for a target outside its own generation
 	// unit. Accepting the key would publish a promise nothing can keep.
 	if len(m.Components) > 0 {
-		return fmt.Errorf("popcornwave.toml: package.components.exported is not supported yet; a component in another module is not callable until an external declaration can name one")
+		return fmt.Errorf("popcornweb.toml: package.components.exported is not supported yet; a component in another module is not callable until an external declaration can name one")
 	}
 	return nil
 }
@@ -240,25 +240,25 @@ func packageRefs(document minitoml.Document) ([]packageRef, error) {
 	}
 	tables, err := value.AsTables()
 	if err != nil {
-		return nil, fmt.Errorf("popcornwave.toml: packages: %w", err)
+		return nil, fmt.Errorf("popcornweb.toml: packages: %w", err)
 	}
 	refs := make([]packageRef, 0, len(tables))
 	seen := make(map[string]bool, len(tables))
 	for _, table := range tables {
 		for _, key := range table.Keys() {
 			if key != "module" {
-				return nil, fmt.Errorf("popcornwave.toml: packages: unknown key %s", key)
+				return nil, fmt.Errorf("popcornweb.toml: packages: unknown key %s", key)
 			}
 		}
 		module, err := scalar(table, "module")
 		if err != nil {
-			return nil, fmt.Errorf("popcornwave.toml: packages: %w", err)
+			return nil, fmt.Errorf("popcornweb.toml: packages: %w", err)
 		}
 		if module == "" {
-			return nil, fmt.Errorf("popcornwave.toml: packages: module is required")
+			return nil, fmt.Errorf("popcornweb.toml: packages: module is required")
 		}
 		if seen[module] {
-			return nil, fmt.Errorf("popcornwave.toml: packages lists %q twice", module)
+			return nil, fmt.Errorf("popcornweb.toml: packages lists %q twice", module)
 		}
 		seen[module] = true
 		refs = append(refs, packageRef{Module: module})

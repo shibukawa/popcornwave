@@ -33,7 +33,7 @@ WHERE id = {id}
 
 ファイルは、生成コードが属する Go パッケージから始まります。1つのディレクトリの `.pw.sql`
 はすべて、そのディレクトリの `.pw.html` の出力と同じ `_pw_gen.go` にコンパイルされます。
-生成が読むのは `popcornwave.toml` の `generate.queries` が挙げるディレクトリだけで、
+生成が読むのは `popcornweb.toml` の `generate.queries` が挙げるディレクトリだけで、
 どれにも属さない `.pw.sql` は黙って飛ばされるのではなく報告されます。
 
 [コンポーネントパッケージ](/ja/guides/deployment/package/)では `generate.queries` が空で
@@ -49,7 +49,7 @@ WHERE id = {id}
 
 ## ダイアレクト
 
-プレースホルダのトークンは `popcornwave.toml` の `project.database` から来ます。`postgres`
+プレースホルダのトークンは `popcornweb.toml` の `project.database` から来ます。`postgres`
 なら `$1`、`$2`、…、`mysql` と `sqlite` なら `?` です。どちらでも書くのは `{name}` で、
 生成されるシグネチャも同一なので、エンジンを変えると出力される SQL のテキストだけが変わり、
 呼ぶ側は何も変わりません。
@@ -376,7 +376,7 @@ DELETE FROM users WHERE {if byID}id = {id}{else}name = {name}{/if}
 
 ## 生成されるシグネチャ
 
-Popcorn Wave が生成するのは、宣言された名前での**コンテキスト解決**形です。公開された関数は
+Popcorn Web が生成するのは、宣言された名前での**コンテキスト解決**形です。公開された関数は
 `*sql.DB` も `*sql.Tx` も取りません。実行子はコンテキストから来ます。だから同じ関数が
 トランザクションの中でも外でも動きます。
 

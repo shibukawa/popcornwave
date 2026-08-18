@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
 )
 
 // assetCheckRun walks a public tree with the given switches and returns what

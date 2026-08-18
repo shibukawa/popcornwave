@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-const frameworkModule = "github.com/shibukawa/popcornwave"
+const frameworkModule = "github.com/shibukawa/popcornweb"
 
 var frameworkVersionOnce = sync.OnceValue(func() string {
 	info, ok := debug.ReadBuildInfo()

@@ -147,7 +147,7 @@ func NewKeyring(secrets ...[]byte) (*Keyring, error) {
 		if len(secret) < cookieSecretBytes {
 			return nil, fmt.Errorf("%w: secret shorter than %d bytes", ErrInvalidKey, cookieSecretBytes)
 		}
-		block, err := aes.NewCipher(derive(secret, "popcornwave/cookie/seal/v1"))
+		block, err := aes.NewCipher(derive(secret, "popcornweb/cookie/seal/v1"))
 		if err != nil {
 			return nil, fmt.Errorf("%w: cipher", ErrInvalidKey)
 		}
@@ -155,7 +155,7 @@ func NewKeyring(secrets ...[]byte) (*Keyring, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: aead", ErrInvalidKey)
 		}
-		keys = append(keys, &cookieKey{sign: derive(secret, "popcornwave/cookie/sign/v1"), seal: seal})
+		keys = append(keys, &cookieKey{sign: derive(secret, "popcornweb/cookie/sign/v1"), seal: seal})
 	}
 	return &Keyring{keys: keys}, nil
 }

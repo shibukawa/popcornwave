@@ -60,5 +60,5 @@ verification:
   - nix build .#pw succeeds and its installCheck matches api:cli-version against the derivation version
   - nix run .#pw prints the same version line
   - nix flake check --all-systems passes with no warning
-  - nix run github:shibukawa/popcornwave#pw stays unverified until the flake is pushed
+  - nix run github:shibukawa/popcornweb#pw stays unverified until the flake is pushed
 ```

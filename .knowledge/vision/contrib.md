@@ -3,7 +3,7 @@ id: vision:contrib
 type: vision
 title: TinyGo Contrib Vision
 ---
-Popcorn Wave contrib provides focused TinyGo-compatible server packages where standard or common Go implementations are unavailable, incomplete, or too reflection-heavy.
+Popcorn Web contrib provides focused TinyGo-compatible server packages where standard or common Go implementations are unavailable, incomplete, or too reflection-heavy.
 
 ```yaml
 root: contrib/

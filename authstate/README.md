@@ -15,7 +15,7 @@ import of one is what puts it in a binary:
 - `authstate/memory` for bounded process-local storage
 
 ```go
-import _ "github.com/shibukawa/popcornwave/authstate/postgres"
+import _ "github.com/shibukawa/popcornweb/authstate/postgres"
 
 store, err := authstate.NewSQLStore[oauth.Transaction](db, oauth.TransactionCodec{},
 	authstate.SQLOptions{Dialect: "postgres", Namespace: "auth-oidc"})

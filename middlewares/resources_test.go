@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 type resourceConfig struct{ Port int }

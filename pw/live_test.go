@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/shibukawa/popcornwave/pwbrowser"
+	"github.com/shibukawa/popcornweb/pwbrowser"
 	"iter"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

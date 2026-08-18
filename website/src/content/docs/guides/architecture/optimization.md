@@ -12,7 +12,7 @@ bytes that go on the wire, and the time a reader spends looking at nothing.
 They are separate problems. A page can be cheap to render and still take two
 seconds to become useful, because one query on it is slow. A page can render in
 microseconds and still re-send a navigation bar the browser has had open for
-twenty minutes. Popcorn Wave has one mechanism for each, plus a third for the
+twenty minutes. Popcorn Web has one mechanism for each, plus a third for the
 case where the server is the one that learns something new.
 
 ## Better than static HTML
@@ -24,11 +24,11 @@ It is also, on the second page view, strictly worse than what this framework
 sends.
 
 <figure>
-<svg viewBox="0 0 700 205" role="img" aria-label="Two bars comparing what the second page view transfers. The static site transfers a full document, of which only the last sixth is the part that changed; the rest is layout, navigation and footer the browser already holds. Popcorn Wave transfers only the part that changed.">
+<svg viewBox="0 0 700 205" role="img" aria-label="Two bars comparing what the second page view transfers. The static site transfers a full document, of which only the last sixth is the part that changed; the rest is layout, navigation and footer the browser already holds. Popcorn Web transfers only the part that changed.">
   <g fill="currentColor" font-family="inherit">
     <text x="0" y="34" font-size="12" opacity="0.75">A static site</text>
     <text x="0" y="50" font-size="11" opacity="0.5">second page view</text>
-    <text x="0" y="124" font-size="12" opacity="0.75">Popcorn Wave</text>
+    <text x="0" y="124" font-size="12" opacity="0.75">Popcorn Web</text>
     <text x="0" y="140" font-size="11" opacity="0.5">second page view</text>
   </g>
   <g fill="currentColor">
@@ -52,7 +52,7 @@ That is the whole argument, and it is worth being precise about why it holds. A
 static server answers every request identically because it has to: two browsers
 asking for `/orders?page=2` get the same bytes, and one of them may have arrived
 from `/orders?page=1` while the other opened a bookmark. Sending the difference
-would require knowing which. Popcorn Wave knows, because the browser tells it in
+would require knowing which. Popcorn Web knows, because the browser tells it in
 the request, and the answer is the changed region rather than the document.
 
 The catch a claim like this usually hides is that you have paid for it somewhere

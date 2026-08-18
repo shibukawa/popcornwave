@@ -4,7 +4,7 @@
 // Importing it registers the [middleware.dynamo] binding, so a project that
 // does not use DynamoDB gains no configuration key and links no driver:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/dynamo"
+//	import _ "github.com/shibukawa/popcornweb/database/dynamo"
 //
 // It wraps no operation. There is no database/sql here to hide three engines
 // behind, so a handler calls tinybind's dynamobind directly, handing it the
@@ -29,9 +29,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/dynamobind"
 	"github.com/shibukawa/tinygodriver/cloud/aws"
 	"github.com/shibukawa/tinygodriver/nosql/dynamodb"

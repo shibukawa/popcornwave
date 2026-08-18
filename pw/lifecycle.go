@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 	"github.com/shibukawa/tinygodriver/httpserver"
 )
 
@@ -26,7 +26,7 @@ type lifecycleOptions struct {
 func WithPublicFS(publicFS fs.FS) Option {
 	return func(options *lifecycleOptions) error {
 		if publicFS == nil {
-			return errors.New("popcornwave: nil public filesystem")
+			return errors.New("popcornweb: nil public filesystem")
 		}
 		options.publicFS = publicFS
 		return nil
@@ -53,7 +53,7 @@ func Middlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 
 func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, error) {
 	if handler == nil {
-		return nil, errors.New("popcornwave: nil handler")
+		return nil, errors.New("popcornweb: nil handler")
 	}
 	if err := ParseConfig(); err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 // resource cleanup.
 func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if ctx == nil {
-		return errors.New("popcornwave: nil context")
+		return errors.New("popcornweb: nil context")
 	}
 	if err := ParseConfig(); err != nil {
 		return err

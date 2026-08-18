@@ -28,7 +28,7 @@ const (
 	// option exists to prevent. internal/pwgen names the same value.
 	UpdateAttributePrefix = "tb"
 	// UpdateGlobalName is the browser namespace the client update API installs.
-	UpdateGlobalName = "popcornwave"
+	UpdateGlobalName = "popcornweb"
 	// UpdatePathPrefix is where the framework's own endpoints answer.
 	UpdatePathPrefix = "/_pw"
 )

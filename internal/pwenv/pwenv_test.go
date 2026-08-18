@@ -75,7 +75,7 @@ func TestIsFileNameExcludesTheNeutralName(t *testing.T) {
 			t.Errorf("IsFileName(%q) = false", name)
 		}
 	}
-	for _, name := range []string{NeutralFileName, "popcornwave.toml", "config.dev.yaml", "app.dev.toml"} {
+	for _, name := range []string{NeutralFileName, "popcornweb.toml", "config.dev.yaml", "app.dev.toml"} {
 		if IsFileName(name) {
 			t.Errorf("IsFileName(%q) = true", name)
 		}

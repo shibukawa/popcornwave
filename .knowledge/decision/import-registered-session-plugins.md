@@ -8,11 +8,11 @@ Session core does not import storage implementations; blank imports opt implemen
 ```yaml
 layout: rule:storage-package-layout
 examples:
-  rdb_session_plugin: import _ "popcornwave/sessionstore/<engine>"
-  auth_state_plugin: import _ "popcornwave/authstate/<engine>"
-  database_engine: import _ "popcornwave/database/<engine>"
-  redis_session_plugin: import _ "popcornwave/sessionstore/redis"
-  dynamo_session_plugin: import _ "popcornwave/sessionstore/dynamo"
+  rdb_session_plugin: import _ "popcornweb/sessionstore/<engine>"
+  auth_state_plugin: import _ "popcornweb/authstate/<engine>"
+  database_engine: import _ "popcornweb/database/<engine>"
+  redis_session_plugin: import _ "popcornweb/sessionstore/redis"
+  dynamo_session_plugin: import _ "popcornweb/sessionstore/dynamo"
 built_in_exception:
   backend: cookie
   reason: decision:cookie-session-storage stores records in the browser, so it adds no dependency to exclude

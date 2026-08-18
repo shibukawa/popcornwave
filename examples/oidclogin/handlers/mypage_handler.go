@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func init() { mux.HandleFunc("GET /mypage", myPage) }

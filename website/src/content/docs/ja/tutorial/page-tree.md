@@ -49,7 +49,7 @@ package about
 
 export component Page(): html {
   <h1 class="text-3xl font-bold">About memoapp</h1>
-  <p class="mt-4 text-slate-600">Popcorn Wave のチュートリアルに沿って作ったメモアプリケーション。</p>
+  <p class="mt-4 text-slate-600">Popcorn Web のチュートリアルに沿って作ったメモアプリケーション。</p>
 }
 ```
 
@@ -101,8 +101,8 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // Load はこのページの入口。Page という名前にするとコンパイルが通りません。
@@ -348,7 +348,7 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth"
 )
 
 // MemoCount はこのアカウントのメモ数を、5秒ごとに繰り返し報告する。

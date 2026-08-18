@@ -12,7 +12,7 @@ responses and nothing after them: no script runs, no
 [fragment lands in a page](/guides/interactivity/fragments/). When the
 behaviour under test includes the browser's half of the exchange, the test has
 to run a browser. [Playwright](https://playwright.dev/) is that layer, and
-Popcorn Wave meets it halfway: in the `pwdev` build mode the application itself
+Popcorn Web meets it halfway: in the `pwdev` build mode the application itself
 serves seed and assert endpoints, so a browser suite reads and resets the
 database through the same dataset files every other test already uses.
 
@@ -26,7 +26,7 @@ its cost where the browser contributes behaviour a Go client cannot observe.
 ## Pointing Playwright at the development server
 
 `npm init playwright@latest` scaffolds the suite; the part worth replacing is
-the configuration. This one drives a Popcorn Wave application:
+the configuration. This one drives a Popcorn Web application:
 
 ```ts
 // playwright.config.ts

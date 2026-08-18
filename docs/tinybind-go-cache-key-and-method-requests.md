@@ -1,27 +1,27 @@
 # Change request: cache key generation, and method conversions now and later
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.5.8
 **Date:** 2026-08-13
 **Status:** answered in v0.5.9 — Ask 1 implemented as `cachekeybind` with two changes, Ask 2 implemented, Ask 3 filed unacted as requested. Integrated downstream 2026-08-13.
 
 ## Division of responsibility
 
-Every part of this cache is Popcorn Wave's except one. The table is here first so that the size of the ask is not in doubt.
+Every part of this cache is Popcorn Web's except one. The table is here first so that the size of the ask is not in doubt.
 
 | Part of the mechanism | Owner | Status |
 | --- | --- | --- |
-| Call surface — `MemoStore`, `Memo`, `MemoHas`, `MemoSet`, invalidation | Popcorn Wave | shipped |
-| `CacheKey` and `CacheTagger` interfaces | Popcorn Wave | shipped |
-| Store definitions and their configuration section (`[[cache.stores]]`) | Popcorn Wave | shipped |
-| Store lifetime, name resolution, configuration validation | Popcorn Wave | shipped |
-| Entry storage, fresh and stale deadlines, entry cap, eviction | Popcorn Wave | shipped |
-| Miss coalescing and the detached fetch | Popcorn Wave | shipped |
-| Scope value, the private default, anonymous refusal | Popcorn Wave | shipped |
-| Stored key assembly — scope, build identity, key method output | Popcorn Wave | shipped |
-| Invalidation by key, by scope prefix, by tag | Popcorn Wave | shipped |
-| Value codec | Popcorn Wave | shipped |
-| Counters | Popcorn Wave | shipped |
+| Call surface — `MemoStore`, `Memo`, `MemoHas`, `MemoSet`, invalidation | Popcorn Web | shipped |
+| `CacheKey` and `CacheTagger` interfaces | Popcorn Web | shipped |
+| Store definitions and their configuration section (`[[cache.stores]]`) | Popcorn Web | shipped |
+| Store lifetime, name resolution, configuration validation | Popcorn Web | shipped |
+| Entry storage, fresh and stale deadlines, entry cap, eviction | Popcorn Web | shipped |
+| Miss coalescing and the detached fetch | Popcorn Web | shipped |
+| Scope value, the private default, anonymous refusal | Popcorn Web | shipped |
+| Stored key assembly — scope, build identity, key method output | Popcorn Web | shipped |
+| Invalidation by key, by scope prefix, by tag | Popcorn Web | shipped |
+| Value codec | Popcorn Web | shipped |
+| Counters | Popcorn Web | shipped |
 | Key framing helpers — `KeyString`, `KeyInt`, … | tinybind-go | **exists; reused unchanged, no change requested** |
 | Configuration binding generation (`configbind`) | tinybind-go | **exists; used unchanged, no change requested** |
 | **`CacheKey() string` generated from struct tags** | **tinybind-go** | **the one thing this document asked for — shipped in v0.5.9 as `cachekeybind`** |
@@ -30,11 +30,11 @@ Every part of this cache is Popcorn Wave's except one. The table is here first s
 
 ## Summary
 
-Popcorn Wave has shipped a **data result cache**: what a handler fetched, reused for equal typed keys. It is the other half of your component output cache — that one stores rendered bytes and never touches the query that produced the parameters, and this one stores what the query returned. It reuses your key framing unchanged and diverges everywhere the two caches' misses cost different things.
+Popcorn Web has shipped a **data result cache**: what a handler fetched, reused for equal typed keys. It is the other half of your component output cache — that one stores rendered bytes and never touches the query that produced the parameters, and this one stores what the query returned. It reuses your key framing unchanged and diverges everywhere the two caches' misses cost different things.
 
 Building it left exactly one hole we cannot fill downstream, plus a small tidying that needs no language change, plus a list that needs one.
 
-1. **`cachekeybind` — a generator emitting a cache key method from struct tags.** Blocking. Every key in a Popcorn Wave application is hand-written today, and the thing being hand-written is a correctness surface.
+1. **`cachekeybind` — a generator emitting a cache key method from struct tags.** Blocking. Every key in a Popcorn Web application is hand-written today, and the thing being hand-written is a correctness surface.
 2. **Three `htmlbind` entries that can become methods in today's Go.** No language change, no behaviour change, and it removes an inconsistency a generated plan currently reads two ways.
 3. **The generic-method conversions, deferred.** Filed for planning only. **Please do not act on these yet** — see the trigger in Ask 3.
 
@@ -141,7 +141,7 @@ The third is the least intrusive and the easiest to forget. Your call.
 
 ### Where the framing helpers should live (low priority)
 
-They are in `htmlbind` today. An application caching an upstream JSON call has no template in it, and importing an HTML render runtime to frame an integer reads oddly. We re-export them from `pwruntime`, so no Popcorn Wave application sees this — it is a tidiness note, not a problem we have.
+They are in `htmlbind` today. An application caching an upstream JSON call has no template in it, and importing an HTML render runtime to frame an integer reads oddly. We re-export them from `pwruntime`, so no Popcorn Web application sees this — it is a tidiness note, not a problem we have.
 
 If `cachekeybind` lands as its own package, the helpers moving there with `htmlbind` aliasing them would be the natural home. If that costs anything at all, leave them.
 
@@ -176,7 +176,7 @@ We are asking because these three sit in the same list as the genuinely blocked 
 
 ## Ask 3 — the generic-method conversions (**deferred: do not act yet**)
 
-**Trigger:** a Go release where a method may declare its own type parameters, **and** a TinyGo release carrying it. Both. Popcorn Wave targets TinyGo and WebAssembly, so a conversion available only on upstream Go would split our build rather than tidy it. Our current expectation is Go 1.27 with TinyGo 0.42, and we will re-file against the releases that actually ship it.
+**Trigger:** a Go release where a method may declare its own type parameters, **and** a TinyGo release carrying it. Both. Popcorn Web targets TinyGo and WebAssembly, so a conversion available only on upstream Go would split our build rather than tidy it. Our current expectation is Go 1.27 with TinyGo 0.42, and we will re-file against the releases that actually ship it.
 
 Listing them now only so the shape is on record when the trigger arrives. Priority order:
 
@@ -205,7 +205,7 @@ h.Store(ctx, "readings", reading)                     // type inferred from the 
 - DynamoDB: `LoadOn`, `LoadAllOn`, `StoreOn`, `StoreAllOn`, `StoreReturningOn`, `RemoveOn`, `RemoveReturningOn`, `UpdateOn`, `QueryPageOn`, `QueryOn`, `ScanPageOn`, `ScanOn`
 - Firestore: `LoadOn`, `LoadAllOn`, `StoreOn`, `StoreAllOn`, `InsertOn`, `InsertAllOn`, `UpdateOn`, `RemoveOn`, `RemoveAllOn`, `QueryPageOn`, `QueryOn`
 
-This matters to us more than it looks: Popcorn Wave wraps none of these, so they are what an application author actually writes.
+This matters to us more than it looks: Popcorn Web wraps none of these, so they are what an application author actually writes.
 
 **3. `htmlbind.Builder[P]` — `For`, `ForCtx`, `Await`, `Live`, `Provide`.** Generated plans stop mixing two spellings. Least visible of the four, since no application reads the output.
 

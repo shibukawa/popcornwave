@@ -47,7 +47,7 @@ flow:
   ordering: roots and directories are processed in stable lexical order, so identical sources produce identical bytes
 openapi_exclusion:
   first_guard: the pages purpose keeps no OpenAPI artifact, which is the same per-directory artifact selection decision:explicit-generation-sources already applies
-  second_guard: the Popcorn Wave generated header prefix is registered with the discovery pass, so nothing api:cli-generate wrote is read back as a source
+  second_guard: the Popcorn Web generated header prefix is registered with the discovery pass, so nothing api:cli-generate wrote is read back as a source
   why_both: the second guard is a registration a future change could drop, and the first holds without it
   observed_upstream: once discovery reached the route packages, every page route and action endpoint appeared in the document, so this is a demonstrated failure rather than a precaution
   wider_effect: one registered prefix also covers the generated files of every other purpose, which discovery has been reading all along; they carry no registrations, so nothing was wrong, but a generated binder is not an input either

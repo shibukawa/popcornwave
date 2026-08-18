@@ -18,7 +18,7 @@ flow:
       action: run the api:cli-generate drift check, because the configuration view is read from generated metadata
       failure: record the drift finding and mark the configuration and feature sections approximate
     - id: read-metadata
-      action: collect binding prefixes, keys, and typed defaults from the generated configbind sources and the popcornwave module in the build list
+      action: collect binding prefixes, keys, and typed defaults from the generated configbind sources and the popcornweb module in the build list
     - id: resolve-graph
       action: resolve the import graph of data:project-config project.main and analyze the registration call sites it reaches
       failure: analyze the packages that parse and record the rest as one error finding

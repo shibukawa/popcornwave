@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/sessionstore"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/sessionstore"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 	httpbind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
@@ -194,7 +194,7 @@ func TestOIDCLoginEndToEnd(t *testing.T) {
 	applyFrameworkMigrations(t, database)
 	configPath := writeConfig(t, provider.issuer(), app.URL, database)
 	pw.SetConfigLoadOptions(configbind.LoadOptions{
-		Vendor:             "popcornwave-auth-test",
+		Vendor:             "popcornweb-auth-test",
 		Tool:               "auth-test",
 		ExplicitConfigPath: configPath,
 		Args:               []string{},
@@ -480,7 +480,7 @@ allow_loopback_http = true
 // mustSessionMigration and mustAuthMigration are the SQLite migrations the
 // scaffold writes, which is the dialect these fixtures use.
 func mustSessionMigration() string {
-	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornweb_session")
 	if err != nil {
 		panic(err)
 	}

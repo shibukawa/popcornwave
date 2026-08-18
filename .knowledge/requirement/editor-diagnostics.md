@@ -21,8 +21,8 @@ sources:
     examples: an unknown external function, an output type the root keyword does not allow, an SQL result contract the statement cannot satisfy, a dynamo attribute absent from the type's tags
   project:
     from: the decision:shared-check-catalog entries whose inputs are project files
-    examples: a source outside its generate purpose, a generate entry naming a missing directory, an unknown popcornwave.toml key, a dynamo declaration naming a table decision:dynamodb-table-registry does not know
-    position: the popcornwave.toml line for a configuration finding, the file for a placement finding
+    examples: a source outside its generate purpose, a generate entry naming a missing directory, an unknown popcornweb.toml key, a dynamo declaration naming a table decision:dynamodb-table-registry does not know
+    position: the popcornweb.toml line for a configuration finding, the file for a placement finding
 severity:
   error: what would stop api:cli-generate
   warning: what api:cli-generate warns about, such as a source outside its purpose

@@ -4,17 +4,17 @@ import (
 	"context"
 	"log"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	"oidclogin/handlers"
 
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 
 	// session.backend = "rdb" is served by this import: storage is opt-in, so
 	// an application links the backend it configured and no other.
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 
 	// The single-use login and ceremony records this engine stores.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
 )
 
 func main() {

@@ -67,7 +67,7 @@ provider scope set, and — beyond the standard scopes — in the user's
 ## Using it
 
 `pw dev` starts the provider when `dev.idp.enabled` is set in
-`popcornwave.toml`, registers an ephemeral client, and injects
+`popcornweb.toml`, registers an ephemeral client, and injects
 `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, and `AUTH_OIDC_CLIENT_SECRET` into
 the application process. Environment values outrank TOML, so no issuer or
 credential belongs in a committed config file. An edited roster reloads in

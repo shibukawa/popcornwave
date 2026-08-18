@@ -3,7 +3,7 @@ id: requirement:database-migration
 type: requirement
 title: Versioned Database Migration
 ---
-Versioned migrations are the single relational schema mechanism of Popcorn Wave, running identically from the CLI, the development loop, and isolated tests.
+Versioned migrations are the single relational schema mechanism of Popcorn Web, running identically from the CLI, the development loop, and isolated tests.
 
 ```yaml
 scope:

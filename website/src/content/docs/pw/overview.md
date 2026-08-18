@@ -57,9 +57,9 @@ Install it with Homebrew, Nix, a release archive, or the Go toolchain — see
 
 Every command except `pw init` needs a project, but it does not need to run at
 the project root. `pw` walks upward from the working directory until it finds
-`popcornwave.toml`, allowing subcommands to work from any nested directory. If
+`popcornweb.toml`, allowing subcommands to work from any nested directory. If
 the search reaches the top without that file, the command fails with
-`popcornwave.toml not found`.
+`popcornweb.toml not found`.
 
 ## Exit status
 

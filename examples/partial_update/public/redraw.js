@@ -16,11 +16,11 @@ document.addEventListener("click", (event) => {
 		owner: button.getAttribute("data-owner"),
 		at: button.getAttribute("data-at"),
 	};
-	// popcornwave is the global the runtime installs. redraw takes the element
+	// popcornweb is the global the runtime installs. redraw takes the element
 	// id and the parameters the component declares; they travel in the query of
 	// a request to this page's own URL, which is what makes the redraw inherit
 	// whatever guards the page.
-	window.popcornwave.redraw(id, params).then((result) => {
+	window.popcornweb.redraw(id, params).then((result) => {
 		const row = document.getElementById(id);
 		if (!row || !result.applied) return;
 		// Restart the flash by taking the class off and putting it back.
@@ -33,6 +33,6 @@ document.addEventListener("click", (event) => {
 // Every update the runtime performs is announced, which is how a progress
 // indicator or an analytics call attaches without patching the runtime. Here it
 // just says what happened, so the console is a log of the exchange.
-window.popcornwave.subscribe((kind, detail) => {
-	console.log("popcornwave:", kind, detail);
+window.popcornweb.subscribe((kind, detail) => {
+	console.log("popcornweb:", kind, detail);
 });

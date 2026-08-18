@@ -6,7 +6,7 @@ title: Test Seeding and Assertion
 testutil seeds an api:test-run server from data:seed-dataset files and compares the resulting database state against expected datasets.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/testutil
+package: github.com/shibukawa/popcornweb/testutil
 surface:
   - WithSeed(files ...string) RunOption
   - WithSeedDir(directory string) RunOption

@@ -1,8 +1,8 @@
 package pw
 
-import "github.com/shibukawa/popcornwave/pwconfig"
+import "github.com/shibukawa/popcornweb/pwconfig"
 
-// The command line is popcornwave/pwconfig's, and so is what the framework's
+// The command line is popcornweb/pwconfig's, and so is what the framework's
 // own arguments mean. Both builds of one application therefore answer the same
 // words: --generate-config, the health probe, and whatever subcommands the
 // application registered.

@@ -5,7 +5,7 @@
 // Importing it registers the [middleware.firestore] binding, so a project that
 // does not use Firestore gains no configuration key and links no driver:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/firestore"
+//	import _ "github.com/shibukawa/popcornweb/database/firestore"
 //
 // The database must have been created in Datastore mode, which is chosen at
 // creation and cannot be changed. Startup checks it, because a native-mode
@@ -35,8 +35,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/cloud/google"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
@@ -59,7 +59,7 @@ const audience = "https://datastore.googleapis.com/"
 // probeKind and probeName address the entity the startup and readiness checks
 // look up. Nothing writes it, and the lookup passing is not about finding it.
 const (
-	probeKind = "popcornwave_probe"
+	probeKind = "popcornweb_probe"
 	probeName = "reachability"
 )
 

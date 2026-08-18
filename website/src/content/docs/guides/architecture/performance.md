@@ -5,9 +5,9 @@ sidebar:
   order: 5
 ---
 
-Popcorn Wave handles sessions, CSRF, security headers, request IDs, and other
+Popcorn Web handles sessions, CSRF, security headers, request IDs, and other
 request bookkeeping by default. That work does not make the framework inherently
-slower: in the todo benchmark, Popcorn Wave completed a request with less CPU time
+slower: in the todo benchmark, Popcorn Web completed a request with less CPU time
 than the hand-written `net/http` service.
 
 That result can change with the application and the machine. Treat the numbers
@@ -31,7 +31,7 @@ all. TinyGo is the third, and it is chosen for size rather than speed.
 | `tinygo build` | 4.2 MiB | 5.6 MiB |
 | `tinygo build -no-debug` | 4.2 MiB | 5.6 MiB |
 
-Those are [`examples/helloworld`](https://github.com/shibukawa/popcornwave/tree/main/examples/helloworld)
+Those are [`examples/helloworld`](https://github.com/shibukawa/popcornweb/tree/main/examples/helloworld)
 on an Apple M3, and the subject matters: it embeds SQLite, which is most of what
 you see. The transport accounts for about 300 KiB of the difference between the
 two columns, so a smaller binary is not a reason to switch. TinyGo is, at less
@@ -115,7 +115,7 @@ build costs you: your handlers must sit in files a build tag can exclude, and
 ## Cost by layer
 
 These results come from
-[`examples/todo`](https://github.com/shibukawa/popcornwave/tree/main/examples/todo)
+[`examples/todo`](https://github.com/shibukawa/popcornweb/tree/main/examples/todo)
 under 20 concurrent clients. They report CPU time attributed to each request on
 Go 1.26.5 and an Apple M3, with PostgreSQL 17 in Docker on the same machine.
 
@@ -126,7 +126,7 @@ Go 1.26.5 and an Apple M3, with PostgreSQL 17 in Docker on the same machine.
 | One `SELECT` returning 50 rows | 39 µs |
 | Encode and write a JSON response | 36 µs |
 | Render and write an HTML response | 100 µs |
-| Whole request, Popcorn Wave | 166 µs |
+| Whole request, Popcorn Web | 166 µs |
 | Whole request, `net/http` comparison | 219 µs |
 
 The JSON and HTML rows describe different responses, so the table is not a sum.
@@ -221,7 +221,7 @@ max_open_conns = 20
 ```
 
 With this configuration, an unpinned query uses `reader`. Handlers that only read
-can keep using that default, but Popcorn Wave does not infer a destination from the
+can keep using that default, but Popcorn Web does not infer a destination from the
 SQL text. Write paths therefore need an explicit code change.
 
 ```go

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func TestBuildObservabilityWithoutOtelUsesStdoutOnly(t *testing.T) {

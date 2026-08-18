@@ -54,9 +54,9 @@ blank import, so an application carries no unused SQL driver:
 
 | Scheme | Engine | Import |
 | --- | --- | --- |
-| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornwave/database/sqlite"` |
-| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornwave/database/postgres"` |
-| `mysql://` | MySQL, MariaDB | `_ "github.com/shibukawa/popcornwave/database/mysql"` |
+| `sqlite://` | SQLite | `_ "github.com/shibukawa/popcornweb/database/sqlite"` |
+| `postgres://`, `postgresql://` | PostgreSQL | `_ "github.com/shibukawa/popcornweb/database/postgres"` |
+| `mysql://` | MySQL, MariaDB | `_ "github.com/shibukawa/popcornweb/database/mysql"` |
 
 `pw init` writes that import for you. Without it the pool refuses to open and
 names the import to add, rather than failing somewhere inside `database/sql`
@@ -71,7 +71,7 @@ it, applied at the engine so no caller has to remember it.
 The resolved engine also decides the dialect the rest of the framework reads —
 savepoint support, `EXPLAIN` syntax, and the migration runner's dialect all
 come from it. Keep the scheme in agreement with `project.database` in
-`popcornwave.toml`: one decides which driver runs the query, the other which
+`popcornweb.toml`: one decides which driver runs the query, the other which
 syntax `pw generate` compiled it to.
 
 PostgreSQL serves requests through a native pgx pool rather than through

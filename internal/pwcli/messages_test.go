@@ -23,7 +23,7 @@ func writeI18nFixture(t *testing.T, catalog string) string {
 		}
 	}
 	writeTestFile(t, filepath.Join(root, "go.mod"), "module example.test/fixture\n\ngo 1.26.0\n")
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		"[project]\nname = \"fixture\"\nmain = \"./cmd/fixture\"\n\n[generate]\n"+
 			"handlers = []\ntemplates = [\"templates\"]\nqueries = []\nconfig = []\n\n"+
 			"[i18n]\nlocales = [\"ja\", \"en\"]\ndefault_locale = \"ja\"\n"+
@@ -126,8 +126,8 @@ title:
 	}
 
 	root = writeI18nFixture(t, incomplete)
-	config := readTestFile(t, filepath.Join(root, "popcornwave.toml"))
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	config := readTestFile(t, filepath.Join(root, "popcornweb.toml"))
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		strings.Replace(config, "default_locale = \"ja\"", "default_locale = \"ja\"\nmissing = \"warn\"", 1))
 	output := generateIn(t, root)
 	if !strings.Contains(output, "supplies no translation") {
@@ -145,8 +145,8 @@ title:
 // bindings a template never reads cost it nothing.
 func TestProjectWithoutLocalesGeneratesNoMessagePackage(t *testing.T) {
 	root := writeI18nFixture(t, shopCatalogSource)
-	config := readTestFile(t, filepath.Join(root, "popcornwave.toml"))
-	writeTestFile(t, filepath.Join(root, "popcornwave.toml"),
+	config := readTestFile(t, filepath.Join(root, "popcornweb.toml"))
+	writeTestFile(t, filepath.Join(root, "popcornweb.toml"),
 		config[:strings.Index(config, "[i18n]")])
 	writeTestFile(t, filepath.Join(root, "templates", "card.pw.html"), `package templates
 

@@ -134,7 +134,7 @@ func applicationSteps(defaults initOptions) []wizardStep[initOptions] {
 		newChoiceStep(
 			"Router",
 			"Which routers this project starts with. They coexist on one mux, pw add installs "+
-				"the other one later, and the directory each reads is a popcornwave.toml value.",
+				"the other one later, and the directory each reads is a popcornweb.toml value.",
 			routerCursor(defaults.Router),
 			wizardChoice[initOptions]{
 				name:        "Registered",
@@ -600,7 +600,7 @@ func newInitWizard(defaults initOptions) wizardModel[initOptions] {
 	return wizardModel[initOptions]{
 		steps:    initWizardSteps(defaults),
 		defaults: defaults,
-		title:    "Popcorn Wave  new project",
+		title:    "Popcorn Web  new project",
 		confirm:  "create",
 		theme:    newWizardTheme(),
 		// The preset step and the name step. A named preset answers everything

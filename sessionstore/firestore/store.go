@@ -5,15 +5,15 @@
 // belongs to database/firestore, which this package reads from the request
 // context:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/firestore"
-//	import _ "github.com/shibukawa/popcornwave/sessionstore/firestore"
+//	import _ "github.com/shibukawa/popcornweb/database/firestore"
+//	import _ "github.com/shibukawa/popcornweb/sessionstore/firestore"
 //
 // Nothing here sweeps expired records. A record is judged expired when it is
 // read and cannot be renewed once dead, so correctness never waits for a
 // deletion. Removing the bytes is a Firestore TTL policy on the dead_at
 // property, which a deployment applies to the kind it owns with
 //
-//	gcloud firestore fields ttls update dead_at --collection-group=popcornwave_session --enable-ttl
+//	gcloud firestore fields ttls update dead_at --collection-group=popcornweb_session --enable-ttl
 //
 // A kind without that policy keeps every session forever. The store is correct
 // either way, and unbounded in size without it.
@@ -25,15 +25,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shibukawa/popcornwave/database/firestore"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/database/firestore"
+	"github.com/shibukawa/popcornweb/session"
 	"github.com/shibukawa/tinybind-go/firestorebind"
 	"github.com/shibukawa/tinygodriver/nosql/datastore"
 )
 
 // DeclaredKind is the entity kind. A kind is intrinsic to the type rather than
 // a deployment fact, so nothing maps it onto another name.
-const DeclaredKind = "popcornwave_session"
+const DeclaredKind = "popcornweb_session"
 
 // Property names. Each is named once and read by both the encoder and the
 // decoder, so the two cannot drift.

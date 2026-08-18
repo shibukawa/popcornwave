@@ -5,9 +5,9 @@ import starlightLlmsTxt from 'starlight-llms-txt';
 import { satteri } from '@astrojs/markdown-satteri';
 import { satteriBaseLinks } from './src/plugins/satteri-base-links.mjs';
 
-// Deployed to https://shibukawa.github.io/popcornwave/ by .github/workflows/docs.yml.
+// Deployed to https://shibukawa.github.io/popcornweb/ by .github/workflows/docs.yml.
 // This is the only place the base path is declared.
-const base = '/popcornwave';
+const base = '/popcornweb';
 
 export default defineConfig({
   site: 'https://shibukawa.github.io',
@@ -28,6 +28,10 @@ export default defineConfig({
     // --code-only flag on the same page.
     '/pw/project/prepare': `${base}/pw/project/generate/`,
     '/ja/pw/project/prepare': `${base}/ja/pw/project/generate/`,
+    // The framework was renamed from Popcorn Wave to Popcorn Web, which moved
+    // the page that argues for it.
+    '/start/why-popcorn-wave': `${base}/start/why-popcorn-web/`,
+    '/ja/start/why-popcorn-wave': `${base}/ja/start/why-popcorn-web/`,
   },
   markdown: {
     // Lets content link with plain `/guides/testing/` instead of repeating `base`.
@@ -35,12 +39,12 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'Popcorn Wave',
+      title: 'Popcorn Web',
       description:
         'A small, TinyGo-oriented web application framework for Go, built directly on net/http.',
       logo: {
         src: './src/assets/logo.png',
-        alt: 'Popcorn Wave',
+        alt: 'Popcorn Web',
         replacesTitle: true,
       },
       // The same mark pw dev puts on its console launcher button, so the tab
@@ -57,11 +61,11 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/shibukawa/popcornwave',
+          href: 'https://github.com/shibukawa/popcornweb',
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/shibukawa/popcornwave/edit/main/website/',
+        baseUrl: 'https://github.com/shibukawa/popcornweb/edit/main/website/',
       },
       components: {
         // Applies `base` to hero action links, which come from frontmatter and

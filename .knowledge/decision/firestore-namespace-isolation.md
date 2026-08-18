@@ -12,7 +12,7 @@ what_rule_dynamodb_table_naming_solved:
   problem: a declared table name and a deployed one differ, and every call site would otherwise build the deployed string
   answer: a resolver function installed once, composed from a prefix and an explicit map
 why_it_has_no_counterpart:
-  a_kind_is_intrinsic: an entity of kind popcornwave_session is one wherever it is stored, which is why system:tinybind puts the kind on the type rather than in configuration; a deployment does not rename it
+  a_kind_is_intrinsic: an entity of kind popcornweb_session is one wherever it is stored, which is why system:tinybind puts the kind on the type rather than in configuration; a deployment does not rename it
   nothing_to_resolve: firestorebind offers no table resolver for exactly this reason, unlike the dynamobind option rule:dynamodb-table-naming needs
   so_the_kind_stays_literal: one constant per store, and no mapping layer between the source and the wire
 what_the_namespace_does_instead:

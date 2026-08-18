@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pathpattern"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/internal/pathpattern"
+	"github.com/shibukawa/popcornweb/pw"
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

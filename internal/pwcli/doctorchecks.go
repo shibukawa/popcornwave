@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/assetverify"
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/internal/assetverify"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
 )
 
 // checkContext is everything one environment's checks may read. A check that
@@ -99,13 +99,13 @@ func (r *checkRun) checkProject() {
 	if !r.Scan.mainExists || !r.Scan.mainIsPackage {
 		r.report(pwcheck.MainPackageMissing,
 			fmt.Sprintf("project.main %q is not a directory holding package main", r.State.config.Main),
-			"popcornwave.toml project.main")
+			"popcornweb.toml project.main")
 	}
 	if r.databaseConfigured() && r.State.config.Migration.Dir != "" {
 		if _, err := os.Stat(filepath.Join(r.Root, filepath.FromSlash(r.State.config.Migration.Dir))); err != nil {
 			r.report(pwcheck.MigrationDirMissing,
 				fmt.Sprintf("the database is configured but %s does not exist", r.State.config.Migration.Dir),
-				"popcornwave.toml migration.dir")
+				"popcornweb.toml migration.dir")
 		}
 	}
 	for _, generated := range r.Scan.generated {
@@ -178,7 +178,7 @@ func (r *checkRun) checkProject() {
 			}
 		}
 		if len(reasons) > 0 {
-			r.report(pwcheck.TailwindToolchain, strings.Join(reasons, ", "), "popcornwave.toml assets.tailwind")
+			r.report(pwcheck.TailwindToolchain, strings.Join(reasons, ", "), "popcornweb.toml assets.tailwind")
 		}
 	}
 	if r.Env == pwenv.Development {
@@ -426,7 +426,7 @@ func (r *checkRun) checkEnvironmentValues() {
 
 func (r *checkRun) checkIdentityProvider() {
 	if r.State.config.IdP.Enabled && r.Env != pwenv.Development {
-		r.report(pwcheck.DevIdPEnabled, "dev.idp.enabled is true in popcornwave.toml", "popcornwave.toml dev.idp")
+		r.report(pwcheck.DevIdPEnabled, "dev.idp.enabled is true in popcornweb.toml", "popcornweb.toml dev.idp")
 	}
 	if !r.Config.enabled("auth.enabled") {
 		return
@@ -662,7 +662,7 @@ func (r *checkRun) checkReadiness() {
 		return
 	}
 	if !tailwind.Minify {
-		r.report(pwcheck.TailwindMinifyOff, "assets.tailwind.minify is false", "popcornwave.toml assets.tailwind.minify")
+		r.report(pwcheck.TailwindMinifyOff, "assets.tailwind.minify is false", "popcornweb.toml assets.tailwind.minify")
 	}
 	if tailwind.Output != "" && tailwind.Input != "" {
 		output := filepath.Join(r.Root, filepath.FromSlash(tailwind.Output))
@@ -723,7 +723,7 @@ func (r *checkRun) checkImageTools() {
 	if missing := missingImageEncoders(assets.AVIF); len(missing) > 0 {
 		r.report(pwcheck.ImageToolMissing,
 			fmt.Sprintf("images will be served unconverted: no encoder for %s", strings.Join(missing, " or ")),
-			"popcornwave.toml assets.images")
+			"popcornweb.toml assets.images")
 	}
 }
 

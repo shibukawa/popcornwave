@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwdatabase"
 )
 
 // writer and replica are the two shapes of a configured pool these tests build

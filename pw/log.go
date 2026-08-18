@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Log is the context-bound logger returned by Logger.

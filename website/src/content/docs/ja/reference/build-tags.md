@@ -1,11 +1,11 @@
 ---
 title: ビルドタグ一覧
-description: Popcorn Wave、tinygodriver、tinybind-go が定義するビルドタグと、その指定元やツールチェーンによる自動設定の一覧。
+description: Popcorn Web、tinygodriver、tinybind-go が定義するビルドタグと、その指定元やツールチェーンによる自動設定の一覧。
 sidebar:
   order: 3
 ---
 
-Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり重く使っています。1つのソースツリーから、ランタイムをほとんど共有しないバイナリが出てくるからです。net/http と fasthttp、ホスト Go と TinyGo、開発ビルドと出荷ビルド。あるファイルがそのどれに属してどれに属さないかを決めるのがタグです。
+Popcorn Web は Go のプロジェクトとしてはビルドタグをかなり重く使っています。1つのソースツリーから、ランタイムをほとんど共有しないバイナリが出てくるからです。net/http と fasthttp、ホスト Go と TinyGo、開発ビルドと出荷ビルド。あるファイルがそのどれに属してどれに属さないかを決めるのがタグです。
 
 渡す可能性のあるタグは3つのリポジトリに散っていて、しかも1回のビルドで混ざります。ここに全部並べます。
 
@@ -15,13 +15,13 @@ Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり
 
 **タグの付かないファイルは全ビルドに入ります。** したがって、そこで名指してよいのは全ビルドがリンクするパッケージだけです。`pw` はそれではありません。タグ無しのファイルが `pw` を import すると、その1行で net/http ランタイム一式が fasthttp バイナリに入ります。代わりに `pwruntime`、`pwconfig`、`pwsession`、`pwdatabase`、`pwobservability`、`pwextension`、`pwratelimit`、`pwbrowser` を使ってください。`pw` が再エクスポートしている元がそこにあります。
 
-## Popcorn Wave
+## Popcorn Web
 
 | タグ | 選ぶもの | 渡す人 |
 |---|---|---|
-| `fasthttp` | 第二のビルド。`pwfast` が `pw` を置き換え、バイナリは `pw` を一切リンクしません。`popcornwave.toml` の `project.fasthttp = true` が前提です。 | `pw build --target fasthttp` |
+| `fasthttp` | 第二のビルド。`pwfast` が `pw` を置き換え、バイナリは `pw` を一切リンクしません。`popcornweb.toml` の `project.fasthttp = true` が前提です。 | `pw build --target fasthttp` |
 | `pwdev` | 開発側の半分。dev コンソール、storybook、dev data、`--pw-print-dsn`。 | `pw dev`、`pw storybook`、`pw migrate` が `go run` に `-tags=pwdev` を渡します |
-| `force_tinygo_logic` | TinyGo 用のコードパスをホスト Go でコンパイルし、TinyGo 無しでテストできるようにします。定義は tinygodriver 側で、Popcorn Wave も圧縮とマイグレーションの分岐でこの規約に従っています。 | あなた（テスト時） |
+| `force_tinygo_logic` | TinyGo 用のコードパスをホスト Go でコンパイルし、TinyGo 無しでテストできるようにします。定義は tinygodriver 側で、Popcorn Web も圧縮とマイグレーションの分岐でこの規約に従っています。 | あなた（テスト時） |
 | `tinybind_no_openapi` | 生成された OpenAPI 断片をビルドから外します。定義は tinybind-go 側で、`pw generate` が書くファイルに付いてきます。 | あなた |
 
 `pw_nozstd` と `pw_nogzip` は削除し、`middleware.compression` に一本化しました。
@@ -45,7 +45,7 @@ Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり
 
 | タグ | 選ぶもの |
 |---|---|
-| `tinybind_no_openapi` | 生成された OpenAPI 断片を除外します。定義元はここで、Popcorn Wave の生成ファイルがそれを持っています。 |
+| `tinybind_no_openapi` | 生成された OpenAPI 断片を除外します。定義元はここで、Popcorn Web の生成ファイルがそれを持っています。 |
 | `goexperiment.jsonv2` | ベンチマーク用のフィクスチャだけ。アプリケーションが立てるものではありません。 |
 
 ## ツールチェインが立てるタグ

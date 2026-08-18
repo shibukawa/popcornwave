@@ -28,7 +28,7 @@ access:
 registry: data:runtime-config-registry
 request_storage: data:request-context-capsule
 home_2026_08_11:
-  package: github.com/shibukawa/popcornwave/pwconfig
+  package: github.com/shibukawa/popcornweb/pwconfig
   what_moved: the registry, the load, the framework's own bindings with their generated definitions, the environment the load resolves against, and the connection group resolution that decides which configured database receives a migration
   why: requirement:alternate-http-backend-readiness names configuration binding as the first of four layers that must reach a shared package before a second transport can be built without the first
   why_not_pwruntime: the earlier reading was that moving the registry would drag registration, defaults, the environment overlay, scaffold emission and the boot report along with it, so the read was published instead; what that reading missed is that only two of those are runtime-shaped, and both are hooks now

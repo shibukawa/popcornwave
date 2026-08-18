@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/database"
-	_ "github.com/shibukawa/popcornwave/database/mysql"
-	_ "github.com/shibukawa/popcornwave/database/postgres"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	"github.com/shibukawa/popcornweb/database"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 )
 
 // TestResolve covers the two things a scheme decides: which dialect the rest of

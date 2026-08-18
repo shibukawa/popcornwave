@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Locale identifies one locale the project declared in its i18n block.

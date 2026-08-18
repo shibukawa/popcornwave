@@ -6,7 +6,7 @@ sidebar:
 ---
 
 Firestore can hold application entities and the framework's session and
-authentication records without a relational database. Popcorn Wave uses the
+authentication records without a relational database. Popcorn Web uses the
 Datastore API, so the database must be created in **Datastore mode**. A
 Firestore Native mode database is a different API and is rejected at startup.
 
@@ -32,8 +32,8 @@ import (
 	"context"
 	"log"
 
-	_ "github.com/shibukawa/popcornwave/database/firestore"
-	"github.com/shibukawa/popcornwave/pw"
+	_ "github.com/shibukawa/popcornweb/database/firestore"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {
@@ -53,7 +53,7 @@ gcloud beta emulators datastore start --host-port=127.0.0.1:8081
 ```toml
 [middleware.firestore]
 enabled = true
-project_id = "demo-popcornwave"
+project_id = "demo-popcornweb"
 endpoint = "127.0.0.1:8081"
 ```
 
@@ -155,10 +155,10 @@ entities:
 
 ```go
 import (
-	_ "github.com/shibukawa/popcornwave/authstate/firestore"
-	_ "github.com/shibukawa/popcornwave/authstore/firestore"
-	_ "github.com/shibukawa/popcornwave/database/firestore"
-	_ "github.com/shibukawa/popcornwave/sessionstore/firestore"
+	_ "github.com/shibukawa/popcornweb/authstate/firestore"
+	_ "github.com/shibukawa/popcornweb/authstore/firestore"
+	_ "github.com/shibukawa/popcornweb/database/firestore"
+	_ "github.com/shibukawa/popcornweb/sessionstore/firestore"
 )
 ```
 

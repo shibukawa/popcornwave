@@ -1,11 +1,11 @@
 ---
 title: Build Tags
-description: Every build tag defined across Popcorn Wave, tinygodriver and tinybind-go — what each one selects, who passes it, and which ones the toolchain sets for you.
+description: Every build tag defined across Popcorn Web, tinygodriver and tinybind-go — what each one selects, who passes it, and which ones the toolchain sets for you.
 sidebar:
   order: 3
 ---
 
-Popcorn Wave leans on build tags harder than most Go projects, because one source
+Popcorn Web leans on build tags harder than most Go projects, because one source
 tree produces binaries that share almost no runtime: net/http and fasthttp, host
 Go and TinyGo, a development build and a shipped one. A tag is how a file joins
 one of those and not the others.
@@ -27,13 +27,13 @@ imports `pw` puts the whole net/http runtime into the fasthttp binary. Reach for
 `pwextension`, `pwratelimit` or `pwbrowser` instead — each publishes what `pw`
 re-exports.
 
-## Popcorn Wave
+## Popcorn Web
 
 | Tag | What it selects | Who passes it |
 |---|---|---|
-| `fasthttp` | The second build. `pwfast` replaces `pw`, and the binary links no `pw` at all. Requires `project.fasthttp = true` in `popcornwave.toml`. | `pw build --target fasthttp` |
+| `fasthttp` | The second build. `pwfast` replaces `pw`, and the binary links no `pw` at all. Requires `project.fasthttp = true` in `popcornweb.toml`. | `pw build --target fasthttp` |
 | `pwdev` | The development halves: dev console, storybook, dev data, `--pw-print-dsn`. | `pw dev`, `pw storybook` and `pw migrate` pass `-tags=pwdev` to `go run` |
-| `force_tinygo_logic` | Compiles the TinyGo code path under host Go, so it can be tested without TinyGo. Defined by tinygodriver; Popcorn Wave follows the convention in its own compression and migration splits. | You, in tests |
+| `force_tinygo_logic` | Compiles the TinyGo code path under host Go, so it can be tested without TinyGo. Defined by tinygodriver; Popcorn Web follows the convention in its own compression and migration splits. | You, in tests |
 | `tinybind_no_openapi` | Keeps the generated OpenAPI fragments out of the build. Defined by tinybind-go, and appears in files `pw generate` writes. | You |
 
 `pw_nozstd` and `pw_nogzip` were removed in favour of `middleware.compression`.
@@ -57,7 +57,7 @@ nothing.
 
 | Tag | What it selects |
 |---|---|
-| `tinybind_no_openapi` | Excludes generated OpenAPI fragments. This is where the tag is defined; Popcorn Wave's generated files carry it. |
+| `tinybind_no_openapi` | Excludes generated OpenAPI fragments. This is where the tag is defined; Popcorn Web's generated files carry it. |
 | `goexperiment.jsonv2` | A benchmark fixture only. Not something an application sets. |
 
 ## Tags the toolchain sets

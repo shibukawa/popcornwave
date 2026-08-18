@@ -31,7 +31,7 @@ record_slots:
   mechanism: a fixed-width deadline prefixed to the slot's own encoded value inside data:session-record
   scope: per slot, so one short-lived slot expires while the session and its other slots continue
   read: a slot past its deadline reads as absent, exactly as one never written
-  evidence: popcornwave/plugin/auth already hand-rolled this, storing a unix stamp in its payload and comparing it against a thirty-second window; the primitive was wanted before it existed
+  evidence: popcornweb/plugin/auth already hand-rolled this, storing a unix stamp in its payload and comparing it against a thirty-second window; the primitive was wanted before it existed
 cookie_slots:
   mechanism: the stated duration becomes the cookie lifetime
   default: the session lifetime, which is what makes a slot that stated nothing die with the session rather than at the next browser close

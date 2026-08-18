@@ -3,7 +3,7 @@ id: decision:framework-owned-session-extension
 type: decision
 title: The Framework Installs the Session
 ---
-pw installs the session middleware and popcornwave/plugin/auth drives it, so an application that imports no authentication still has typed per-browser storage.
+pw installs the session middleware and popcornweb/plugin/auth drives it, so an application that imports no authentication still has typed per-browser storage.
 
 ```yaml
 status: accepted
@@ -20,7 +20,7 @@ the_knot:
   need_backward: authentication needs the manager, to rotate at login and destroy at logout
   constraint: pw must not import plugin/auth
 resolution:
-  config: the binding structs move to popcornwave/sessionconfig, a leaf that imports nothing of the framework, and pw re-exports each as a true alias
+  config: the binding structs move to popcornweb/sessionconfig, a leaf that imports nothing of the framework, and pw re-exports each as a true alias
   why_an_alias_works: the configuration registry is keyed by reflect.Type, and a true alias is the same type, so pw.SessionConfig and sessionconfig.SessionConfig resolve to one entry
   hazard: a defined type would be a different reflect.Type and the lookup would silently miss, so the alias must stay an alias
   lifetime_binding: sessionconfig declares the lifetime struct and plugin/auth binds it at the auth.session prefix, so linking authentication is what makes the keys exist

@@ -3,7 +3,7 @@ id: decision:wasi-http-deferred
 type: decision
 title: Defer WASI HTTP Adapter
 ---
-The first Popcorn Wave release targets TinyGo native executables and defers component-model WASI HTTP hosting to a later adapter.
+The first Popcorn Web release targets TinyGo native executables and defers component-model WASI HTTP hosting to a later adapter.
 
 ```yaml
 status: accepted_for_mvp

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
@@ -28,7 +28,7 @@ var configState = struct {
 }{
 	entries: make(map[reflect.Type]configEntry),
 	options: configbind.LoadOptions{
-		Vendor:   "popcornwave",
+		Vendor:   "popcornweb",
 		FileName: "config.toml",
 	},
 }
@@ -59,7 +59,7 @@ func SetHooks(hooks Hooks) {
 	configState.Lock()
 	defer configState.Unlock()
 	if configState.parsed {
-		panic("popcornwave: configuration hooks set after Parse")
+		panic("popcornweb: configuration hooks set after Parse")
 	}
 	configState.hooks = hooks
 }
@@ -67,17 +67,17 @@ func SetHooks(hooks Hooks) {
 // Register registers one generated configbind target without parsing it.
 func Register[T any](prefix string) {
 	if strings.TrimSpace(prefix) == "" {
-		panic("popcornwave: empty configuration prefix")
+		panic("popcornweb: empty configuration prefix")
 	}
 	typ := reflect.TypeFor[T]()
 	configState.Lock()
 	defer configState.Unlock()
 	if configState.parsed {
-		panic("popcornwave: configuration registered after ParseConfig")
+		panic("popcornweb: configuration registered after ParseConfig")
 	}
 	if existing, ok := configState.entries[typ]; ok {
 		if existing.prefix != prefix {
-			panic(fmt.Sprintf("popcornwave: %v already registered with prefix %q", typ, existing.prefix))
+			panic(fmt.Sprintf("popcornweb: %v already registered with prefix %q", typ, existing.prefix))
 		}
 		return
 	}
@@ -89,7 +89,7 @@ func SetLoadOptions(options configbind.LoadOptions) {
 	configState.Lock()
 	defer configState.Unlock()
 	if configState.parsed {
-		panic("popcornwave: config options changed after ParseConfig")
+		panic("popcornweb: config options changed after ParseConfig")
 	}
 	configState.options = options
 }

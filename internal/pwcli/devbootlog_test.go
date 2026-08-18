@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/bootblock"
+	"github.com/shibukawa/popcornweb/internal/bootblock"
 )
 
 // bootSummary is what an application prints on its way up. Only the rows differ
@@ -16,7 +16,7 @@ import (
 func bootSummary(rows []string, listening string) string {
 	lines := []string{
 		bootblock.Art[0],
-		bootblock.Art[1] + "   Popcorn Wave 0.1.0",
+		bootblock.Art[1] + "   Popcorn Web 0.1.0",
 		bootblock.Art[2] + "   started at 2026-08-12 09:00:00 JST",
 		bootblock.Art[3] + "   env dev · config.dev.toml",
 		bootblock.Art[4],
@@ -82,7 +82,7 @@ func TestDevBootLogReportsOnlyTheRowThatChanged(t *testing.T) {
 			t.Fatalf("report missing %q:\n%s", want, rendered)
 		}
 	}
-	for _, unwanted := range []string{"Popcorn Wave", "server", "port", "listening"} {
+	for _, unwanted := range []string{"Popcorn Web", "server", "port", "listening"} {
 		if strings.Contains(rendered, unwanted) {
 			t.Fatalf("report still carries %q:\n%s", unwanted, rendered)
 		}
@@ -109,7 +109,7 @@ func TestDevBootLogPassesEverythingElseThrough(t *testing.T) {
 func TestDevBootLogReleasesAnUnfinishedSummary(t *testing.T) {
 	out := &syncBuffer{}
 	log := newTestBootLog(out)
-	log.Write([]byte(bootblock.Art[0] + "\n" + bootblock.Art[1] + "   Popcorn Wave 0.1.0\npanic: "))
+	log.Write([]byte(bootblock.Art[0] + "\n" + bootblock.Art[1] + "   Popcorn Web 0.1.0\npanic: "))
 	log.Flush()
 	rendered := out.String()
 	if !strings.Contains(rendered, bootblock.Art[1]) || !strings.HasSuffix(rendered, "panic: ") {
@@ -152,7 +152,7 @@ func TestDevBootLogPrintsASummaryItCannotRead(t *testing.T) {
 // The application writes to a pipe now, so it cannot see the terminal on the
 // other side of the loop. It is told what it can no longer work out.
 func TestBootLogEnvironPinsTheFormatAndTheColor(t *testing.T) {
-	root := writeProject(t, map[string]string{"popcornwave.toml": "[project]\nname = \"app\"\n"})
+	root := writeProject(t, map[string]string{"popcornweb.toml": "[project]\nname = \"app\"\n"})
 	environ := bootLogEnviron(root, true, nil)
 	if !contains(environ, bootLogVar+"=tree") {
 		t.Fatalf("environment does not pin the boot log: %v", environ)
@@ -169,7 +169,7 @@ func TestBootLogEnvironPinsTheFormatAndTheColor(t *testing.T) {
 // developer wanted. An explicit setting outranks it, including off.
 func TestBootLogEnvironLeavesAConfiguredFormatAlone(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornwave.toml":  "[project]\nname = \"app\"\n",
+		"popcornweb.toml":  "[project]\nname = \"app\"\n",
 		"config.dev.toml":   "[observability]\nboot_log = \"off\"\n",
 		"cmd/app/main.go":   "package main\n\nfunc main() {}\n",
 		"config/.gitignore": "",
@@ -178,7 +178,7 @@ func TestBootLogEnvironLeavesAConfiguredFormatAlone(t *testing.T) {
 		t.Fatalf("a configured boot log was overridden: %v", environ)
 	}
 	t.Setenv(bootLogVar, "record")
-	root = writeProject(t, map[string]string{"popcornwave.toml": "[project]\nname = \"app\"\n"})
+	root = writeProject(t, map[string]string{"popcornweb.toml": "[project]\nname = \"app\"\n"})
 	if environ := bootLogEnviron(root, false, nil); contains(environ, bootLogVar+"=tree") {
 		t.Fatalf("a boot log set in the shell was overridden: %v", environ)
 	}

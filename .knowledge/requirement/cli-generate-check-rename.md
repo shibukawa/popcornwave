@@ -55,7 +55,7 @@ affected_surfaces:
     deleted: the "pw generate is not enough" section, whose reason to exist is gone
     mostly_unchanged: most pages naming pw generate need no edit, because the new command is a superset and an instruction to run it stays correct; only a page describing what it does not write is wrong
     parity: every English edit has its Japanese counterpart
-  skills: the repository Popcorn Wave skill, and the example READMEs that ran prepare before a TinyGo compile
+  skills: the repository Popcorn Web skill, and the example READMEs that ran prepare before a TinyGo compile
   catalog: every concept naming the retired flag or the retired command, per the concept_split reference_rule
 acceptance:
   - pw generate in an application project leaves a tree host go build compiles from a clean clone, with no second command to remember

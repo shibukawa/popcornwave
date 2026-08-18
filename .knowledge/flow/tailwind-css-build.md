@@ -3,7 +3,7 @@ id: flow:tailwind-css-build
 type: flow
 title: Tailwind CSS Build Flow
 ---
-Popcorn Wave supervises the configured Tailwind host process without importing Tailwind into the application runtime.
+Popcorn Web supervises the configured Tailwind host process without importing Tailwind into the application runtime.
 
 ```yaml
 development:

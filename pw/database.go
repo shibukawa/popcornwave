@@ -3,8 +3,8 @@ package pw
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func validateConfiguredRuntime() error {
@@ -53,7 +53,7 @@ func reportDatabaseConnections(connections *pwruntime.ConnectionSet) {
 		if connection.Native != nil {
 			path = "native"
 		}
-		processLogger().Info("popcornwave database connection",
+		processLogger().Info("popcornweb database connection",
 			String("connection", connection.Label),
 			String("driver", connection.Driver),
 			String("path", path),

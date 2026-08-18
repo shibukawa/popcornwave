@@ -36,7 +36,7 @@ pages/
 もので、TinyGo や自分で書いた `go build` がコンパイルを持つ場合に使います。手で 1 回
 走らせるときも同じコマンドです。
 
-`popcornwave.toml` では、このツリーを `pages` の目的に挙げます。
+`popcornweb.toml` では、このツリーを `pages` の目的に挙げます。
 
 ```toml
 [generate]

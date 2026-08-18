@@ -16,7 +16,7 @@ DynamoDB のアクセスには宣言が2つあり、互いに突き合わされ�
 
 ## 生成が見る場所
 
-どちらも `popcornwave.toml` の `generate.dynamo` が挙げるディレクトリに置きます。このキーは
+どちらも `popcornweb.toml` の `generate.dynamo` が挙げるディレクトリに置きます。このキーは
 `pw add dynamo` が書きます。どのディレクトリにも属さない `.pw.dynamo` は黙って飛ばされるの
 ではなく、パス付きで報告されます。
 
@@ -318,4 +318,4 @@ if mapping, ok := dynamobind.AsError(err); ok {
 | 楽観的ロックと TTL | `version` タグも `ttl` タグも無く、どちらも呼び出し側が管理する |
 | トランザクション、PartiQL、Streams、DAX | ドライバが持たない |
 
-どれも Popcorn Wave の選択ではありません。下の層ができることの縁です。
+どれも Popcorn Web の選択ではありません。下の層ができることの縁です。

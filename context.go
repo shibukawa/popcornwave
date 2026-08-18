@@ -3,7 +3,7 @@ package petitweb
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 type contextKey struct{}

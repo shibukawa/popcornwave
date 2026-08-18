@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwobservability"
-	"github.com/shibukawa/popcornwave/pwratelimit"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/pwsession"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwobservability"
+	"github.com/shibukawa/popcornweb/pwratelimit"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/pwsession"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -37,7 +37,7 @@ type startOptions struct {
 func WithPublicFS(publicFS fs.FS) Option {
 	return func(options *startOptions) error {
 		if publicFS == nil {
-			return errors.New("popcornwave: nil public filesystem")
+			return errors.New("popcornweb: nil public filesystem")
 		}
 		options.publicFS = publicFS
 		return nil
@@ -58,7 +58,7 @@ func WithPublicFS(publicFS fs.FS) Option {
 func WithRuntimeOptions(apply func(RuntimeOptions) RuntimeOptions) Option {
 	return func(options *startOptions) error {
 		if apply == nil {
-			return errors.New("popcornwave: nil runtime option contribution")
+			return errors.New("popcornweb: nil runtime option contribution")
 		}
 		options.contribs = append(options.contribs, apply)
 		return nil
@@ -81,7 +81,7 @@ func WithRuntimeOptions(apply func(RuntimeOptions) RuntimeOptions) Option {
 func WithSetup(setup func(context.Context) (func(RuntimeOptions) RuntimeOptions, error)) Option {
 	return func(options *startOptions) error {
 		if setup == nil {
-			return errors.New("popcornwave: nil runtime setup")
+			return errors.New("popcornweb: nil runtime setup")
 		}
 		options.setups = append(options.setups, setup)
 		return nil
@@ -103,10 +103,10 @@ func WithSetup(setup func(context.Context) (func(RuntimeOptions) RuntimeOptions,
 // serving stops. It runs the cleanups in reverse, and is safe to call once.
 func Start(ctx context.Context, handler fasthttp.RequestHandler, option ...Option) (fasthttp.RequestHandler, func(context.Context) error, error) {
 	if ctx == nil {
-		return nil, nil, errors.New("popcornwave: nil context")
+		return nil, nil, errors.New("popcornweb: nil context")
 	}
 	if handler == nil {
-		return nil, nil, errors.New("popcornwave: nil handler")
+		return nil, nil, errors.New("popcornweb: nil handler")
 	}
 	options := startOptions{}
 	for _, apply := range option {

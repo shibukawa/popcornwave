@@ -3,10 +3,10 @@ id: data:project-config
 type: data
 title: Project Configuration
 ---
-popcornwave.toml contains only pw build and development tooling configuration; runtime application settings belong to configbind inputs.
+popcornweb.toml contains only pw build and development tooling configuration; runtime application settings belong to configbind inputs.
 
 ```yaml
-file: popcornwave.toml
+file: popcornweb.toml
 schema:
   project:
     name: myapp

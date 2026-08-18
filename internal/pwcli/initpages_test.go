@@ -24,7 +24,7 @@ func TestScaffoldDefaultRouterWritesOnlyTheRegisteredTree(t *testing.T) {
 			t.Errorf("the default scaffold wrote %s", path)
 		}
 	}
-	project := files["popcornwave.toml"]
+	project := files["popcornweb.toml"]
 	if !strings.Contains(project, "pages = []") {
 		t.Errorf("generate.pages is not the empty list:\n%s", project)
 	}
@@ -53,7 +53,7 @@ func TestScaffoldDiscoveredRouterWritesOnlyTheTree(t *testing.T) {
 		}
 	}
 
-	project := files["popcornwave.toml"]
+	project := files["popcornweb.toml"]
 	if !strings.Contains(project, `pages = ["pages"]`) {
 		t.Errorf("generate.pages does not name the tree:\n%s", project)
 	}
@@ -94,7 +94,7 @@ func TestScaffoldBothRoutersShareOneMux(t *testing.T) {
 	if _, wrote := files["pages/page.pw.html"]; !wrote {
 		t.Error("the both answer has no page tree")
 	}
-	project := files["popcornwave.toml"]
+	project := files["popcornweb.toml"]
 	if !strings.Contains(project, `handlers = ["handlers"]`) || !strings.Contains(project, `pages = ["pages"]`) {
 		t.Errorf("both purposes are not listed:\n%s", project)
 	}

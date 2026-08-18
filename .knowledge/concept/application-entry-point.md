@@ -10,7 +10,7 @@ handwritten_shape:
   imports:
     - context
     - application handlers package
-    - github.com/shibukawa/popcornwave/pw
+    - github.com/shibukawa/popcornweb/pw
   run: pw.Run(context.Background(), handlers.Handlers())
 rules:
   - data:project-config project.main selects this package for api:cli-build

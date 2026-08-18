@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 // The health probe token is the framework's, and a registration under it could

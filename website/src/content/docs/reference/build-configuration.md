@@ -1,11 +1,11 @@
 ---
 title: Build Tool Configuration
-description: Every key of popcornwave.toml — what pw generates, what pw dev runs beside your application, and where the migrations and stylesheet live.
+description: Every key of popcornweb.toml — what pw generates, what pw dev runs beside your application, and where the migrations and stylesheet live.
 sidebar:
   order: 2
 ---
 
-`popcornwave.toml` sits at the project root and belongs to the `pw` command. It
+`popcornweb.toml` sits at the project root and belongs to the `pw` command. It
 describes the *project*: which directories generation reads, which compiler the
 sources were written for, what runs beside the application during development.
 
@@ -186,7 +186,7 @@ key says, and `pw dev` never does. What the value actually feeds is
 readiness finding for a deployed environment. Leave it `true`.
 
 Tailwind plugins are not configured here. They are `@plugin` declarations in the
-CSS entry, resolved by the Tailwind CLI — Popcorn Wave passes the entry through
+CSS entry, resolved by the Tailwind CLI — Popcorn Web passes the entry through
 unchanged and holds no plugin registry.
 
 ## `[assets.images]`, `[assets.css]`, `[assets.scripts]`

@@ -10,7 +10,7 @@ opposite things. The front end should read one and never see the other. One can
 survive a client edit and be treated as input; the other has to stop being valid
 the moment an account is disabled.
 
-Popcorn Wave asks you to say which is which on the line that declares the type.
+Popcorn Web asks you to say which is which on the line that declares the type.
 The deployment is then left with one choice, and it is the one an operator is
 actually qualified to make: which server backend the server-placed values use.
 

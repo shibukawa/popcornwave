@@ -17,10 +17,10 @@ usage:
   - selected in markup through data-theme
 rules:
   - the application places official standalone modules and standard CSS declarations
-  - Popcorn Wave CLI and build code do not identify daisyUI by name
-  - Popcorn Wave does not wrap or reimplement daisyUI components
+  - Popcorn Web CLI and build code do not identify daisyUI by name
+  - Popcorn Web does not wrap or reimplement daisyUI components
   - application HTML owns component structure and accessibility semantics
-  - plugin version is independent from Popcorn Wave releases
+  - plugin version is independent from Popcorn Web releases
 references:
   - https://daisyui.com/docs/install/standalone/
 ```

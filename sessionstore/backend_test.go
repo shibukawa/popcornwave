@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pw"
-	"github.com/shibukawa/popcornwave/sessionstore"
-	sessionsqlite "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	"github.com/shibukawa/popcornweb/pw"
+	"github.com/shibukawa/popcornweb/sessionstore"
+	sessionsqlite "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )

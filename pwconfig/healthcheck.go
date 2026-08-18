@@ -35,7 +35,7 @@ func parseHealthcheckArgs(args []string) (frameworkAction, error) {
 	setTimeout := func(value string) error {
 		timeout, err := time.ParseDuration(value)
 		if err != nil || timeout <= 0 {
-			return fmt.Errorf("popcornwave: healthcheck --timeout needs a positive duration such as 3s, got %q", value)
+			return fmt.Errorf("popcornweb: healthcheck --timeout needs a positive duration such as 3s, got %q", value)
 		}
 		options.timeout = timeout
 		return nil
@@ -47,7 +47,7 @@ func parseHealthcheckArgs(args []string) (frameworkAction, error) {
 			options.ready = true
 		case arg == "--timeout":
 			if index+1 >= len(args) {
-				return frameworkAction{}, fmt.Errorf("popcornwave: healthcheck --timeout needs a duration such as 3s")
+				return frameworkAction{}, fmt.Errorf("popcornweb: healthcheck --timeout needs a duration such as 3s")
 			}
 			index++
 			if err := setTimeout(args[index]); err != nil {
@@ -58,7 +58,7 @@ func parseHealthcheckArgs(args []string) (frameworkAction, error) {
 				return frameworkAction{}, err
 			}
 		default:
-			return frameworkAction{}, fmt.Errorf("popcornwave: healthcheck does not accept %q; its options are --ready and --timeout", arg)
+			return frameworkAction{}, fmt.Errorf("popcornweb: healthcheck does not accept %q; its options are --ready and --timeout", arg)
 		}
 	}
 	return frameworkAction{kind: frameworkActionHealthcheck, healthcheck: options}, nil
@@ -77,20 +77,20 @@ func runHealthcheckProbe(options healthcheckOptions) error {
 		path, key = server.Readiness, "server.readiness"
 	}
 	if path == "" {
-		return fmt.Errorf("popcornwave: healthcheck needs %s configured, and it is unset", key)
+		return fmt.Errorf("popcornweb: healthcheck needs %s configured, and it is unset", key)
 	}
 	if server.Port <= 0 {
-		return fmt.Errorf("popcornwave: healthcheck cannot locate a listener on server.port %d; a container needs a fixed port", server.Port)
+		return fmt.Errorf("popcornweb: healthcheck cannot locate a listener on server.port %d; a container needs a fixed port", server.Port)
 	}
 	status, err := probeOperationalEndpoint(server.Port, path, options.timeout)
 	if err != nil {
-		return fmt.Errorf("popcornwave: healthcheck GET %s: %w", path, err)
+		return fmt.Errorf("popcornweb: healthcheck GET %s: %w", path, err)
 	}
 	if status < 200 || status > 299 {
 		// A redirect is a failure too: the probe follows nothing, because the
 		// operational endpoints answer in place and anything else means the
 		// request did not reach them.
-		return fmt.Errorf("popcornwave: healthcheck GET %s answered %d", path, status)
+		return fmt.Errorf("popcornweb: healthcheck GET %s answered %d", path, status)
 	}
 	fmt.Fprintf(os.Stdout, "ok: GET %s %d\n", path, status)
 	return nil

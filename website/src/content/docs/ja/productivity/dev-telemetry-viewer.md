@@ -32,9 +32,9 @@ pw dev:   traces and logs export to OTEL_EXPORTER_OTLP_ENDPOINT as service "myap
 | --- | --- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | ビューアのループバック URL |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` |
-| `OTEL_SERVICE_NAME` | `popcornwave.toml` の `project.name` |
+| `OTEL_SERVICE_NAME` | `popcornweb.toml` の `project.name` |
 
-いずれも Popcorn Wave 固有の名前ではなく OTLP の慣習です。そこが要点で、どのエクス
+いずれも Popcorn Web 固有の名前ではなく OTLP の慣習です。そこが要点で、どのエクス
 ポータもこの名前を見つけますし、開発用のエンドポイントをファイルにコミットする必要も
 ありません。
 

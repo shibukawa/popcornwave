@@ -6,7 +6,7 @@ title: Session Manager API
 The session manager owns the opaque token that names one browser and applies the lifetime it is handed, without knowing what any slot means.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/session
+package: github.com/shibukawa/popcornweb/session
 boundary: concept:session-storage-boundary
 surface:
   - session.NewManager(Registry, Options) constructs a manager over the api:session-registry slots
@@ -15,7 +15,7 @@ surface:
   - Manager.Destroy(http.ResponseWriter, *http.Request) error revokes the record and expires every cookie the session owns
   - handlers read and write state through api:session-registry and never call the manager
 callers:
-  driver: popcornwave/plugin/auth, which rotates at an authentication-strength change and destroys at logout
+  driver: popcornweb/plugin/auth, which rotates at an authentication-strength change and destroys at logout
   application: only where it performs its own login without the plugin
 token:
   browser_value: 256 random bits in base64url

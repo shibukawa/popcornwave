@@ -8,21 +8,21 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
 // ErrSavepointUnsupported reports that the configured driver cannot nest a
 // transaction because it has no known savepoint support.
-var ErrSavepointUnsupported = errors.New("popcornwave: driver does not support savepoints")
+var ErrSavepointUnsupported = errors.New("popcornweb: driver does not support savepoints")
 
 // ErrTransactionFailed reports that a savepoint operation left the transaction
 // in an unknown state, so no further work may be committed on it.
-var ErrTransactionFailed = errors.New("popcornwave: transaction is no longer usable")
+var ErrTransactionFailed = errors.New("popcornweb: transaction is no longer usable")
 
 // ErrCrossGroupTransaction reports a nested transaction naming a different
 // connection group than the one already open.
-var ErrCrossGroupTransaction = errors.New("popcornwave: transaction cannot span two connection groups")
+var ErrCrossGroupTransaction = errors.New("popcornweb: transaction cannot span two connection groups")
 
 // TransactionScope owns one open transaction and the savepoint stack nested
 // inside it. The transaction is a *sql.Tx on a database/sql connection and a
@@ -92,7 +92,7 @@ func (scope *TransactionScope) ReadOnly() bool {
 // is the one enforcement the database itself can apply today.
 func (scope *TransactionScope) Begin(ctx context.Context, options *sql.TxOptions) error {
 	if scope == nil {
-		return errors.New("popcornwave: nil transaction scope")
+		return errors.New("popcornweb: nil transaction scope")
 	}
 	if options == nil && scope.readOnly {
 		options = &sql.TxOptions{ReadOnly: true}
@@ -100,13 +100,13 @@ func (scope *TransactionScope) Begin(ctx context.Context, options *sql.TxOptions
 	scope.mu.Lock()
 	defer scope.mu.Unlock()
 	if scope.tx != nil || scope.nativeTx != nil {
-		return errors.New("popcornwave: transaction scope is already active")
+		return errors.New("popcornweb: transaction scope is already active")
 	}
 	if scope.native != nil {
 		nativeOptions := database.NativeTxOptions{}
 		if options != nil {
 			if options.Isolation != sql.LevelDefault {
-				return fmt.Errorf("popcornwave: the native %s path supports no isolation override yet", scope.driver)
+				return fmt.Errorf("popcornweb: the native %s path supports no isolation override yet", scope.driver)
 			}
 			nativeOptions.ReadOnly = options.ReadOnly
 		}
@@ -143,14 +143,14 @@ func (scope *TransactionScope) Active() bool {
 // commit must not be abandoned by the cancellation that ended the request.
 func (scope *TransactionScope) Commit() error {
 	if scope == nil {
-		return errors.New("popcornwave: nil transaction scope")
+		return errors.New("popcornweb: nil transaction scope")
 	}
 	scope.mu.Lock()
 	tx, nativeTx, failed := scope.tx, scope.nativeTx, scope.failed
 	scope.tx, scope.nativeTx = nil, nil
 	scope.mu.Unlock()
 	if tx == nil && nativeTx == nil {
-		return errors.New("popcornwave: transaction scope is not active")
+		return errors.New("popcornweb: transaction scope is not active")
 	}
 	if failed {
 		if nativeTx != nil {
@@ -266,7 +266,7 @@ func SupportsSavepoint(driver string) bool {
 // statement, and nothing here can move a transaction to another group.
 func Transaction(ctx context.Context, fn func(context.Context) error) error {
 	if fn == nil {
-		return errors.New("popcornwave: nil transaction callback")
+		return errors.New("popcornweb: nil transaction callback")
 	}
 	current := resources(ctx)
 	group := current.effectiveGroup()
@@ -290,7 +290,7 @@ func Transaction(ctx context.Context, fn func(context.Context) error) error {
 	}
 	scope := newConnectionScope(connection)
 	if scope == nil {
-		return errors.New("popcornwave: database is not available in context")
+		return errors.New("popcornweb: database is not available in context")
 	}
 	if err := scope.Begin(ctx, nil); err != nil {
 		return err
@@ -369,7 +369,7 @@ func (scope *TransactionScope) push(ctx context.Context) (string, savepointExece
 		tx = scope.tx
 	default:
 		scope.mu.Unlock()
-		return "", nil, errors.New("popcornwave: transaction scope is not active")
+		return "", nil, errors.New("popcornweb: transaction scope is not active")
 	}
 	if failed {
 		scope.mu.Unlock()

@@ -8,7 +8,7 @@ import (
 
 	"async_render/handlers"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {

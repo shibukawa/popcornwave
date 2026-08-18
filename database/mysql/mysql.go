@@ -2,7 +2,7 @@
 //
 // Blank-import it from the application entry point to link it:
 //
-//	import _ "github.com/shibukawa/popcornwave/database/mysql"
+//	import _ "github.com/shibukawa/popcornweb/database/mysql"
 //
 // A TinyGo build needs -scheduler=threads, for the reason recorded in the
 // postgres package. The TinyGo backend of the underlying driver is MPL-2.0
@@ -14,7 +14,7 @@ import (
 	"database/sql"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	tinygomysql "github.com/shibukawa/tinygodriver/database/sql/mysql"
 )
 

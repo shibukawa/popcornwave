@@ -17,16 +17,16 @@ import (
 // would pass while the binary still carried it.
 
 const (
-	pwPackage       = "github.com/shibukawa/popcornwave/pw"
-	databasePackage = "github.com/shibukawa/popcornwave/pwdatabase"
-	sessionPackage  = "github.com/shibukawa/popcornwave/pwsession"
-	observePackage  = "github.com/shibukawa/popcornwave/pwobservability"
-	authPackage     = "github.com/shibukawa/popcornwave/plugin/auth"
-	authFastPackage = "github.com/shibukawa/popcornwave/plugin/auth/authfast"
-	fastPackage     = "github.com/shibukawa/popcornwave/pwfast"
-	configPackage   = "github.com/shibukawa/popcornwave/pwconfig"
-	runtimePackage  = "github.com/shibukawa/popcornwave/pwruntime"
-	fastOnlyPackage = "github.com/shibukawa/popcornwave/internal/fastonly"
+	pwPackage       = "github.com/shibukawa/popcornweb/pw"
+	databasePackage = "github.com/shibukawa/popcornweb/pwdatabase"
+	sessionPackage  = "github.com/shibukawa/popcornweb/pwsession"
+	observePackage  = "github.com/shibukawa/popcornweb/pwobservability"
+	authPackage     = "github.com/shibukawa/popcornweb/plugin/auth"
+	authFastPackage = "github.com/shibukawa/popcornweb/plugin/auth/authfast"
+	fastPackage     = "github.com/shibukawa/popcornweb/pwfast"
+	configPackage   = "github.com/shibukawa/popcornweb/pwconfig"
+	runtimePackage  = "github.com/shibukawa/popcornweb/pwruntime"
+	fastOnlyPackage = "github.com/shibukawa/popcornweb/internal/fastonly"
 )
 
 // TestNoSharedLayerReachesATransport is the containment these packages exist

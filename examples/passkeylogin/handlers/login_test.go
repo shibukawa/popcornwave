@@ -15,9 +15,9 @@ import (
 
 	// Storage is opt-in by blank import. main.go carries these for the binary;
 	// a test builds its own binary and has to link them itself.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 
 // TestLoginProvisionsAnAccountAndSignsOut drives the framework endpoints

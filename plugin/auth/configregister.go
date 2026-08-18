@@ -1,6 +1,6 @@
 package auth
 
-import "github.com/shibukawa/popcornwave/pwconfig"
+import "github.com/shibukawa/popcornweb/pwconfig"
 
 // Binding has to happen after the generated definition exists, because
 // configbind.Bind panics on a type it has no definition for. Go initializes a

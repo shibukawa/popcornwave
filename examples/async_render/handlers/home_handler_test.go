@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 
 	// The generated document shell registers itself during init, the way the
 	// generated bootstrap links it into the binary.

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // devRelaxationBuilt reports whether this binary contains the development

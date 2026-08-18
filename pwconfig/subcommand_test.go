@@ -18,7 +18,7 @@ func TestSubCommandParsesAndExposesSelectedCommand(t *testing.T) {
 		help = "write test configuration scaffolds"
 	)
 	configbind.RegisterSubCommand[scaffoldCommandTest](configbind.SubCommandDefinition{
-		TypeName: "github.com/shibukawa/popcornwave/pw.scaffoldCommandTest",
+		TypeName: "github.com/shibukawa/popcornweb/pw.scaffoldCommandTest",
 		Name:     name,
 		Help:     help,
 		Positionals: []configbind.Positional{{
@@ -43,7 +43,7 @@ func TestSubCommandParsesAndExposesSelectedCommand(t *testing.T) {
 
 	RegisterSubCommand[scaffoldCommandTest](name, help)
 	if _, err := configbind.Load(configbind.LoadOptions{
-		Vendor:   "popcornwave-test",
+		Vendor:   "popcornweb-test",
 		Tool:     "pw-subcommand-test",
 		FileName: "missing.toml",
 		Args:     []string{name, "toml"},

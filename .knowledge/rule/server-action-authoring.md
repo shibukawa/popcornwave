@@ -18,7 +18,7 @@ choose_the_element_for_the_client_you_owe:
   form: works with and without the browser runtime, per requirement:scriptless-action-forms
   bare_element: works only with the runtime, because nothing in the markup invokes it and no lowering can change that
   rule: a mutation a project's own acceptance requires without script goes on a form
-  applies_to: every project claiming requirement:classic-web-acceptance, which is the criteria list saying pages work without the Popcorn Wave browser runtime
+  applies_to: every project claiming requirement:classic-web-acceptance, which is the criteria list saying pages work without the Popcorn Web browser runtime
   portability_is_one_way: moving a form to a bare button loses the scriptless path silently, and moving a bare button to a form loses nothing
 two_shapes_chosen_by_who_calls:
   raw: an ordinary func(http.ResponseWriter, *http.Request), reachable from a form, a gesture and a script alike, admitted by its shape and published by existing

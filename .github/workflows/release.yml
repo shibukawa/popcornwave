@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  MODULE: github.com/shibukawa/popcornwave
+  MODULE: github.com/shibukawa/popcornweb
 
 jobs:
   test:

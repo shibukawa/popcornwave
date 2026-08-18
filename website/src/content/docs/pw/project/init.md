@@ -1,6 +1,6 @@
 ---
 title: pw init
-description: Create a runnable Popcorn Wave project.
+description: Create a runnable Popcorn Web project.
 sidebar:
   order: 1
 ---
@@ -88,7 +88,7 @@ either way.
 `--db` decides five things at once: the DSN in `config.dev.toml`, the dialect
 the starter migration is written in, the development server added to
 `devbox.json`, the driver the binary links, and `project.database` in
-`popcornwave.toml`. That last key is what `pw generate` reads to know the
+`popcornweb.toml`. That last key is what `pw generate` reads to know the
 placeholder syntax `.pw.sql` sources compile to. SQLite is the default because
 it runs with nothing to start beside the application.
 
@@ -101,7 +101,7 @@ it runs with nothing to start beside the application.
 Every engine adds one blank import to `main.go`, which is what registers it:
 
 ```go
-import _ "github.com/shibukawa/popcornwave/database/postgres"
+import _ "github.com/shibukawa/popcornweb/database/postgres"
 ```
 
 The scaffolded credentials are development values in `config.dev.toml`. Create
@@ -116,7 +116,7 @@ Pick the engine the project is going to deploy against.
 `project.database` is the one place a project states its engine for generation.
 There is no implicit default at the generator: a silently assumed dialect emits
 placeholders the engine rejects at the first query, so `pw generate` passes what
-`popcornwave.toml` says and nothing else.
+`popcornweb.toml` says and nothing else.
 
 ```toml
 [project]
@@ -137,7 +137,7 @@ read as `sqlite`, which is the only engine that existed then.
 
 ## Changing the toolchain
 
-The selected compiler is recorded as `project.toolchain` in `popcornwave.toml`,
+The selected compiler is recorded as `project.toolchain` in `popcornweb.toml`,
 and it decides which mux type the handler packages use: a host-only project —
 the default — keeps `http.ServeMux`, and a TinyGo project routes through
 `pw.ServeMux` so one import works on both toolchains. Generation discovers
@@ -146,7 +146,7 @@ either, so the difference is confined to the scaffold.
 There is no command for switching afterwards, because the change reaches source
 you own. Doing it by hand is four edits:
 
-1. set `project.toolchain` in `popcornwave.toml` to `tinygo` or `go`;
+1. set `project.toolchain` in `popcornweb.toml` to `tinygo` or `go`;
 2. swap the mux type and accessor in each handler package's `index.go`;
 3. add or remove `tinygo@latest` in `devbox.json`;
 4. add or remove `tinygohelper.go`, the TinyGo-only netdev registration —
@@ -172,7 +172,7 @@ provider**.
 
 The local emulator is the development identity provider that
 [`pw dev`](/pw/project/dev/) runs. `pw init` sets `dev.idp.enabled` in
-`popcornwave.toml` and writes a `devidp.toml` roster with two starter users, and
+`popcornweb.toml` and writes a `devidp.toml` roster with two starter users, and
 `pw dev` injects the issuer and generated client credentials — so nothing about
 the provider is written into a committed config file.
 
@@ -206,8 +206,8 @@ client library — in the binary:
 // cmd/myapp/main.go, written by pw init
 import (
 	// The sessions, and the single-use login records the ceremony needs.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 ```
 
@@ -226,7 +226,7 @@ quoted, rather than with a login that fails at the first request:
 
 ```
 session.backend = "redis" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/sessionstore/redis"
+import _ "github.com/shibukawa/popcornweb/sessionstore/redis"
 ```
 
 The answer also decides what else is scaffolded. `rdb` writes the session table
@@ -257,8 +257,8 @@ check an edit. `--skills` decides which agent directory a copy lands in:
 
 | Answer | What it writes |
 | --- | --- |
-| `claude` (default) | `.claude/skills/popcornwave/` — the directory Claude Code discovers |
-| `agents` | `.agents/skills/popcornwave/` — the shared layout other coding agents read |
+| `claude` (default) | `.claude/skills/popcornweb/` — the directory Claude Code discovers |
+| `agents` | `.agents/skills/popcornweb/` — the shared layout other coding agents read |
 | `none` | nothing |
 
 The copy is Markdown and costs nothing at runtime, which is why placing it is
@@ -268,7 +268,7 @@ edits with an agent passes `--skills=none` — or deletes the directory later,
 the way it deletes `.vscode/`. The files come from the `pw` binary that created
 the project; there is no command that refreshes them afterwards, so after a
 framework upgrade copy the current tree from the repository's
-`skills/popcornwave-skill/` if you want the newer guideline.
+`skills/popcornweb-skill/` if you want the newer guideline.
 
 ## Validation
 
@@ -280,7 +280,7 @@ in a populated tree fails rather than scattering files.
 
 ```
 myapp/
-├── popcornwave.toml           project name, main package, generation sources
+├── popcornweb.toml           project name, main package, generation sources
 ├── config.dev.toml            runtime configuration for APP_ENV=dev
 ├── go.mod
 ├── devbox.json / devbox.lock  Go + Valkey (+ tailwindcss with --tailwind)
@@ -299,12 +299,12 @@ myapp/
 │                              table only for --session=rdb
 ├── public/.keep               empty-tree sentinel; never served
 ├── public.go                  embeds public/ and registers it
-├── .claude/skills/popcornwave/  the bundled agent skill (--skills moves or drops it)
+├── .claude/skills/popcornweb/  the bundled agent skill (--skills moves or drops it)
 ├── .vscode/settings.json      hides **/*_pw_gen.go
 └── .gitignore                 excludes *_pw_gen.go and other build output
 ```
 
-`popcornwave.toml` names the directories it just created under each `[generate]`
+`popcornweb.toml` names the directories it just created under each `[generate]`
 purpose, because [`pw generate`](/pw/project/generate/) reads those lists and
 has no default to fall back on. `handlers` appears under both `handlers` and
 `templates`, since the starter page template sits beside its handler, and
@@ -312,11 +312,11 @@ has no default to fall back on. `handlers` appears under both `handlers` and
 configuration.
 
 With an OIDC mode plus `--devidp` it also writes `devidp.toml`, the roster of
-selectable development users, and adds `[dev.idp]` to `popcornwave.toml`.
+selectable development users, and adds `[dev.idp]` to `popcornweb.toml`.
 
 With `--tailwind` it also writes `assets/app.css` and
 `public/generated/app.css`, adds the `[assets.tailwind]` block to
-`popcornwave.toml`, pins `tailwindcss` in `devbox.json`, and links the
+`popcornweb.toml`, pins `tailwindcss` in `devbox.json`, and links the
 stylesheet from the document shell. No `package.json` and no Node lockfile are
 created. See [Styling](/guides/frontend/styling/) for enabling this later.
 

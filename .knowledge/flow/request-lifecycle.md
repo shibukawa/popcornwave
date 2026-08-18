@@ -3,7 +3,7 @@ id: flow:request-lifecycle
 type: flow
 title: Typed Request Lifecycle
 ---
-A Popcorn Wave request remains a standard net/http exchange enriched with initialized framework resources and compact pw binding and response calls.
+A Popcorn Web request remains a standard net/http exchange enriched with initialized framework resources and compact pw binding and response calls.
 
 ```yaml
 flow:

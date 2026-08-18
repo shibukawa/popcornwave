@@ -18,6 +18,6 @@ capabilities:
   - policy:operational-endpoints
 constraints:
   - startup validation precedes request acceptance
-  - generated user code depends on Popcorn Wave runtime, never the reverse
+  - generated user code depends on Popcorn Web runtime, never the reverse
   - advanced features are application-level opt-ins
 ```

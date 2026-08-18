@@ -21,7 +21,7 @@ func refuseInPackage(config projectConfig, command string) error {
 }
 
 // packageScaffoldFiles writes a concept:component-package repository: a Go
-// module that ships Popcorn Wave sources together with the artifacts generated
+// module that ships Popcorn Web sources together with the artifacts generated
 // from them.
 //
 // What makes this different from an application scaffold is one line in
@@ -36,7 +36,7 @@ func packageScaffoldFiles(options initOptions) map[string]string {
 	pkg := goPackageIdentifier(name)
 	files := map[string]string{
 		"go.mod": "module " + module + "\n\ngo 1.26.0\n\n" + frameworkModuleDirective(),
-		"popcornwave.toml": `# A package project. There is no project.main: the application that imports
+		"popcornweb.toml": `# A package project. There is no project.main: the application that imports
 # this module owns the entry point, and this one produces no binary.
 [project]
 name = "` + name + `"
@@ -149,7 +149,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      - run: go install github.com/shibukawa/popcornwave/cmd/pw@latest
+      - run: go install github.com/shibukawa/popcornweb/cmd/pw@latest
       # The committed artifacts have to be the ones this source produces. A
       # consumer builds them with the Go compiler alone and regenerates
       # nothing, so a stale commit is discovered in their project rather than
@@ -174,7 +174,7 @@ pw add ` + module + `
 ` + "```" + `
 
 That writes the ` + "`go.mod`" + ` requirement and one entry in the consuming
-project's ` + "`popcornwave.toml`" + `. Nothing is copied into their tree, and
+project's ` + "`popcornweb.toml`" + `. Nothing is copied into their tree, and
 their ` + "`pw generate`" + ` never reads this module: the generated Go in this
 repository is what they compile.
 

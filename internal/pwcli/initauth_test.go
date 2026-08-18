@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/sessionstore"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/sessionstore"
 )
 
 func TestParseInitArgsRejectsAnUnknownAuthMode(t *testing.T) {
@@ -24,9 +24,9 @@ func TestParseInitArgsRejectsAnUnknownAuthMode(t *testing.T) {
 func TestScaffoldWiresTheLocalEmulator(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: authOIDC, AuthEmulator: true})
 
-	project := files["popcornwave.toml"]
+	project := files["popcornweb.toml"]
 	if !strings.Contains(project, "[dev.idp]") || !strings.Contains(project, "enabled = true") {
-		t.Fatalf("popcornwave.toml = %q", project)
+		t.Fatalf("popcornweb.toml = %q", project)
 	}
 	roster, ok := files[defaultIdPConfig]
 	if !ok {
@@ -56,7 +56,7 @@ func TestScaffoldWiresTheLocalEmulator(t *testing.T) {
 func TestScaffoldWiresAnExternalProvider(t *testing.T) {
 	files := scaffoldFiles(initOptions{Name: "demo", TinyGo: true, Auth: authOIDC})
 
-	if strings.Contains(files["popcornwave.toml"], "[dev.idp]") {
+	if strings.Contains(files["popcornweb.toml"], "[dev.idp]") {
 		t.Fatal("an external provider must not enable the development identity provider")
 	}
 	if _, ok := files[defaultIdPConfig]; ok {
@@ -394,12 +394,12 @@ func TestTheScaffoldedKeyringIsGeneratedPerProject(t *testing.T) {
 
 func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	rdbFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRDB, SessionExplicit: true})
-	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"`) {
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"`) {
 		t.Errorf("rdb backend is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
 	}
 	// The login ceremony records live in the database whichever backend holds
 	// the sessions.
-	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/authstate/sqlite"`) {
+	if !strings.Contains(rdbFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornweb/authstate/sqlite"`) {
 		t.Errorf("ceremony store is not imported:\n%s", rdbFiles["cmd/demo/main.go"])
 	}
 	if !strings.Contains(rdbFiles["config.dev.toml"], `backend = "rdb"`) ||
@@ -432,7 +432,7 @@ func TestScaffoldFollowsTheSessionBackendChoice(t *testing.T) {
 	}
 
 	redisFiles := scaffoldFiles(initOptions{Name: "demo", Database: true, Auth: authOIDC, Session: sessionRedis, SessionExplicit: true})
-	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornwave/sessionstore/redis"`) {
+	if !strings.Contains(redisFiles["cmd/demo/main.go"], `_ "github.com/shibukawa/popcornweb/sessionstore/redis"`) {
 		t.Errorf("redis backend is not imported:\n%s", redisFiles["cmd/demo/main.go"])
 	}
 	if !strings.Contains(redisFiles["config.dev.toml"], "redis.dsn") {
@@ -472,7 +472,7 @@ func migrationNames(files map[string]string) []string {
 // mustSessionMigration and mustAuthMigration are the SQLite migrations the
 // scaffold writes, which is the dialect these fixtures use.
 func mustSessionMigration() string {
-	migration, err := sessionstore.MigrationSQL("sqlite", "popcornwave_session")
+	migration, err := sessionstore.MigrationSQL("sqlite", "popcornweb_session")
 	if err != nil {
 		panic(err)
 	}
@@ -502,13 +502,13 @@ func TestScaffoldImportsTheStoresOfTheSelectedEngine(t *testing.T) {
 			})
 			main := files["cmd/demo/main.go"]
 			for _, path := range want {
-				if !strings.Contains(main, `_ "github.com/shibukawa/popcornwave/`+path+`"`) {
+				if !strings.Contains(main, `_ "github.com/shibukawa/popcornweb/`+path+`"`) {
 					t.Errorf("%s is not imported:\n%s", path, main)
 				}
 			}
 			// The migration has to be readable by the engine that will run it.
 			migration := files["migrations/00002_"+sessionstore.MigrationName+".sql"]
-			expected, err := sessionstore.MigrationSQL(engine, "popcornwave_session")
+			expected, err := sessionstore.MigrationSQL(engine, "popcornweb_session")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -54,7 +54,7 @@ omitted, so `pw seed users` and `pw seed users.yaml` are one request. See
 ## The dataset format
 
 Datasets are YAML and nothing else. The model is DBUnit's and the key names come
-from it, but no XML, CSV, or Excel dataset is read — neither Popcorn Wave nor
+from it, but no XML, CSV, or Excel dataset is read — neither Popcorn Web nor
 [dbtestify](https://github.com/shibukawa/dbtestify), the library underneath,
 parses one.
 
@@ -81,7 +81,7 @@ that statement for every row beside it, and the rows that left it out get NULL
 rather than the default — which is a NOT NULL constraint violation if the column
 has one, and a silently blank column if it does not.
 
-A row may also carry a `_tag` list. Popcorn Wave parses it and never acts on it;
+A row may also carry a `_tag` list. Popcorn Web parses it and never acts on it;
 see [Row tags](/productivity/testing/#row-tags-are-parsed-but-never-filter).
 
 ### `_operation`: what happens to the table first

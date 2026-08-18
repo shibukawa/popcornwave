@@ -36,5 +36,5 @@ runtime:
   diagnostics: api:instrumented-sql-executor observes every generated call without changing generated output
 cleanup:
   - remove tinybind_shared_pw_gen.go after the corrected system:tinybind generator no longer emits it
-  - Popcorn Wave adds no independent SQL classification or response validator
+  - Popcorn Web adds no independent SQL classification or response validator
 ```

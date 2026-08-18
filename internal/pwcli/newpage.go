@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/routetree"
 )
 
@@ -259,7 +259,7 @@ func LoadGreeting(` + strings.Join(parameters, ", ") + `) (string, error) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // Load owns the whole response. Only the registration is generated for this

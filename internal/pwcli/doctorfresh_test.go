@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/pwcheck"
-	"github.com/shibukawa/popcornwave/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwcheck"
+	"github.com/shibukawa/popcornweb/internal/pwgen"
 )
 
 // A page tree route is a directory, so the two files generated per route

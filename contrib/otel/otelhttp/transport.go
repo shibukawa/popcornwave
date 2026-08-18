@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/contrib/otel/metric"
-	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/contrib/otel/metric"
+	"github.com/shibukawa/popcornweb/contrib/otel/propagation"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
-const scopeName = "github.com/shibukawa/popcornwave/contrib/otel/otelhttp"
+const scopeName = "github.com/shibukawa/popcornweb/contrib/otel/otelhttp"
 
 type config struct {
 	provider *trace.Provider

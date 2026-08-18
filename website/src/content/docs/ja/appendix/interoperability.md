@@ -5,11 +5,11 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave はリクエストのパース、DB クエリ、HTML、レスポンスの書き出しを生成するため、
+Popcorn Web はリクエストのパース、DB クエリ、HTML、レスポンスの書き出しを生成するため、
 ランタイムが 4 つすべてに依存しているように見えるかもしれません。実際には違います。
 フレームワークが必須にする範囲は、`net/http` の上に載るミドルウェア群と、生成・開発・
 ビルドの一貫性を保つツール類だけです。生成レイヤーは差し替え可能な**ヘルパー**であり、
-Popcorn Wave 本体を持ち込まずに別のフレームワークから使うこともできます。
+Popcorn Web 本体を持ち込まずに別のフレームワークから使うこともできます。
 
 ## なぜこの層を自前で作ったのか
 
@@ -76,7 +76,7 @@ log.Fatal(http.ListenAndServe(":8080", handler))
 テストや短命なプロセスならどれも問題になりません。長時間動くデプロイで再現する価値があるのは
 シャットダウンの順序です。
 
-## Popcorn Wave アプリの中でヘルパーを差し替える
+## Popcorn Web アプリの中でヘルパーを差し替える
 
 ### パースを自分で書く
 
@@ -199,7 +199,7 @@ package api
 //go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -openapi
 ```
 
-Popcorn Wave プロジェクトの外では、テンプレートの拡張子は `.tb.html` と `.tb.sql` です
+Popcorn Web プロジェクトの外では、テンプレートの拡張子は `.tb.html` と `.tb.sql` です
 （`-html-template-pattern` と `-sql-template-pattern` で変更できます）。出力先は
 `tinybind_gen.go` と `tinybind_templates_gen.go` です。
 
@@ -235,7 +235,7 @@ func createUser(c echo.Context) error {
 - `path:` タグは `r.PathValue` を読みます。これを埋めるのは `net/http` 自身の mux だけなので、
   他のルータではパラメータごとに `SetPathValue` を 1 回呼べば橋渡しできます。
 - context から executor を解決するクエリ関数を使うには `-sql-context-api` での生成が必要です
-  （Popcorn Wave 自身が使っているのは `-sql-context-only-api` の方です）。
+  （Popcorn Web 自身が使っているのは `-sql-context-only-api` の方です）。
 
 HTML も同じで、ステータスとヘッダの制御はハンドラ側に残ります。
 
@@ -246,7 +246,7 @@ err := htmlbind.Render(w, pages.Hello(pages.HelloParams{Name: input.Name}))
 
 ### ミドルウェアも持ち出せる
 
-[`middlewares`](https://github.com/shibukawa/popcornwave/tree/main/middlewares)
+[`middlewares`](https://github.com/shibukawa/popcornweb/tree/main/middlewares)
 の中身はすべて素の `func(http.Handler) http.Handler` で、依存はパッケージグローバルではなく
 オプションで渡します。標準ライブラリ互換のスタックならそのまま組み込めますし、Echo なら
 ラップできます。
@@ -258,7 +258,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 
 ## 持ち出せないもの
 
-| Popcorn Wave 側に残るもの | 理由 |
+| Popcorn Web 側に残るもの | 理由 |
 | --- | --- |
 | 暗黙のドキュメントシェル | `pw.WriteHTML` は登録済みのラッパーチェーンを解決する。`htmlbind.RenderChain` はチェーンを渡す必要がある |
 | 階層化された設定と `--generate-config` | `configbind` がやるのは構造体へのバインドまで。ファイルの探索順、環境の選択、スキャフォールドのマージはフレームワーク側 |
@@ -271,5 +271,5 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 境界はここで具体的になります。単体の生成ヘルパーは実行時にリフレクションを使わないため、
 TinyGo 対応を維持します。reflect ベースのクエリビルダ、ORM、`html/template`、手書きの
 `encoding/json` デコードは、それを import したビルドを TinyGo ターゲットから外します。
-通常の Go ビルドなら、どちらも選べます。Popcorn Wave が制約するのは自分が生成するもので
+通常の Go ビルドなら、どちらも選べます。Popcorn Web が制約するのは自分が生成するもので
 あって、アプリケーションが何を import してよいかではありません。

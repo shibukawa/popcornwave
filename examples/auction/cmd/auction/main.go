@@ -9,13 +9,13 @@ import (
 
 	"auction/handlers"
 	"auction/pages"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 	// Registers the engine the configured DSN names.
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 	// session.backend = "redis" is served by this import; storage is opt-in.
-	_ "github.com/shibukawa/popcornwave/sessionstore/redis"
+	_ "github.com/shibukawa/popcornweb/sessionstore/redis"
 	// The single-use login records this engine stores.
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func main() {
 
 // loadSecretEnv implements the conventional NAME_FILE deployment binding.
 // It keeps mounted Docker secrets out of the container environment until this
-// process needs to hand them to Popcorn Wave's normal configuration loader.
+// process needs to hand them to Popcorn Web's normal configuration loader.
 func loadSecretEnv(name string) error {
 	if os.Getenv(name) != "" {
 		return nil

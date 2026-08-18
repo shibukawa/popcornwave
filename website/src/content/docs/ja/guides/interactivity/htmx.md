@@ -1,12 +1,12 @@
 ---
 title: htmx の統合
-description: Popcorn Wave のコンポーネントを最初のページと差し替え後のフラグメントで共有し、htmx にページの一部だけを更新させる。
+description: Popcorn Web のコンポーネントを最初のページと差し替え後のフラグメントで共有し、htmx にページの一部だけを更新させる。
 sidebar:
   order: 6
 ---
 
 htmx を使うためのサーバー側アダプタはありません。必要なのは、すでにあるページの
-一部分と同じ形の HTML を返すことです。Popcorn Wave では、その差は
+一部分と同じ形の HTML を返すことです。Popcorn Web では、その差は
 `pw.WriteHTML` と `pw.WriteHTMLFragment` の 1 呼び出しに収まります。
 
 ただし、レスポンスを短くしただけでは統合になりません。最初の描画と差し替え後で
@@ -199,7 +199,7 @@ htmx と React を同じページで使うことはできます。ただし、�
 し直す必要があります。[React の統合](/ja/guides/interactivity/react/)では、その境界を
 カスタム要素の `connectedCallback` / `disconnectedCallback` に置いています。
 
-htmx のために Popcorn Wave の追加ビルド機能は必要ありません。ライブラリ 1 ファイルと
+htmx のために Popcorn Web の追加ビルド機能は必要ありません。ライブラリ 1 ファイルと
 `pw.WriteHTMLFragment` で統合は完結します。あると有用なのは、上の CSRF イベント処理を
 フレームワークが配信する小さな任意アダプタにすることです。これなら `hx-delete` ごとに
 ヘッダ処理を複製せずに済み、htmx 本体をフレームワークへ組み込む必要もありません。

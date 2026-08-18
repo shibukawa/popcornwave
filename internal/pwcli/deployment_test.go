@@ -41,7 +41,7 @@ func TestFunctionEntrypointRecognizesAnAliasedRuntimeImport(t *testing.T) {
 import (
 	"context"
 	"net/http"
-	framework "github.com/shibukawa/popcornwave/pw"
+	framework "github.com/shibukawa/popcornweb/pw"
 )
 
 func main() { _ = framework.Run(context.Background(), http.NewServeMux()) }
@@ -65,8 +65,8 @@ func TestSourceFunctionWrappersAreProviderAndBackendSpecific(t *testing.T) {
 		want            []string
 		reject          []string
 	}{
-		{targetGoogleCloudRunFunctions, backendNetHTTP, []string{`functions.HTTP("PopcornWave", Handler)`, "pw.Middlewares"}, []string{"pwfast.Start"}},
-		{targetGoogleCloudRunFunctions, backendFastHTTP, []string{`functions.HTTP("PopcornWave", Handler)`, "pwfast.Start", "pwfast.NetHTTPHandler"}, []string{"pw.Middlewares"}},
+		{targetGoogleCloudRunFunctions, backendNetHTTP, []string{`functions.HTTP("PopcornWeb", Handler)`, "pw.Middlewares"}, []string{"pwfast.Start"}},
+		{targetGoogleCloudRunFunctions, backendFastHTTP, []string{`functions.HTTP("PopcornWeb", Handler)`, "pwfast.Start", "pwfast.NetHTTPHandler"}, []string{"pw.Middlewares"}},
 		{targetVercelGo, backendNetHTTP, []string{"func Handler(w http.ResponseWriter", "pw.Middlewares"}, []string{"functions.HTTP", "pwfast.Start"}},
 		{targetVercelGo, backendFastHTTP, []string{"func Handler(w http.ResponseWriter", "pwfast.NetHTTPHandler"}, []string{"functions.HTTP", "pw.Middlewares"}},
 	}

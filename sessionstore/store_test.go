@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionstore"
-	sessionsqlite "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionstore"
+	sessionsqlite "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 
 	_ "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
@@ -105,7 +105,7 @@ func TestStoreReplacesOneKeyAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM popcornwave_session`).Scan(&count); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM popcornweb_session`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
@@ -189,7 +189,7 @@ func TestDeleteIsIdempotentAndPruneRemovesExpired(t *testing.T) {
 		t.Fatalf("prune removed %d err = %v", removed, err)
 	}
 	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM popcornwave_session`).Scan(&count); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM popcornweb_session`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

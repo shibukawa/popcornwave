@@ -109,12 +109,8 @@ github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0 h1:Xuk8ma/ibJ1
 github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0/go.mod h1:7AwjWCpdPhkSmNAgUv5C7EJ4AbmjEB3r047r3DXWu3Y=
 github.com/shibukawa/dbtestify v0.5.0 h1:Fay1k+5iQVtLqUPbepMU/j2SZtD8RG15LG2XIX8niGA=
 github.com/shibukawa/dbtestify v0.5.0/go.mod h1:ZYHV3hcW8E6456hg3DUByd5y3WlW2kV34awn7V6AAqs=
-github.com/shibukawa/tinybind-go v0.5.7 h1:LR9YPmXLfoctx9EzSc4YJbTjRxl9f16CdTe/in/m4Bg=
-github.com/shibukawa/tinybind-go v0.5.7/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
-github.com/shibukawa/tinybind-go v0.5.8 h1:3EgU/VORd1iyYQqMeZflv8lbhmdi2fZB4gvPt1TK8Y8=
-github.com/shibukawa/tinybind-go v0.5.8/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
-github.com/shibukawa/tinybind-go v0.5.13 h1:7jJwyFg9pU+EJ0AGhFI9DApwZbKb4aGbMe8PvUs5kYs=
-github.com/shibukawa/tinybind-go v0.5.13/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
+github.com/shibukawa/tinybind-go v0.5.15 h1:X31KRpv63n8FhQZoY1dqYAJj599JkAFhjecyfSa1lP0=
+github.com/shibukawa/tinybind-go v0.5.15/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
 github.com/shibukawa/tinygodriver v1.2.4 h1:JmD1vB3hxtiMogityhF6S7gUOPBfKz2pa5qIiyDeY2A=
 github.com/shibukawa/tinygodriver v1.2.4/go.mod h1:DLwOzLMnjY7+kmpALZ+lnwv7s8sWNXT1HanLp2WIUkk=
 github.com/shirou/gopsutil/v4 v4.26.6 h1:Mzr/npDtQC/xpeEuQKHZt8Zo9CmPvhTj8nkR8w5TLDs=
@@ -135,6 +131,8 @@ github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9R
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
+github.com/valyala/fasthttp v1.73.0 h1:ocTOORnBWtJ+P8t/6wAjdkchMzdfHmWx2VD/DPbgZ7s=
+github.com/valyala/fasthttp v1.73.0/go.mod h1:EtXQDHaR+5P18p8wqDRFpUhxr108Ga9mXvVJXHRrN2k=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=

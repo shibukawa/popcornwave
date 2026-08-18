@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
 	"github.com/shibukawa/tinybind-go/sqlbind"
 )
 
@@ -24,7 +24,7 @@ func open(t *testing.T) *Connection {
 	schema := []string{
 		`CREATE TABLE memos (id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT)`,
 		`CREATE TABLE tags (memo_id INTEGER, name TEXT)`,
-		`CREATE TABLE popcornwave_session (id TEXT PRIMARY KEY, payload TEXT)`,
+		`CREATE TABLE popcornweb_session (id TEXT PRIMARY KEY, payload TEXT)`,
 		`INSERT INTO memos (id, title, body) VALUES (1, 'first', 'one'), (2, 'second', NULL)`,
 		`INSERT INTO tags (memo_id, name) VALUES (1, 'work')`,
 	}
@@ -53,7 +53,7 @@ func TestTablesAreListedAndFrameworkOnesMarked(t *testing.T) {
 	}
 	// The prefix is the rule an application reads its own schema by, so the
 	// pane reads it the same way.
-	if !found["popcornwave_session"] {
+	if !found["popcornweb_session"] {
 		t.Error("a framework table was not marked")
 	}
 }

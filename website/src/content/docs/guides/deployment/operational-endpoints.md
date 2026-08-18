@@ -104,7 +104,7 @@ surfaces on the first interval instead of never.
 `pw init` writes this line into the project's Dockerfile already, along with the
 `config.prod.toml` that sets the key.
 [Container Images](/guides/deployment/container-images/) walks through the rest
-of that file, including why a Popcorn Wave image cannot be built with `COPY` and
+of that file, including why a Popcorn Web image cannot be built with `COPY` and
 `go build`.
 
 ### Compose

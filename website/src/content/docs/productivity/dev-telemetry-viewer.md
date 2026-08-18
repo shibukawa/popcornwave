@@ -33,9 +33,9 @@ it starts:
 | --- | --- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | the viewer's loopback URL |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` |
-| `OTEL_SERVICE_NAME` | `project.name` from `popcornwave.toml` |
+| `OTEL_SERVICE_NAME` | `project.name` from `popcornweb.toml` |
 
-These are the OTLP conventions rather than Popcorn Wave names, which is the
+These are the OTLP conventions rather than Popcorn Web names, which is the
 point: any exporter finds them, and no project commits a development endpoint to
 a file.
 

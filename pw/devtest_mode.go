@@ -5,7 +5,7 @@ package pw
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // A release build serves no test data endpoints and links none of the seeding

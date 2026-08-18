@@ -57,7 +57,7 @@ a load error rather than an empty DSN.
 ## Where values come from
 
 `APP_ENV` selects the environment and therefore the project-local filename.
-Popcorn Wave reads, in order:
+Popcorn Web reads, in order:
 
 1. `./config.{APP_ENV}.toml`
 2. `./config/config.{APP_ENV}.toml`
@@ -452,16 +452,16 @@ duration string, and one key cannot mean both.
 | `rdb.source` | `"middleware"` | `middleware` reuses the `middleware.rdb` pool; `dedicated` opens `session.rdb.dsn` |
 | `rdb.group` | *(empty)* | connection group holding the session table; empty resolves to `middleware.rdb.write_group` |
 | `rdb.dsn` | *(empty)* | dedicated session database; only its credential is masked where it is reported |
-| `rdb.table` | `"popcornwave_session"` | |
+| `rdb.table` | `"popcornweb_session"` | |
 | `redis.dsn` | *(empty)* | `redis://` or `rediss://` server; only its credential is masked where it is reported |
 | `redis.key_prefix` | `"pw:session:"` | key space the session store owns |
 | `redis.connect_timeout` | `"5s"` | startup ping and per-command deadline |
 | `cookie_store.name` | `"pw_session_data"` | cookie holding the sealed record |
 | `keyring.secret` | *(empty)* | base64 secret signing and sealing anything the browser carries (masked) |
 | `keyring.previous_secrets` | `[]` | retired secrets kept readable during a rotation (masked) |
-| `dynamo.table` | `"popcornwave_session"` | declared session table, mapped onto the deployed one by `middleware.dynamo` |
+| `dynamo.table` | `"popcornweb_session"` | declared session table, mapped onto the deployed one by `middleware.dynamo` |
 | `dynamo.consistent_read` | `false` | read sessions with strong consistency, at twice the read capacity |
-| `firestore.kind` | `"popcornwave_session"` | entity kind holding session records |
+| `firestore.kind` | `"popcornweb_session"` | entity kind holding session records |
 
 Only the keys of the selected backend are read, and a backend other than
 `cookie` reaches the binary through its own blank import — the startup error

@@ -15,7 +15,7 @@ client:
   no_constructor_argument: matching requirement:contrib-auth-state-firestore
   missing: firestorebind's ErrNoClient, surfaced as the contract error of each store
 kinds:
-  names: popcornwave_auth_allowlist, popcornwave_passkey_credential, and popcornwave_auth_bootstrap, unchanged from rule:framework-owned-tables
+  names: popcornweb_auth_allowlist, popcornweb_passkey_credential, and popcornweb_auth_bootstrap, unchanged from rule:framework-owned-tables
   literal: no resolution step, per decision:firestore-namespace-isolation
   handwritten: the entity mappings are written rather than generated, for the reason requirement:dynamodb-session-store gives; this package is the only reader and writer
   no_creation_step: nothing creates or verifies a kind, per decision:firestore-no-schema-application

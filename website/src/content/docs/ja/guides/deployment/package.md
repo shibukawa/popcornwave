@@ -1,6 +1,6 @@
 ---
 title: コンポーネントパッケージ
-description: 再利用できる機能を Go モジュールとして公開し、popcornwave.toml に名前を書くだけで導入する方法。
+description: 再利用できる機能を Go モジュールとして公開し、popcornweb.toml に名前を書くだけで導入する方法。
 sidebar:
   order: 3
 ---
@@ -82,7 +82,7 @@ import (
 	"embed"
 	"io/fs"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 //go:embed assets migrations

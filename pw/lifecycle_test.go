@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func validRuntimeConfigs() (ServerConfig, SecurityConfig, MiddlewareConfig, ObservabilityConfig) {

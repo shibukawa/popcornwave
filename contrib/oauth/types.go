@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 var (

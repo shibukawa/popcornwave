@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	otetrace "github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/internal/requestorigin"
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwobservability"
-	"github.com/shibukawa/popcornwave/pwsession"
+	otetrace "github.com/shibukawa/popcornweb/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwobservability"
+	"github.com/shibukawa/popcornweb/pwsession"
 )
 
 func validateRuntimeConfig(server ServerConfig, security SecurityConfig, middleware MiddlewareConfig, observability ObservabilityConfig) error {
@@ -379,7 +379,7 @@ func validateOperationalEndpointCollisions(handler http.Handler, config ServerCo
 		return nil
 	}
 	for key, endpoint := range operationalEndpointPaths(config) {
-		request, err := http.NewRequest(http.MethodGet, "http://popcornwave.invalid"+endpoint, nil)
+		request, err := http.NewRequest(http.MethodGet, "http://popcornweb.invalid"+endpoint, nil)
 		if err != nil {
 			return fmt.Errorf("%s: %w", key, err)
 		}
@@ -394,7 +394,7 @@ func validateOperationalEndpointCollisions(handler http.Handler, config ServerCo
 			return err
 		}
 		for _, requestPath := range []string{strings.TrimSuffix(mount, "/"), mount, mount + "collision"} {
-			request, err := http.NewRequest(http.MethodGet, "http://popcornwave.invalid"+requestPath, nil)
+			request, err := http.NewRequest(http.MethodGet, "http://popcornweb.invalid"+requestPath, nil)
 			if err != nil {
 				return fmt.Errorf("server.public.mount: %w", err)
 			}

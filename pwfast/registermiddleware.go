@@ -42,21 +42,21 @@ var applicationMiddleware struct {
 // the chain that nothing in the application's source mentions.
 func RegisterMiddleware(slot Slot, name string, middleware Middleware) {
 	if strings.TrimSpace(name) == "" {
-		panic("popcornwave: empty middleware name")
+		panic("popcornweb: empty middleware name")
 	}
 	if middleware == nil {
-		panic("popcornwave: middleware " + name + " is nil")
+		panic("popcornweb: middleware " + name + " is nil")
 	}
 	if slot == SlotOperational || slot == SlotAPIDoc {
 		panic(fmt.Sprintf(
-			"popcornwave: middleware %s registered at fixed frame %d; pick a neighboring slot relative to pwfast.SlotOperational or pwfast.SlotAPIDoc",
+			"popcornweb: middleware %s registered at fixed frame %d; pick a neighboring slot relative to pwfast.SlotOperational or pwfast.SlotAPIDoc",
 			name, slot))
 	}
 	applicationMiddleware.Lock()
 	defer applicationMiddleware.Unlock()
 	for _, existing := range applicationMiddleware.frames {
 		if existing.Name == name {
-			panic("popcornwave: duplicate middleware " + name)
+			panic("popcornweb: duplicate middleware " + name)
 		}
 	}
 	applicationMiddleware.frames = append(applicationMiddleware.frames,

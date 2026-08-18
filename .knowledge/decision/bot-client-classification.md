@@ -3,7 +3,7 @@ id: decision:bot-client-classification
 type: decision
 title: Bot Client Classification
 ---
-Popcorn Wave classifies a request as browser or bot from the User-Agent header alone, and uses the verdict only to choose a render branch.
+Popcorn Web classifies a request as browser or bot from the User-Agent header alone, and uses the verdict only to choose a render branch.
 
 ```yaml
 status: accepted

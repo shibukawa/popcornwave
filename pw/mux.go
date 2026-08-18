@@ -1,4 +1,4 @@
-// Package pw is the stable application-facing Popcorn Wave API.
+// Package pw is the stable application-facing Popcorn Web API.
 package pw
 
 import "github.com/shibukawa/tinygodriver/httpmux"

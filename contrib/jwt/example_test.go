@@ -3,7 +3,7 @@ package jwt_test
 import (
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 )
 
 func ExampleSign() {

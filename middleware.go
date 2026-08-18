@@ -1,14 +1,14 @@
 package petitweb
 
 // This file only adapts the shared middleware in
-// github.com/shibukawa/popcornwave/middlewares to the classic App API. New
+// github.com/shibukawa/popcornweb/middlewares to the classic App API. New
 // middleware belongs in that package.
 
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // SecurityHeadersConfig contains browser security response headers.

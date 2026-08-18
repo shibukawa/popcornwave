@@ -7,7 +7,7 @@ programs do the same thing.
 | Directory | What it is |
 | --- | --- |
 | `stdhttp/` | `net/http`, `html/template`, `encoding/json`, `pgx` |
-| `popcornwave/` | Popcorn Wave: typed templates, typed SQL, generated binding |
+| `popcornweb/` | Popcorn Web: typed templates, typed SQL, generated binding |
 
 Both serve the same five routes — an HTML list, a JSON list, and three form
 posts — and `load.sh` refuses to measure them if their JSON bodies disagree on
@@ -27,7 +27,7 @@ cd stdhttp && go run .              # http://127.0.0.1:8081
 ```
 
 ```sh
-cd popcornwave && APP_ENV=dev go run ./cmd/popcornwave   # http://127.0.0.1:8082
+cd popcornweb && APP_ENV=dev go run ./cmd/popcornweb   # http://127.0.0.1:8082
 ```
 
 ## Comparing binary size
@@ -69,7 +69,7 @@ read from their absolute rates, because they were measured in separate runs and
 the machine is not the same machine twice; each run's framework service, which
 does not change between them, is what normalises the pair:
 
-| | `stdhttp` ÷ `popcornwave`, same run |
+| | `stdhttp` ÷ `popcornweb`, same run |
 | --- | --- |
 | `stdhttp` + pgxpool | 0.960 |
 | `stdhttp` + `database/sql` + pgx/stdlib | 0.934 |
@@ -79,14 +79,14 @@ run. A CPU profile showing `database/sql.withLock` at 15% of samples suggests it
 should be worth far more, which is the point of running the control: a lock can
 hold CPU share without being what limits throughput.
 
-The larger lever is `session.backend` in `popcornwave/config.bench.toml`. Same
+The larger lever is `session.backend` in `popcornweb/config.bench.toml`. Same
 application code, five passes each:
 
 | | requests/s | vs baseline | HTML p95 |
 | --- | --- | --- | --- |
 | `net/http` + pgx | ~15,500 | — | 2.92–3.11 ms |
-| `popcornwave`, `cookie` | ~16,000 | +4% | 2.32–2.47 ms |
-| `popcornwave`, `dev-volatile` | ~17,500 | +12% | 1.92–2.14 ms |
+| `popcornweb`, `cookie` | ~16,000 | +4% | 2.32–2.47 ms |
+| `popcornweb`, `dev-volatile` | ~17,500 | +12% | 1.92–2.14 ms |
 
 A cookie session sends 631 bytes of `Set-Cookie` per response against 299, and
 the browser returns all of it on every request. Sealing and opening one measures
@@ -133,7 +133,7 @@ service went second would be answering a larger query.
 The two services are not feature-equivalent, and the size and throughput numbers
 should be read knowing which way that cuts.
 
-`popcornwave/` additionally has configuration binding per environment, an
+`popcornweb/` additionally has configuration binding per environment, an
 OpenAPI document, `/healthz` and `/readyz`, structured errors, security headers,
 request IDs, a session, and a CSRF token in every form. `stdhttp/` has one
 middleware that sets a request ID header. So the framework carries more bytes

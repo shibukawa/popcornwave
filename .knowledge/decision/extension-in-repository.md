@@ -26,5 +26,5 @@ consequences:
   - concept:project-layout is unaffected, because it describes a generated application and not this repository
 rejected:
   separate_repository: cheaper Node isolation, paid for with invisible drift and a second release calendar
-  tinybind_go: the grammar's owner by syntax, but the extension is branded Popcorn Wave, ships api:cli-lsp behavior, and reads data:project-config, none of which upstream has
+  tinybind_go: the grammar's owner by syntax, but the extension is branded Popcorn Web, ships api:cli-lsp behavior, and reads data:project-config, none of which upstream has
 ```

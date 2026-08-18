@@ -6,17 +6,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/authstate"
+	"github.com/shibukawa/popcornweb/authstate"
 )
 
 // MigrationName is the stable name of the migration a project carries for the
 // tables this package owns, without a version. See rdb.MigrationName for why
 // the version belongs to the project rather than to the package.
-const MigrationName = "init_popcornwave_auth"
+const MigrationName = "init_popcornweb_auth"
 
 // AllowlistTable holds the identities a deployment registered in advance. It is
 // consulted by AdmissionRegistered.
-const AllowlistTable = "popcornwave_auth_allowlist"
+const AllowlistTable = "popcornweb_auth_allowlist"
 
 // allowlistSchemaSQL is the DDL of the pre-registration table under one
 // engine.
@@ -48,7 +48,7 @@ func MigrationSQL(dialect string) (string, error) {
 		return "", err
 	}
 	return `-- +goose Up
--- Owned by github.com/shibukawa/popcornwave/plugin/auth.
+-- Owned by github.com/shibukawa/popcornweb/plugin/auth.
 -- Single-use login correlation: state, nonce, and PKCE verifier of a pending
 -- ceremony. Rows are consumed by the callback and swept after they expire.
 ` + stateSchema + `;
@@ -89,11 +89,11 @@ DROP TABLE ` + authstate.TableName + `;
 // CredentialTable holds the passkey credentials of the default
 // CredentialStore. A deployment that installs its own store owns its own table
 // and this one is neither created nor verified.
-const CredentialTable = "popcornwave_passkey_credential"
+const CredentialTable = "popcornweb_passkey_credential"
 
 // BootstrapTable holds the issued credentials that open a first passkey
 // enrollment, for the default BootstrapStore.
-const BootstrapTable = "popcornwave_auth_bootstrap"
+const BootstrapTable = "popcornweb_auth_bootstrap"
 
 // credentialSchemaSQL is the DDL of the passkey credential table.
 //

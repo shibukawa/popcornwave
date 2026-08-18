@@ -61,7 +61,7 @@ redis:
   servers: Redis or Valkey
   compatibility: requirement:contrib-redis-valkey
   status: implemented
-  session_plugin: popcornwave/sessionstore/redis
+  session_plugin: popcornweb/sessionstore/redis
   constructor: redis.NewStore[T](go-redis UniversalClient, session.Codec[T], Options)
   key_space: configured prefix and the key hash; the store never scans or enumerates
   expiry: server TTL from the record deadline, with the stored deadline still authoritative on read
@@ -71,25 +71,25 @@ redis:
   client_ownership: the caller opens and closes the client
 rdb:
   backend_name: rdb
-  session_plugin: popcornwave/sessionstore, with one package per engine under it
+  session_plugin: popcornweb/sessionstore, with one package per engine under it
   status: implemented
   constructor: sessionstore.NewStore(*sql.DB, Options) with the dialect of the resolved DSN
-  owned_table: popcornwave_session
+  owned_table: popcornweb_session
   schema: MigrationSQL publishes the migration file; VerifySchema is the startup check
   schema_ownership: rule:framework-owned-tables
   dialects: sqlite, postgres, and mysql, each contributed by its own blank import
   dialect_scope: an engine package supplies the DDL, the upsert, the bounded delete, and the catalog query; every other statement is shared
   expiry_sweep: Prune removes records that expire without being revoked
-  driver_registration: separate popcornwave/database engine import
+  driver_registration: separate popcornweb/database engine import
   guaranteed_driver: requirement:contrib-sqlite
   in_memory: sqlite://:memory:
   future_schemes: require implemented and verified drivers before configuration acceptance
   shared_executor: session.rdb.source middleware uses the pool owned by api:rdb-middleware
 dynamo:
   backend_name: dynamo
-  session_plugin: popcornwave/sessionstore/dynamo
+  session_plugin: popcornweb/sessionstore/dynamo
   status: designed, per requirement:dynamodb-session-store
-  owned_table: popcornwave_session, created by requirement:dynamodb-migration rather than by a migration file
+  owned_table: popcornweb_session, created by requirement:dynamodb-migration rather than by a migration file
   schema: no migration file and no version table; the table definition is generated from the plugin's own tagged type
   expiry_sweep: none, per decision:dynamodb-session-expiry; a record is judged expired on read and removed by TTL
   atomic_touch: the renewal is one conditional UpdateItem, so no read-then-write window exists
@@ -97,9 +97,9 @@ dynamo:
   shared_client: the process client installed by api:dynamo-package; there is no dedicated form
 firestore:
   backend_name: firestore
-  session_plugin: popcornwave/sessionstore/firestore
+  session_plugin: popcornweb/sessionstore/firestore
   status: designed, per requirement:firestore-session-store
-  owned_kind: popcornwave_session, which exists on first write and is neither created nor verified, per decision:firestore-no-schema-application
+  owned_kind: popcornweb_session, which exists on first write and is neither created nor verified, per decision:firestore-no-schema-application
   schema: none; there is no migration file, no version table, and no table definition
   expiry_sweep: none, per decision:firestore-expiry-policy; a record is judged expired on read and removed by a field TTL policy the deployment applies
   atomic_touch: no; a renewal is a read then a write carrying the update-time precondition, per decision:firestore-conditional-writes

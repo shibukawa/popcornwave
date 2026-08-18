@@ -1,13 +1,13 @@
 ---
 title: Serverless Hosting
-description: Which scale-to-zero and function runtimes a Popcorn Wave application can use, and where an HTTP adapter is required.
+description: Which scale-to-zero and function runtimes a Popcorn Web application can use, and where an HTTP adapter is required.
 sidebar:
   order: 3
 ---
 
 “Serverless” describes several incompatible startup models. The useful question
 is whether the host starts an HTTP process, asks for an exported handler, or
-delivers a provider-specific event. Popcorn Wave supports the first model and
+delivers a provider-specific event. Popcorn Web supports the first model and
 HTTP adapters to it without changing application code.
 
 | Host shape | Examples | Status |
@@ -50,7 +50,7 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 \
 ```
 
 The application keeps its normal entry point. The adapter forwards requests to
-`AWS_LWA_PORT`, then `PORT`, then `8080`; Popcorn Wave follows the same order for
+`AWS_LWA_PORT`, then `PORT`, then `8080`; Popcorn Web follows the same order for
 its listener. The generated directory contains a Linux `bootstrap`,
 `config.prod.toml`, and a Dockerfile pinned to the adapter version. It sets
 `APP_ENV=prod` and is the Docker build context.
@@ -92,7 +92,7 @@ application's configured `main`, so a port alias cannot support them.
 
 `pw build` copies the application module into an isolated source tree and
 transforms the selected `main` into an initialization function. Vercel receives
-`api/Handler`; Cloud Run functions receives the `PopcornWave` Functions
+`api/Handler`; Cloud Run functions receives the `PopcornWeb` Functions
 Framework registration. Initialization is guarded once per warm instance.
 
 For `nethttp`, the generated handler uses `pw.Middlewares`. For `fasthttp`, it

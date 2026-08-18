@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shibukawa/popcornwave/middlewares"
+	"github.com/shibukawa/popcornweb/middlewares"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/propagation"
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/propagation"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 type spanCollector struct{ spans []trace.SpanData }

@@ -3,7 +3,7 @@ id: requirement:template-formatting
 type: requirement
 title: Canonical Template Source Formatting
 ---
-Every hand-authored .pw.html, .pw.sql, and .pw.dynamo source has one canonical form, produced by the system:tinybind formatter rather than by a Popcorn Wave layout of its own.
+Every hand-authored .pw.html, .pw.sql, and .pw.dynamo source has one canonical form, produced by the system:tinybind formatter rather than by a Popcorn Web layout of its own.
 
 ```yaml
 status: adopted; the repository is formatted and api:cli-fmt is implemented
@@ -12,7 +12,7 @@ source: system:tinybind v0.3.1
 scope: the concept:template-source-dialects sources; generated Go is already go/format's, per policy:generated-artifacts
 why_not_ours:
   - the parser that would have to back a formatter is upstream's, and a second one would drift on every release
-  - the only Popcorn Wave input is the .pw suffix set, which the upstream pattern options already take
+  - the only Popcorn Web input is the .pw suffix set, which the upstream pattern options already take
 surfaces:
   cli: api:cli-fmt, for a terminal, a hook, and CI; still proposed
   editor_today: requirement:editor-formatting ships the embedded formatter, so an author can already canonicalize one buffer before this requirement is adopted
@@ -47,7 +47,7 @@ acceptance:
   - a comment survives formatting in all three dialects
   - pw fmt -l exits nonzero on an unformatted tree and zero on a formatted one
 non_goals:
-  - a Popcorn Wave layout rule of its own; a disagreement with the upstream layout is reported upstream
+  - a Popcorn Web layout rule of its own; a disagreement with the upstream layout is reported upstream
   - formatting on generate, on save without consent, or on commit without an opt-in hook
   - formatting the .sql files under the migration directory, which are goose sources and not concept:template-source-dialects
 ```

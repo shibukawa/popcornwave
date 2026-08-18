@@ -3,7 +3,7 @@ package pw
 import (
 	"strings"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
+	"github.com/shibukawa/popcornweb/pwconfig"
 )
 
 // EnvVar names the environment variable that selects the runtime environment.
@@ -86,7 +86,7 @@ func reportEnvironment() {
 	if EnvironmentDeclared() {
 		return
 	}
-	processLogger().Warn("popcornwave is running as development because no environment was named",
+	processLogger().Warn("popcornweb is running as development because no environment was named",
 		String("variable", EnvVar),
 		String("environment", Env()),
 		String("effect", "query bind values may be logged, session.cookie.secure may be false, and error pages carry their detail"),

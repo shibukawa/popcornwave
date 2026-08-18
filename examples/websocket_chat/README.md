@@ -39,7 +39,7 @@ serializes writes so a frame from one message cannot interleave with another.
 
 ## The second build
 
-`popcornwave.toml` declares `fasthttp = true`, so `pw generate` derives the
+`popcornweb.toml` declares `fasthttp = true`, so `pw generate` derives the
 fasthttp half of every handler:
 
 ```bash

@@ -6,7 +6,7 @@ title: Assurance Guard
 An application declares one thing about assurance, that an operation needs recent proof, and the framework supplies the challenge and the way back.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 status: implemented, except the strength requirement deferred below
 implemented:
   requirement_sources: auth.MaxAge, auth.Policy, auth.Dynamic, and auth.Default, behind one auth.Requirement interface

@@ -3,7 +3,7 @@ id: system:goose
 type: system
 title: goose Migration Engine
 ---
-goose is the external versioned SQL migration engine adopted by Popcorn Wave for schema history, ordering, and apply state.
+goose is the external versioned SQL migration engine adopted by Popcorn Web for schema history, ordering, and apply state.
 
 ```yaml
 module: github.com/pressly/goose/v3

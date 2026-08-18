@@ -8,7 +8,7 @@ sidebar:
 Most OpenAPI documents are written twice: once as handlers, once as a
 specification that drifts away from them within a release or two.
 
-Popcorn Wave assembles the document from the code instead. `pw generate` already
+Popcorn Web assembles the document from the code instead. `pw generate` already
 reads your route registrations, your `pw.Parse[T]` call sites, your `check` tags,
 and your `pw.WriteAPI` calls to write binding code — the same evidence describes
 the endpoint. One OpenAPI 3.1 fragment is emitted per package, and the framework

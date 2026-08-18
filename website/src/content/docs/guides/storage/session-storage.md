@@ -31,7 +31,7 @@ keyring.secret = "${SESSION_KEYRING_SECRET}"
 
 ```go
 // cmd/myapp/main.go — storage is opt-in, so the backend is an import too.
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 One mistake is common enough to expect: configuring a backend without importing
@@ -39,7 +39,7 @@ it. The error names its own fix.
 
 ```
 session.backend = "rdb" needs its plugin; add to the application:
-import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 The exception is `cookie`, which stores nothing and therefore imports nothing. A
@@ -116,7 +116,7 @@ the migration that creates its table, and the import of the engine it runs on.
 | --- | --- | --- |
 | `rdb.source` | `"middleware"` | reuse the `middleware.rdb` pool; it is the only accepted value, and any other is refused at startup |
 | `rdb.group` | *(empty)* | connection group holding the table; empty resolves to the write group |
-| `rdb.table` | `"popcornwave_session"` | |
+| `rdb.table` | `"popcornweb_session"` | |
 
 SQLite, PostgreSQL, and MySQL each arrive through their own package —
 `sessionstore/sqlite`, `sessionstore/postgres`, `sessionstore/mysql` — and their
@@ -168,7 +168,7 @@ configured prefix, and the store never scans or enumerates.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `dynamo.table` | `"popcornwave_session"` | declared table name |
+| `dynamo.table` | `"popcornweb_session"` | declared table name |
 | `dynamo.consistent_read` | `false` | strong consistency costs twice the read capacity |
 
 It borrows the client `middleware.dynamo` already opened, so it carries no
@@ -179,7 +179,7 @@ nothing sweeps.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `firestore.kind` | `"popcornwave_session"` | entity kind holding session records |
+| `firestore.kind` | `"popcornweb_session"` | entity kind holding session records |
 
 It borrows the client opened by `middleware.firestore` and reads each session
 strongly consistently. A renewal reads the entity and rewrites it with a

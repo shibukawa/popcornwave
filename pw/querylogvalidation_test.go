@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwobservability"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwobservability"
 )
 
 func queryConfig(mutate func(*pwconfig.QueryLogConfig)) pwconfig.ObservabilityConfig {

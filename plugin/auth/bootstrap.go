@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // enrollmentStateNamespace isolates enrollment tickets from the OIDC and
@@ -99,7 +99,7 @@ func accountActivator() AccountActivator {
 func BootstrapSecretDigest(loginID, secret string) []byte {
 	// The login ID is mixed in, so a digest lifted from one row cannot be
 	// replayed against another.
-	sum := sha256.Sum256([]byte("popcornwave/bootstrap\x00" + loginID + "\x00" + secret))
+	sum := sha256.Sum256([]byte("popcornweb/bootstrap\x00" + loginID + "\x00" + secret))
 	return sum[:]
 }
 

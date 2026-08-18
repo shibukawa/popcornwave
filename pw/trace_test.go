@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // spanRecorder collects finished spans instead of exporting them.

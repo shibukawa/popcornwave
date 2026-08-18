@@ -1,6 +1,6 @@
 # Change request: binding an external call's result in a template
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.5.9
 **Date:** 2026-08-14
 **Status:** open
@@ -120,7 +120,7 @@ which of the two they thought they were writing.
 
 ## What this unblocks downstream, for context
 
-We shipped a data result cache in Popcorn Wave: `pw.Memo` over a store named in
+We shipped a data result cache in Popcorn Web: `pw.Memo` over a store named in
 configuration, keyed on a generated method, with concurrent misses coalesced. It
 works, and it sits in the handler.
 

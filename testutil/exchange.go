@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwtest"
+	"github.com/shibukawa/popcornweb/pwtest"
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )
 

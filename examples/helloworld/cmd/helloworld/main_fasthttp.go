@@ -8,8 +8,8 @@ import (
 
 	"helloworld/handlers"
 
-	_ "github.com/shibukawa/popcornwave/database/sqlite"
-	"github.com/shibukawa/popcornwave/pwfast"
+	_ "github.com/shibukawa/popcornweb/database/sqlite"
+	"github.com/shibukawa/popcornweb/pwfast"
 )
 
 func main() {

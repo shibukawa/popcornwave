@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/authstate/memory"
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/authstate/memory"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 type roundTripHandler struct{ handler http.Handler }

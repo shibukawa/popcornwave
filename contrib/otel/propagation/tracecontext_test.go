@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/otel/trace"
+	"github.com/shibukawa/popcornweb/contrib/otel/trace"
 )
 
 func TestTraceContextExtractInject(t *testing.T) {

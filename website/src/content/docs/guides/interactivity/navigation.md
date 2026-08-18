@@ -111,7 +111,7 @@ executes, before the reader has decided to go there. Restrict the rules to
 routes that are safe to request twice, and never let one match a GET that
 changes state.
 
-Classic Popcorn Wave applications are usually fine here, because writes go
+Classic Popcorn Web applications are usually fine here, because writes go
 through POST and Post/Redirect/Get. The pattern to check for is a link that
 performs an action — `GET /logout`, `GET /items/5/archive`. Those should be
 forms regardless; a speculation rule turns the latent bug into a live one.

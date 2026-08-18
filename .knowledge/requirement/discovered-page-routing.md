@@ -3,7 +3,7 @@ id: requirement:discovered-page-routing
 type: requirement
 title: Discovered Page Routing
 ---
-Popcorn Wave must serve an HTML website from a page tree whose directories are the routes, alongside the registered router rather than instead of it.
+Popcorn Web must serve an HTML website from a page tree whose directories are the routes, alongside the registered router rather than instead of it.
 
 ```yaml
 dependency: system:tinybind v0.2.6 routetree, from v0.2.3 which is what the module pins today

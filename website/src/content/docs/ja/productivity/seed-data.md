@@ -53,7 +53,7 @@ pw seed users orders   # この2つを、この順で
 ## データセットの書式
 
 データセットは YAML だけです。モデルは DBUnit のもので、キーの名前もそこから来ていますが、
-XML や CSV や Excel のデータセットは読みません。Popcorn Wave にも、下層の
+XML や CSV や Excel のデータセットは読みません。Popcorn Web にも、下層の
 [dbtestify](https://github.com/shibukawa/dbtestify) にも、それらを解析するものがない
 からです。
 
@@ -78,7 +78,7 @@ member:
 省いた行に入るのは既定値ではなく NULL で、NOT NULL 制約があれば違反になり、無ければ
 黙って空の列になります。
 
-行には `_tag` のリストも書けます。Popcorn Wave はこれを解析しますが、何にも使いません。
+行には `_tag` のリストも書けます。Popcorn Web はこれを解析しますが、何にも使いません。
 [行のタグ](/ja/productivity/testing/#行のタグは解析されるが絞り込まない)を参照して
 ください。
 

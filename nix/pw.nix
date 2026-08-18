@@ -34,7 +34,7 @@ buildGoModule {
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/shibukawa/popcornwave/internal/pwcli.version=${version}"
+    "-X github.com/shibukawa/popcornweb/internal/pwcli.version=${version}"
   ];
 
   # The full suite needs fixtures and toolchains outside the sandbox; the CLI
@@ -54,8 +54,8 @@ buildGoModule {
   '';
 
   meta = {
-    description = "CLI for the Popcorn Wave web application framework";
-    homepage = "https://github.com/shibukawa/popcornwave";
+    description = "CLI for the Popcorn Web web application framework";
+    homepage = "https://github.com/shibukawa/popcornweb";
     mainProgram = "pw";
     license = lib.licenses.asl20;
   };

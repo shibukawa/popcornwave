@@ -10,7 +10,7 @@ import (
 
 	kgzip "github.com/klauspost/compress/gzip"
 	kzstd "github.com/klauspost/compress/zstd"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
 

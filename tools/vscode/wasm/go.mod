@@ -5,7 +5,7 @@
 // deliberately independent of the version the framework pins: an extension
 // release must not require a framework release. decision:formatter-delivery
 // carries what that costs and how the delegated path removes it.
-module github.com/shibukawa/popcornwave/tools/vscode/wasm
+module github.com/shibukawa/popcornweb/tools/vscode/wasm
 
 go 1.26.0
 

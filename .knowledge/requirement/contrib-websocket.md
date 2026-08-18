@@ -10,7 +10,7 @@ status: withdrawn 2026-08-11, not built
 superseded_by: requirement:typed-websocket
 kept_rather_than_deleted: it is cited by decision:transport-handle-containment, requirement:proxied-request-identity and requirement:second-build-feature-parity, and the reasoning that moved is worth more than the file it sat in
 what_it_proposed_2026_08_08:
-  package: github.com/shibukawa/popcornwave/contrib/websocket
+  package: github.com/shibukawa/popcornweb/contrib/websocket
   client: github.com/fasthttp/websocket v1.5.12, added to the module graph of every project
   surface: "Upgrade(w, r, func(*websocket.Conn) error) error, handing the library's own Conn to the callback with no facade"
   premise: no dependency then in the graph could complete an upgrade on either backend

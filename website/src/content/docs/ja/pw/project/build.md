@@ -25,7 +25,7 @@ provider packaging を選びます。
    プロジェクトが指定した変換を行い、`*.br`, `*.zstd`, `*.gz` サイドカーを書き、
    キャッシュヘッダを決めるマニフェストを出力する
 4. `project.main` が開発専用パッケージに依存していればビルドを拒否する
-5. `popcornwave.toml` の `project.main` に対して `go build` を実行する
+5. `popcornweb.toml` の `project.main` に対して `go build` を実行する
 
 手順 1 から 4 はそのまま [`pw generate`](/ja/pw/project/generate/) です。この
 コマンドは「それ＋コンパイラ」として定義されているので、内容も順序もずれることが

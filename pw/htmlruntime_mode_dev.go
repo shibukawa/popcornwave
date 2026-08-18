@@ -209,7 +209,7 @@ func developmentModule(console string, reload, overlay, launcher bool, corner st
 	}
 	vertical, horizontal, direction := cornerEdges(corner)
 	flyout := flyoutEdge(horizontal)
-	return `// Popcorn Wave development runtime. Served only under the pwdev build mode,
+	return `// Popcorn Web development runtime. Served only under the pwdev build mode,
 // and never present in a binary pw build produced.
 
 const consoleURL = ` + string(address) + `;

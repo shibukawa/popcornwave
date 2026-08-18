@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/popcornwave/internal/dbseed"
-	"github.com/shibukawa/popcornwave/internal/devconsole"
-	"github.com/shibukawa/popcornwave/internal/pwenv"
+	"github.com/shibukawa/popcornweb/internal/dbseed"
+	"github.com/shibukawa/popcornweb/internal/devconsole"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
 	"github.com/shibukawa/tinybind-go/minitoml"
 )
 

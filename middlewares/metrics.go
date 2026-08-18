@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/otel"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/contrib/otel"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Metrics records the http.server instruments of one request.

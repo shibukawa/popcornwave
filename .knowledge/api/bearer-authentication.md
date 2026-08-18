@@ -6,7 +6,7 @@ title: Bearer Authentication Surface
 Under requirement:jwt-only-api-authentication the framework installs one middleware and publishes the revocation calls, and mounts no route at all, so an application registers nothing and writes no protocol code.
 
 ```yaml
-package: github.com/shibukawa/popcornwave/plugin/auth
+package: github.com/shibukawa/popcornweb/plugin/auth
 registration:
   mechanism: importing the package installs the extensions through api:framework-extension, as api:authentication-endpoints already describes
   selection: auth.mode jwt_only decides that the bearer middleware is installed and that no endpoint is
@@ -34,7 +34,7 @@ surface:
   - auth.RevokeSubject(context, issuer, identityKey, note) writes the subject form
   - auth.ReinstateToken and auth.ReinstateSubject remove an entry, for a revocation issued in error
   - auth.TokenRevoked and auth.SubjectRevoked report the stamp and presence, reading past the request cache, for an administrative view that must not guess
-  - auth.MigrationSQL() publishes popcornwave_auth_revocation beside the tables api:authentication-endpoints already publishes
+  - auth.MigrationSQL() publishes popcornweb_auth_revocation beside the tables api:authentication-endpoints already publishes
 signature_notes:
   issuer_is_explicit: every revocation call names the issuer rather than assuming the configured one, because the entry is scoped by it and a call that inferred it would silently write to the wrong scope if the deployment ever gained a second issuer
   expiry_is_derived: the caller supplies no expiry; it is revoked_at plus auth.jwt.max_token_lifetime, which the mode already requires, so an operator cannot write an entry that expires before the tokens it must refuse

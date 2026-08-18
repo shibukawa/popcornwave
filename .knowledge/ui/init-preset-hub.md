@@ -10,7 +10,7 @@ ui:
   root:
     kind: terminal
     id: screen.init
-    title: Popcorn Wave  new project
+    title: Popcorn Web  new project
     children:
       - kind: screen
         id: preset-list

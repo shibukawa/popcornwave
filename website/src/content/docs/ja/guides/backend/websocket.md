@@ -23,7 +23,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // プロトコルを 2 つの構造体として書く。どちらの向きも、種類は判別用フィールドが持つ。

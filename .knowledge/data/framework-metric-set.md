@@ -8,7 +8,7 @@ The instruments requirement:framework-metrics records, each named by the seam th
 ```yaml
 configuration: data:observability-runtime-config observability.metrics
 collection: flow:metric-collection
-scope: github.com/shibukawa/popcornwave, matching data:framework-span-set
+scope: github.com/shibukawa/popcornweb, matching data:framework-span-set
 convention:
   duration_unit: s, float64 histogram, per semantic convention, even where a span reports nanoseconds
   size_unit: By

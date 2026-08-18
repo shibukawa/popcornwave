@@ -36,7 +36,7 @@ name — private components included, because their generated declarations share
 that package.
 
 Generation reads only the directories `generate.templates` and `generate.pages`
-list in `popcornwave.toml`, and it never descends into a child package. A
+list in `popcornweb.toml`, and it never descends into a child package. A
 `.pw.html` outside every listed directory is reported rather than silently
 skipped. See [Build Tool Configuration](/reference/build-configuration/#generate).
 
@@ -705,7 +705,7 @@ reason: the duration would describe an expiry that cannot happen.
 `scope` takes `"private"` or `"public"`, and defaults to `"private"`.
 
 A private component's key is prefixed with the identity of the reader it was
-rendered for, so two readers never reach one entry. Popcorn Wave supplies that
+rendered for, so two readers never reach one entry. Popcorn Web supplies that
 value from `pw.RequestAuthentication(ctx).Subject` — the local account
 identifier a session login, a passkey assertion, and a bearer token all resolve
 to before any handler runs. An anonymous request has none, and a storing private
@@ -767,7 +767,7 @@ stays cached in the response that replaces it.
 ## Hyphenated elements
 
 A hyphen is HTML's own custom-element marker, and the hyphenated element space is
-a declared whitelist. Popcorn Wave declares nothing in it today, so **every
+a declared whitelist. Popcorn Web declares nothing in it today, so **every
 hyphenated element in a `.pw.html` is a generation error**:
 
 ```

@@ -35,7 +35,7 @@ func TestRegisteredMiddlewareComposesBySlotThenRegistrationOrder(t *testing.T) {
 	func() {
 		defer func() { _ = recover() }()
 		SetConfigLoadOptions(configbind.LoadOptions{
-			Vendor: "popcornwave-test", Tool: "pw-middleware-test", FileName: "missing.toml",
+			Vendor: "popcornweb-test", Tool: "pw-middleware-test", FileName: "missing.toml",
 		})
 	}()
 	handler, err := Middlewares(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

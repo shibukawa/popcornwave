@@ -21,14 +21,14 @@ extensions:
 
 ## Tables
 
-Framework tables are prefixed `popcornwave_` and come from their own migration
+Framework tables are prefixed `popcornweb_` and come from their own migration
 files, beside the application's:
 
 | Migration | Tables | Owner |
 | --- | --- | --- |
 | [00001_init.sql](migrations/00001_init.sql) | `accounts`, `external_identities` | this application |
-| [00002_init_popcornwave_session.sql](migrations/00002_init_popcornwave_session.sql) | `popcornwave_session` | `sessionstore/sqlite` |
-| [00003_init_popcornwave_auth.sql](migrations/00003_init_popcornwave_auth.sql) | `popcornwave_authstate`, `popcornwave_auth_allowlist` | `plugin/auth` |
+| [00002_init_popcornweb_session.sql](migrations/00002_init_popcornweb_session.sql) | `popcornweb_session` | `sessionstore/sqlite` |
+| [00003_init_popcornweb_auth.sql](migrations/00003_init_popcornweb_auth.sql) | `popcornweb_authstate`, `popcornweb_auth_allowlist` | `plugin/auth` |
 
 No version range is reserved for the framework. A framework migration takes the
 next free version when it is written, so adding a login to a project that has
@@ -134,7 +134,7 @@ second account for the same person.
 - `claim` — only identities whose verified claim matches, for example
   `claim.path = "/role"` with `claim.values = ["admin"]`
 - `registered` — only identities registered in advance in
-  `popcornwave_auth_allowlist`
+  `popcornweb_auth_allowlist`
 - `existing` — only identities the resolver already knows; it forbids
   provisioning, so it requires `auto_provision = false`
 
@@ -147,7 +147,7 @@ an operator knows before that person has ever logged in:
 ```sql
 -- The issuer of a pw dev provider changes per run; a deployment registers its
 -- own stable issuer here.
-INSERT INTO popcornwave_auth_allowlist (issuer, claim, value, note)
+INSERT INTO popcornweb_auth_allowlist (issuer, claim, value, note)
 VALUES ('https://issuer.example', 'employee_number', 'EMP-0001', 'first operator');
 ```
 

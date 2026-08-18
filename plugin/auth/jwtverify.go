@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/contrib/jwt"
+	"github.com/shibukawa/popcornweb/contrib/jwt"
 )
 
 // accessTokenType is the media type RFC 9068 gives a JWT access token. Demanding

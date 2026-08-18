@@ -64,6 +64,6 @@ non_goals:
   - a Compose file, which requirement:container-deployment-docs shows rather than scaffolds because its services are the operator's choice
   - a Kubernetes manifest, a Helm chart, or any platform-specific deployment descriptor
   - a migration image; api:cli-migrate as a separate step is documented rather than scaffolded
-  - publishing a Popcorn Wave base image, which requirement:cli-distribution already excludes for pw itself
+  - publishing a Popcorn Web base image, which requirement:cli-distribution already excludes for pw itself
   - regenerating or upgrading the files in a project that has them, which is the requirement:incremental-project-capabilities non-goal about upgrading an installed capability
 ```

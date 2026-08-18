@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/contrib/devidp"
+	"github.com/shibukawa/popcornweb/contrib/devidp"
 )
 
 func TestParseConfigReadsTheRoster(t *testing.T) {

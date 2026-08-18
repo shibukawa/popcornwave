@@ -3,7 +3,7 @@ package pwfast
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Config returns the resolved configuration for T.

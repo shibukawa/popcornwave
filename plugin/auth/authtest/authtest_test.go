@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/plugin/auth/authtest"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/plugin/auth/authtest"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // handler reports what the framework accessors see, which is what an

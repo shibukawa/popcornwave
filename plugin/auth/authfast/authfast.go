@@ -1,4 +1,4 @@
-// Package authfast serves popcornwave/plugin/auth over the fasthttp transport.
+// Package authfast serves popcornweb/plugin/auth over the fasthttp transport.
 //
 // It is the second half of a pair, and it is deliberately small. Everything an
 // authentication decision rests on — the configuration, the OIDC client, the
@@ -39,9 +39,9 @@ package authfast
 import (
 	"context"
 
-	"github.com/shibukawa/popcornwave/plugin/auth"
-	"github.com/shibukawa/popcornwave/pwfast"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/plugin/auth"
+	"github.com/shibukawa/popcornweb/pwfast"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 

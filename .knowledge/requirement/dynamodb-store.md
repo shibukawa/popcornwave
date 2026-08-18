@@ -35,7 +35,7 @@ bounded_by_the_stack:
   - no transactions, PartiQL, Streams, or DAX; the driver does not implement them, which is what decision:dynamodb-auth-compensating-registration works around
   - no UpdateTable, so no table is altered in place and an index missing at creation stays missing
   - no secondary index tags, because system:tinybind defers the gsi tag option; this bounds a generated definition, and a handwritten one may declare an index at creation, which requirement:dynamodb-auth-stores does
-  effect: these bound requirement:dynamodb-migration by what exists upstream, not by a Popcorn Wave choice
+  effect: these bound requirement:dynamodb-migration by what exists upstream, not by a Popcorn Web choice
 tinygo:
   buildable: the client and dynamobind both build under TinyGo, so no part of this store needs decision:migration-execution-split delegation
   contrast: system:goose is host-only, which is the whole reason the SQL path has a delegated backend

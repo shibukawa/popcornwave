@@ -10,7 +10,7 @@ sidebar:
 これは誰なのか。
 
 ログインは、ふつうなら3つのルートとプロトコルのライブラリと1週間の調べ物としてやってくる
-部分です。Popcorn Wave はルートを自分で提供します。アプリケーション側に残るのは、
+部分です。Popcorn Web はルートを自分で提供します。アプリケーション側に残るのは、
 列を1つ、絞り込みを1つ、そしてどのパスにセッションを要求するかの判断だけで、
 それがこの章です。ウィザードを含めて30分ほど。
 
@@ -41,10 +41,10 @@ pw add auth
 
     create  devidp.toml
     create  handlers/accounts.go
-    create  migrations/00003_init_popcornwave_session.sql
-    create  migrations/00004_init_popcornwave_auth.sql
+    create  migrations/00003_init_popcornweb_session.sql
+    create  migrations/00004_init_popcornweb_auth.sql
     append  config.dev.toml
-    append  popcornwave.toml
+    append  popcornweb.toml
     edit    cmd/memoapp/main.go
     then    pw migrate up
 ```
@@ -86,8 +86,8 @@ pw add auth
 設定と import が食い違うと、起動時にこう言われます。
 
 ```
-popcornwave: auth.session: session.backend = "rdb" needs its plugin;
-add to the application: import _ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+popcornweb: auth.session: session.backend = "rdb" needs its plugin;
+add to the application: import _ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 ```
 
 `edit cmd/memoapp/main.go` の行がそれです。承認すると、この形になります。
@@ -103,11 +103,11 @@ import (
 	"memoapp/handlers"
 
 	// 追加: session.backend = "rdb" を実際に提供するのがこれ。
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 	// 追加: 単発のログインレコードを置く先。
-	_ "github.com/shibukawa/popcornwave/authstate/sqlite"
+	_ "github.com/shibukawa/popcornweb/authstate/sqlite"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 func main() {
@@ -153,7 +153,7 @@ protection.unauthenticated = "redirect"
 このアプリケーションが実際に持つ2つのパスだけを挙げれば、`/healthz` などの運用エンドポイントは
 公開のままです。ロードバランサが必要としているのはそちらです。
 
-`popcornwave.toml` の方は、`pw add auth` が書いた内容をそのまま使います。
+`popcornweb.toml` の方は、`pw add auth` が書いた内容をそのまま使います。
 
 ```toml
 [dev.idp]
@@ -280,8 +280,8 @@ import (
 
 	"memoapp/queries"
 
-	"github.com/shibukawa/popcornwave/plugin/auth" // 追加
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/plugin/auth" // 追加
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // home lists the signed-in account's memos.

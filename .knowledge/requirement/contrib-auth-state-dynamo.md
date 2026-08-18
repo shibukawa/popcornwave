@@ -23,7 +23,7 @@ client:
   no_constructor_argument: unlike the sqlite adapter, which takes a pool, because system:tinybind carries the client in the context from v0.2.10
   missing: the driver's no-client error, surfaced as requirement:contrib-auth-state ErrUnavailable
 table:
-  declared_name: popcornwave_authstate, per rule:framework-owned-tables
+  declared_name: popcornweb_authstate, per rule:framework-owned-tables
   key: one partition key holding the namespace and the correlation key joined; no sort key
   why_joined:
     rejected: namespace as the partition key and the correlation key as the sort key, which would make one namespace one partition

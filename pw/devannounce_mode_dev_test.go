@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/internal/devconsole"
+	"github.com/shibukawa/popcornweb/internal/devconsole"
 )
 
 // The announcement crosses a package boundary as a path, a header name, and a

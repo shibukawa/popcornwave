@@ -9,7 +9,7 @@ import (
 )
 
 // TableName is the table the SQL stores own.
-const TableName = "popcornwave_authstate"
+const TableName = "popcornweb_authstate"
 
 // Columns are the columns of that table, in the order every dialect declares
 // them.
@@ -58,7 +58,7 @@ var dialects struct {
 // Register adds an engine's dialect. An engine package calls it from init, so
 // a blank import is what makes the SQL store work against that engine:
 //
-//	import _ "github.com/shibukawa/popcornwave/authstate/postgres"
+//	import _ "github.com/shibukawa/popcornweb/authstate/postgres"
 //
 // A duplicate or incomplete dialect panics: two descriptions of one engine is
 // a build mistake, not a runtime condition.
@@ -104,7 +104,7 @@ func DialectFor(name string) (Dialect, error) {
 	}
 	return Dialect{}, fmt.Errorf(
 		"authentication state storage for %q needs its engine; add to the application: import _ %q",
-		name, "github.com/shibukawa/popcornwave/authstate/"+name)
+		name, "github.com/shibukawa/popcornweb/authstate/"+name)
 }
 
 // SchemaSQL returns the deterministic DDL of the owned table under one engine,

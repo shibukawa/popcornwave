@@ -3,7 +3,7 @@ id: decision:tinygo-042-baseline
 type: decision
 title: TinyGo 0.42 Baseline
 ---
-Popcorn Wave targets TinyGo 0.42 or later and obtains reusable networking compatibility from system:tinygodriver instead of carrying local copies.
+Popcorn Web targets TinyGo 0.42 or later and obtains reusable networking compatibility from system:tinygodriver instead of carrying local copies.
 
 ```yaml
 status: accepted

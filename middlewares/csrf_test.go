@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 const testOrigin = "https://app.example"

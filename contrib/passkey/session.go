@@ -5,8 +5,8 @@ import (
 	"crypto/subtle"
 	"errors"
 
-	"github.com/shibukawa/popcornwave/authstate"
-	"github.com/shibukawa/popcornwave/contrib/internal/authn"
+	"github.com/shibukawa/popcornweb/authstate"
+	"github.com/shibukawa/popcornweb/contrib/internal/authn"
 )
 
 // SessionFlow adds atomic single-use state consumption to RelyingParty.

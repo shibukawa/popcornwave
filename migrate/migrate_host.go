@@ -8,7 +8,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/shibukawa/popcornwave/internal/pwmigrate"
+	"github.com/shibukawa/popcornweb/internal/pwmigrate"
 )
 
 // Delegated reports whether migration work runs in a pw child process.

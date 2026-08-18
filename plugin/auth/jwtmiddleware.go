@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // authenticateBearer is the ModeJWTOnly counterpart of authenticate.

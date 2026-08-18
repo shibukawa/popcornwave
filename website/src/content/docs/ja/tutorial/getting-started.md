@@ -65,7 +65,7 @@ Tailwind とデータベースを断るのは、後の章で足すためです�
 ```
 Created memoapp
 
-  .              .editorconfig  .gitignore  config.dev.toml  devbox.json  go.mod  popcornwave.toml  public.go
+  .              .editorconfig  .gitignore  config.dev.toml  devbox.json  go.mod  popcornweb.toml  public.go
   .vscode/       extensions.json  settings.json
   cmd/memoapp/   main.go
   handlers/      home.pw.html  home_handler.go  index.go
@@ -110,7 +110,7 @@ Devbox を使わない場合は `devbox shell` を飛ばして `pw dev` を直�
 
 ```
    .-.   .-.
- .(   ) (   ).    Popcorn Wave v0.1.0
+ .(   ) (   ).    Popcorn Web v0.1.0
 (   o     o   )   started at 2026-07-28 09:12:31 JST
 (    \___/    )   env dev · config.dev.toml
  '-.__.___.__-'
@@ -173,7 +173,7 @@ data ペインはアプリケーションが開いたテーブルをそのまま
 | `handlers/home_handler.go` | ルートと、リクエストから読む入力 |
 | `templates/document.pw.html` | すべてのページが描画される外枠 |
 
-`popcornwave.toml` は名前だけ覚えておいてください。ツールチェイン、データベースエンジン、
+`popcornweb.toml` は名前だけ覚えておいてください。ツールチェイン、データベースエンジン、
 生成の各目的がどのディレクトリを読むかを記録しています。`config.dev.toml` は
 `APP_ENV=dev` のランタイム設定で、さきほどのポートとログ形式はここから来ています。
 
@@ -199,7 +199,7 @@ package handlers
 export component Home(name: string, project: string): html {
   <div class="page">
     <header>
-      <p class="eyebrow">Popcorn Wave</p>
+      <p class="eyebrow">Popcorn Web</p>
       <h1 class="title">{project}</h1>
       <p class="lead">Hello, {name}. This page is yours to delete; nothing in the framework reads it.</p>
     </header>
@@ -231,7 +231,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 // homeInput is what this route reads from the request.
@@ -307,7 +307,7 @@ package handlers
 
 export component Home(name: string, project: string): html {
   <h1 class="title">Hello, {name}</h1>
-  <p>Served by Popcorn Wave.</p>
+  <p>Served by Popcorn Web.</p>
 }
 ```
 

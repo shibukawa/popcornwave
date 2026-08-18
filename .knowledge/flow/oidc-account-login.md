@@ -3,7 +3,7 @@ id: flow:oidc-account-login
 type: flow
 title: OIDC Account Login
 ---
-OIDC login verifies an external IdP identity, resolves or provisions a local account, and creates a Popcorn Wave session.
+OIDC login verifies an external IdP identity, resolves or provisions a local account, and creates a Popcorn Web session.
 
 ```yaml
 implemented_subset:

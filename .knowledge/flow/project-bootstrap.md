@@ -3,7 +3,7 @@ id: flow:project-bootstrap
 type: flow
 title: Project Bootstrap Flow
 ---
-Project bootstrap turns a project name into a runnable Popcorn Wave application and a reproducible Devbox development environment.
+Project bootstrap turns a project name into a runnable Popcorn Web application and a reproducible Devbox development environment.
 
 ```yaml
 flow:

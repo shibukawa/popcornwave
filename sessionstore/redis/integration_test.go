@@ -10,7 +10,7 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/shibukawa/popcornwave/session"
+	"github.com/shibukawa/popcornweb/session"
 )
 
 // TestLiveRedisOrValkey exercises the store against a real server. The unit

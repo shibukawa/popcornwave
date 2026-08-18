@@ -3,10 +3,10 @@ id: api:dynamo-package
 type: api
 title: database/dynamo Package
 ---
-Importing github.com/shibukawa/popcornwave/database/dynamo registers the DynamoDB configuration binding and opens the client into process state; operations are system:tinybind's "On" entries taking the handle the package exposes, and generated queries resolve the same handle themselves.
+Importing github.com/shibukawa/popcornweb/database/dynamo registers the DynamoDB configuration binding and opens the client into process state; operations are system:tinybind's "On" entries taking the handle the package exposes, and generated queries resolve the same handle themselves.
 
 ```yaml
-import: github.com/shibukawa/popcornwave/database/dynamo
+import: github.com/shibukawa/popcornweb/database/dynamo
 import_style:
   form: a normal import, following decision:import-registered-session-plugins for the registration half
   effect_of_importing: data:dynamodb-runtime-config appears in the configuration schema and the extension registers itself from init

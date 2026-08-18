@@ -28,10 +28,10 @@ non_goals:
   - distinguishing a declared parameter from any other identifier, which needs resolution
   - marking an unbalanced or unknown construct as an error, per decision:textmate-grammar-first
   - highlighting a generated *_pw_gen.go file as anything but Go
-  - a Popcorn Wave color theme
+  - a Popcorn Web color theme
 acceptance:
   - opening each of the repository's own .pw.html, .pw.sql, and .pw.dynamo sources produces the token sequence its fixture records
-  - a file opened with no workspace, no popcornwave.toml, and no pw binary highlights identically
+  - a file opened with no workspace, no popcornweb.toml, and no pw binary highlights identically
   - "a SELECT containing '{' inside a string literal is not tokenized as an expression"
   - an HTML attribute value containing an expression colors the expression and keeps the attribute scope around it
   - a dynamo body carries no source.sql scope anywhere

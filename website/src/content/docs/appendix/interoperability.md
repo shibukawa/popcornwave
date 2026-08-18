@@ -5,12 +5,12 @@ sidebar:
   order: 1
 ---
 
-Popcorn Wave generates request parsing, database queries, HTML, and response
+Popcorn Web generates request parsing, database queries, HTML, and response
 writing, so it can look as though the runtime depends on all four. It does not.
 The framework's required surface is smaller: a middleware stack over `net/http`
 and tooling that keeps generation, development, and builds consistent. The
 generated layers are **helpers** that you may replace — or use from another
-framework without bringing Popcorn Wave with them.
+framework without bringing Popcorn Web with them.
 
 ## Why these layers exist at all
 
@@ -81,7 +81,7 @@ What `pw.Run` adds on top, and what you then own yourself:
 For a test or a short-lived process none of that matters. For a long-running
 deployment, the shutdown ordering is the part worth reproducing.
 
-## Replacing a helper inside a Popcorn Wave application
+## Replacing a helper inside a Popcorn Web application
 
 ### Request parsing by hand
 
@@ -209,7 +209,7 @@ package api
 //go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -openapi
 ```
 
-Outside a Popcorn Wave project the template suffixes are `.tb.html` and
+Outside a Popcorn Web project the template suffixes are `.tb.html` and
 `.tb.sql` (`-html-template-pattern` and `-sql-template-pattern` change them),
 and the output lands in `tinybind_gen.go` and `tinybind_templates_gen.go`.
 
@@ -245,7 +245,7 @@ Three details make that work:
 - `path:` tags read `r.PathValue`, which only `net/http`'s own mux populates —
   one `SetPathValue` per parameter bridges any other router;
 - context-resolved query functions require generating with `-sql-context-api`
-  (or `-sql-context-only-api`, which is the form Popcorn Wave itself uses).
+  (or `-sql-context-only-api`, which is the form Popcorn Web itself uses).
 
 HTML works the same way, with the handler keeping control of status and headers:
 
@@ -257,7 +257,7 @@ err := htmlbind.Render(w, pages.Hello(pages.HelloParams{Name: input.Name}))
 ### The middleware travels too
 
 Everything in
-[`middlewares`](https://github.com/shibukawa/popcornwave/tree/main/middlewares)
+[`middlewares`](https://github.com/shibukawa/popcornweb/tree/main/middlewares)
 is a plain `func(http.Handler) http.Handler` with its dependencies passed as
 options rather than read from package globals. Any standard-library-compatible
 stack takes it directly, and Echo wraps it:
@@ -269,7 +269,7 @@ e.Use(echo.WrapMiddleware(middlewares.MaxRequestBody(10 << 20)))
 
 ## What does not travel
 
-| Stays with Popcorn Wave | Why |
+| Stays with Popcorn Web | Why |
 | --- | --- |
 | the implicit document shell | `pw.WriteHTML` resolves a registered wrapper chain; `htmlbind.RenderChain` needs the chain passed in |
 | layered configuration and `--generate-config` | `configbind` binds a struct; the file search order, environment selection, and merged scaffolds are the framework's |
@@ -283,5 +283,5 @@ The boundary is now concrete. Using the standalone generated helpers keeps a
 build TinyGo-ready because they do not reflect at runtime. A reflection-based
 query builder, an ORM, `html/template`, or a handwritten `encoding/json` decode
 steps off that target for the build that imports it. Ordinary Go builds permit
-either choice. Popcorn Wave constrains what it generates, not what an
+either choice. Popcorn Web constrains what it generates, not what an
 application is allowed to import.

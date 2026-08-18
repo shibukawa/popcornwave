@@ -14,7 +14,7 @@ const LANGUAGES = Object.keys(DIALECT_BY_LANGUAGE);
 
 /** @param {vscode.ExtensionContext} context */
 function activate(context) {
-  const output = vscode.window.createOutputChannel("Popcorn Wave");
+  const output = vscode.window.createOutputChannel("Popcorn Web");
   context.subscriptions.push(output);
 
   const formatter = new EmbeddedFormatter(() =>
@@ -72,13 +72,13 @@ function activate(context) {
   }
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("popcornwave.showOutput", () => output.show()),
+    vscode.commands.registerCommand("popcornweb.showOutput", () => output.show()),
   );
 }
 
 function report(error, document, output) {
   const where = error instanceof FormatError && error.line ? ` (line ${error.line})` : "";
-  const message = `Popcorn Wave: the file was not formatted${where}. ${error.message}`;
+  const message = `Popcorn Web: the file was not formatted${where}. ${error.message}`;
   output.appendLine(`${document.fileName}: ${error.message}`);
   vscode.window.showWarningMessage(message, "Show details").then((choice) => {
     if (choice === "Show details") {

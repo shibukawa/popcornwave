@@ -7,7 +7,7 @@ package sqlite
 import (
 	"database/sql"
 
-	"github.com/shibukawa/popcornwave/database"
+	"github.com/shibukawa/popcornweb/database"
 	tinygosqlite "github.com/shibukawa/tinygodriver/database/sql/sqlite"
 )
 

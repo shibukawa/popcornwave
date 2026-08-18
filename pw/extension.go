@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shibukawa/popcornwave/pwextension"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwextension"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 // Middleware is the standard net/http middleware shape used by framework
@@ -49,7 +49,7 @@ const (
 // and returns the middleware to install. Returning a nil middleware installs
 // nothing, which is how a disabled extension opts out.
 //
-// The registry lives in popcornwave/pwextension rather than here, so a plugin
+// The registry lives in popcornweb/pwextension rather than here, so a plugin
 // declaring a frame of this chain does not have to link this runtime to do it.
 // A plugin that also serves the other transport would otherwise carry the whole
 // net/http stack into a build that never calls any of it.
@@ -84,11 +84,11 @@ func init() {
 // each a panic at registration rather than a silent gap in the chain.
 func RegisterMiddleware(slot Slot, name string, middleware Middleware) {
 	if middleware == nil {
-		panic("popcornwave: middleware " + name + " is nil")
+		panic("popcornweb: middleware " + name + " is nil")
 	}
 	if slot == SlotOperational || slot == SlotAPIDoc {
 		panic(fmt.Sprintf(
-			"popcornwave: middleware %s registered at fixed frame %d; pick a neighboring slot relative to pw.SlotOperational or pw.SlotAPIDoc",
+			"popcornweb: middleware %s registered at fixed frame %d; pick a neighboring slot relative to pw.SlotOperational or pw.SlotAPIDoc",
 			name, slot))
 	}
 	captured := middleware
@@ -119,7 +119,7 @@ func extensionFrames(ctx context.Context) ([]chainFrame, error) {
 	for _, extension := range ordered {
 		middleware, err := extension.Setup(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("popcornwave: %s: %w", extension.Name, err)
+			return nil, fmt.Errorf("popcornweb: %s: %w", extension.Name, err)
 		}
 		if extension.Close != nil {
 			registerCleanup(extension.Name, extension.Close)

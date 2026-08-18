@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shibukawa/popcornwave/middlewares"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwdatabase"
-	"github.com/shibukawa/popcornwave/pwruntime"
-	"github.com/shibukawa/popcornwave/session"
-	"github.com/shibukawa/popcornwave/sessionconfig"
+	"github.com/shibukawa/popcornweb/middlewares"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwdatabase"
+	"github.com/shibukawa/popcornweb/pwruntime"
+	"github.com/shibukawa/popcornweb/session"
+	"github.com/shibukawa/popcornweb/sessionconfig"
 )
 
 // state holds the manager of the current initialization, so that a later slot
@@ -76,7 +76,7 @@ func sweep(prune func(context.Context, time.Time, int) (int64, error), stop <-ch
 // Manager returns the manager the last Setup installed, or nil when session
 // storage is disabled.
 //
-// It is how popcornwave/plugin/auth reaches Rotate and Destroy: the framework
+// It is how popcornweb/plugin/auth reaches Rotate and Destroy: the framework
 // resolves the session at SlotSession and authentication drives it at
 // SlotAuthentication, which is why the manager travels forward and the login
 // does not travel back.

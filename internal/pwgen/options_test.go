@@ -20,7 +20,7 @@ func TestOptionsAreValid(t *testing.T) {
 		t.Fatal("SQL context-only resolver is not configured")
 	}
 	if options.HTMLTemplatePattern != "*.pw.html" || options.SQLTemplatePattern != "*.pw.sql" {
-		t.Fatal("Popcorn Wave template generation profile is not configured")
+		t.Fatal("Popcorn Web template generation profile is not configured")
 	}
 }
 

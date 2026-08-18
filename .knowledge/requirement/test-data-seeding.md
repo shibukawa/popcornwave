@@ -3,7 +3,7 @@ id: requirement:test-data-seeding
 type: requirement
 title: Test Data Seeding and Comparison
 ---
-Popcorn Wave provides one dataset format that seeds a database from the CLI and from unit tests and also serves as the expected result for database assertions.
+Popcorn Web provides one dataset format that seeds a database from the CLI and from unit tests and also serves as the expected result for database assertions.
 
 ```yaml
 goals:

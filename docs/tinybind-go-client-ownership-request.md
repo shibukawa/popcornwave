@@ -1,13 +1,13 @@
 # Change request: complete the caller-owned browser runtime
 
-**From:** Popcorn Wave (`github.com/shibukawa/popcornwave`)
+**From:** Popcorn Web (`github.com/shibukawa/popcornweb`)
 **Against:** `github.com/shibukawa/tinybind-go` v0.3.3
 **Date:** 2026-08-04
 **Status:** answered in full by v0.3.5 — see "Outcome" at the end
 
 ## Summary
 
-Popcorn Wave is taking full ownership of every byte that runs in the browser. We are not asking the module to change its architecture — we are asking it to finish the transition its own catalog already defines, and to give us the one thing a caller-written client cannot work without.
+Popcorn Web is taking full ownership of every byte that runs in the browser. We are not asking the module to change its architecture — we are asking it to finish the transition its own catalog already defines, and to give us the one thing a caller-written client cannot work without.
 
 Three asks, in dependency order:
 
@@ -63,7 +63,7 @@ A conformance harness would be valuable on top of that. `requirement:client-upda
 
 This is the concrete failure that prompted the report.
 
-**What we found.** Popcorn Wave serves the redraw endpoint: we mount the route, own the reserved path prefix, own the registry, and route every refusal into our own error renderer and request log. But the client that calls it is the module's, and it builds the address itself (`htmlupdate/runtime.js`, `redraw()`):
+**What we found.** Popcorn Web serves the redraw endpoint: we mount the route, own the reserved path prefix, own the registry, and route every refusal into our own error renderer and request log. But the client that calls it is the module's, and it builds the address itself (`htmlupdate/runtime.js`, `redraw()`):
 
 ```js
 var url = PREFIX + "/redraw/" + encodeURIComponent(kind) + "/" + encodeURIComponent(elementId);
@@ -141,4 +141,4 @@ v0.3.5 answered every ask.
 
 Not asked for and welcome: validators are now seeded with the build identity, so two builds cannot produce comparable digests where the build header was dropped in transit.
 
-Popcorn Wave has moved redraw to the page URL, retired its reserved-prefix route, and added an explicit handler entry that names the components a URL will answer for. Taking over the browser half is now our own work rather than a further request — the release made the asset opt-in, which is all we needed from your side.
+Popcorn Web has moved redraw to the page URL, retired its reserved-prefix route, and added an explicit handler entry that names the components a URL will answer for. Taking over the browser half is now our own work rather than a further request — the release made the asset opt-in, which is all we needed from your side.

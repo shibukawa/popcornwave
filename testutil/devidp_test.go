@@ -9,10 +9,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shibukawa/popcornwave/authstate/memory"
-	"github.com/shibukawa/popcornwave/contrib/oauth"
-	"github.com/shibukawa/popcornwave/contrib/oidc"
-	"github.com/shibukawa/popcornwave/pw"
+	"github.com/shibukawa/popcornweb/authstate/memory"
+	"github.com/shibukawa/popcornweb/contrib/oauth"
+	"github.com/shibukawa/popcornweb/contrib/oidc"
+	"github.com/shibukawa/popcornweb/pw"
 )
 
 const testRoster = `

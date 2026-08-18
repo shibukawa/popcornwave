@@ -1,12 +1,12 @@
 ---
 title: Integrating htmx
-description: Share one Popcorn Wave component between the initial page and later fragments, while htmx replaces only the region that changed.
+description: Share one Popcorn Web component between the initial page and later fragments, while htmx replaces only the region that changed.
 sidebar:
   order: 6
 ---
 
 There is no server-side adapter for htmx. It needs a response shaped like the
-part of the page that already exists, and Popcorn Wave expresses that difference
+part of the page that already exists, and Popcorn Web expresses that difference
 with one call: `pw.WriteHTML` for the page, `pw.WriteHTMLFragment` for the
 region.
 
@@ -201,7 +201,7 @@ the entire root. The latter must unmount the old root and mount the inserted
 one. [Integrating React](/guides/interactivity/react/) puts those operations in
 a custom element's `connectedCallback` and `disconnectedCallback`.
 
-htmx needs no additional Popcorn Wave build support: one library file and
+htmx needs no additional Popcorn Web build support: one library file and
 `pw.WriteHTMLFragment` complete the integration. A useful optional addition
 would be a tiny framework-served adapter for the CSRF event above. It would
 remove repetition around `hx-delete` without building htmx itself into the

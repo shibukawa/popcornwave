@@ -32,28 +32,28 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 変わるものは 5 つ、まとめて変わります。
 
-**`popcornwave.toml` の `project.database`。** `pw generate` はこの値を見て、`.pw.sql` を
+**`popcornweb.toml` の `project.database`。** `pw generate` はこの値を見て、`.pw.sql` を
 どの方言のプレースホルダにコンパイルするかを決めます。変えたら再生成しないと、型付き
 クエリ関数は前の方言を吐き続けます。
 
 <Tabs syncKey="engine">
 <TabItem label="SQLite">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "sqlite"
 ```
 </TabItem>
 <TabItem label="Postgres">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "postgres"
 ```
 </TabItem>
 <TabItem label="MySQL">
 ```toml
-# popcornwave.toml
+# popcornweb.toml
 [project]
 database = "mysql"
 ```
@@ -94,7 +94,7 @@ dsn = "mysql://myapp:myapp@tcp(127.0.0.1:3306)/myapp"
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukaway/popcornwave/database/sqlite"
+	_ "github.com/shibukaway/popcornweb/database/sqlite"
 )
 ```
 </TabItem>
@@ -102,7 +102,7 @@ import (
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukawa/popcornwave/database/postgres"
+	_ "github.com/shibukawa/popcornweb/database/postgres"
 )
 ```
 </TabItem>
@@ -110,7 +110,7 @@ import (
 ```go
 // cmd/myapp/main.go
 import (
-	_ "github.com/shibukawa/popcornwave/database/mysql"
+	_ "github.com/shibukawa/popcornweb/database/mysql"
 )
 ```
 </TabItem>
@@ -137,7 +137,7 @@ import (
 </Tabs>
 
 **マイグレーション。手で書き換えます。** ここが実際に時間を食う部分で、道具はありません。
-Popcorn Wave は `.pw.sql` をひとつの方言にコンパイルするだけで、方言のあいだを翻訳
+Popcorn Web は `.pw.sql` をひとつの方言にコンパイルするだけで、方言のあいだを翻訳
 しません。キーをひとつ変えたからといって `AUTOINCREMENT` が `SERIAL` になることはなく、
 `datetime('now')` が `NOW()` になることもない。`migrations/` の DDL と、`queries/` の
 移植性のない式は、ファイルを開いて書き直す対象です。
@@ -145,15 +145,15 @@ Popcorn Wave は `.pw.sql` をひとつの方言にコンパイルするだけ�
 ログインのあるプロジェクトでは、さらに 2 つ変わります。どちらも気づきにくい部分です。
 
 **フレームワーク自身のマイグレーションも古い方言のままです。** ログインのある
-プロジェクトは `..._init_popcornwave_auth.sql` を持ち、`rdb` セッションバックエンドなら
-`..._init_popcornwave_session.sql` も持ちます。これらはあなたの DDL ではなくフレームワークの
+プロジェクトは `..._init_popcornweb_auth.sql` を持ち、`rdb` セッションバックエンドなら
+`..._init_popcornweb_session.sql` も持ちます。これらはあなたの DDL ではなくフレームワークの
 DDL で（`BLOB` に対する `BYTEA`、`WITHOUT ROWID` に対する何もなし）、再発行するコマンドは
 ありません。移行先のエンジンで同じ回答の使い捨てプロジェクトを作り、そのファイルを
 持ってくるのが実際的な手順です。
 
 ```sh
 pw init --yes --db=postgres --auth=oidc --session=redis --router=discovered /tmp/probe
-cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
+cp /tmp/probe/migrations/*_init_popcornweb_*.sql migrations/
 ```
 
 バージョン番号が異なる場合は、現在の番号を維持してください。置き換えるのは中身だけです。
@@ -165,7 +165,7 @@ cp /tmp/probe/migrations/*_init_popcornwave_*.sql migrations/
 // cmd/myapp/main.go
 import (
 	// もとは authstate/sqlite。
-	_ "github.com/shibukawa/popcornwave/authstate/postgres"
+	_ "github.com/shibukawa/popcornweb/authstate/postgres"
 )
 ```
 
@@ -203,7 +203,7 @@ rdb.source = "middleware"
 // cmd/myapp/main.go
 import (
 	// もとは sessionstore/redis。
-	_ "github.com/shibukawa/popcornwave/sessionstore/sqlite"
+	_ "github.com/shibukawa/popcornweb/sessionstore/sqlite"
 )
 ```
 
@@ -241,7 +241,7 @@ pw add discovered   # または: pw add registered
 ```
 
 結果として両方のツリーができます。これはサポートされた形です。`handlers/` に API、
-`pages/` にサイトというのは普通の Popcorn Wave プロジェクトです。ただ、追加ではなく
+`pages/` にサイトというのは普通の Popcorn Web プロジェクトです。ただ、追加ではなく
 移行のつもりだったなら、元のツリーを消すのは誰も代わりにやってくれない手作業です。
 
 ページツリーが登録に対して何を買うのかは
@@ -288,7 +288,7 @@ claim.values = ["acme"]
 
 失効リストを有効にするか admission を `registered` にすると、サーバー側の状態が必要に
 なります。認証バックエンドに `rdb`、`dynamo`、`firestore` のいずれかを選び、対応する
-機能を先に追加してください。`rdb` なら `popcornwave_revoked_token` のスキーマを作るため
+機能を先に追加してください。`rdb` なら `popcornweb_revoked_token` のスキーマを作るため
 `pw migrate up` を実行します。ほかのストアでは、それぞれのデプロイ手順に従います。
 
 ## プロジェクトの種類を変える

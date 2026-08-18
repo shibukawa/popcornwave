@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shibukawa/popcornwave/internal/pwenv"
-	"github.com/shibukawa/popcornwave/pwconfig"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/internal/pwenv"
+	"github.com/shibukawa/popcornweb/pwconfig"
+	"github.com/shibukawa/popcornweb/pwruntime"
 )
 
 func TestDevelopmentLogSinkCreatesCanonicalJSONLLazily(t *testing.T) {

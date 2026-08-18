@@ -10,7 +10,7 @@ import (
 	"testing/fstest"
 
 	kzstd "github.com/klauspost/compress/zstd"
-	"github.com/shibukawa/popcornwave/pwruntime"
+	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinybind-go/htmlbind"
 )
@@ -53,7 +53,7 @@ func TestScaffoldsIncludeBuiltInDefinitions(t *testing.T) {
 
 func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
 	SetConfigLoadOptions(configbind.LoadOptions{
-		Vendor: "popcornwave-test", Tool: "pw-test", FileName: "missing.toml",
+		Vendor: "popcornweb-test", Tool: "pw-test", FileName: "missing.toml",
 		Args: []string{"--port", "9090"}, Environ: []string{"PORT=7070"},
 	})
 	handler, err := Middlewares(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
