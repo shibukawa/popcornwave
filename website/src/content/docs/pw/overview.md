@@ -18,10 +18,13 @@ Commands:
   init      create a project in a new directory
   add       enable a capability in a project that declined it
   new       scaffold a handler or a page beside the ones you have
-  generate  regenerate everything derived from your sources
+  generate  write everything a compiler needs, stopping before the compiler
+  check     report generated files that are stale or missing
+  fmt       format template sources into their canonical form
+  i18n      reconcile message catalogs against the templates that use them
   migrate   inspect and apply database migrations
   seed      load seed datasets into the database
-  build     generate, build assets, and compile the project
+  build     run generate and then compile the project
   dev       watch, regenerate, rebuild, and restart
   doctor    report what a named environment will actually run
   version   print the version, revision, and toolchain
@@ -42,9 +45,18 @@ Install it with Homebrew, Nix, a release archive, or the Go toolchain — see
 | [`pw new`](/pw/project/new/) | scaffold one more handler, route, and template |
 | [`pw generate`](/pw/project/generate/) | write every build input, stopping before the compiler |
 | [`pw check`](/pw/project/check/) | report generated Go that is stale or missing |
+| `pw fmt` | format template and query sources into their canonical form |
+| `pw i18n` | reconcile message catalogs against the templates that use them |
 | [`pw dev`](/pw/project/dev/) | watch, regenerate, migrate, and restart |
 | [`pw build`](/pw/project/build/) | produce a release binary |
 | [`pw doctor`](/pw/project/doctor/) | report what an environment would run, and what is wrong |
+
+`pw fmt` and `pw i18n` are documented with the work they belong to rather than on
+a page of their own. Formatting appears under [`pw check`](/pw/project/check/#in-ci),
+which is where a formatting pass has to run in a build and why it comes before
+generation; the catalog commands appear in
+[Translated Pages](/guides/frontend/i18n/), beside the message syntax whose
+catalogs they maintain.
 
 ### Database
 

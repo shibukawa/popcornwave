@@ -76,17 +76,20 @@ Commands:
   init      create a project in a new directory
   add       enable a capability in a project that declined it
   new       scaffold a handler or a page beside the ones you have
-  generate  regenerate everything derived from your sources
+  generate  write everything a compiler needs, stopping before the compiler
+  check     report generated files that are stale or missing
+  fmt       format template sources into their canonical form
+  i18n      reconcile message catalogs against the templates that use them
   migrate   inspect and apply database migrations
   seed      load seed datasets into the database
-  build     generate, build assets, and compile the project
+  build     run generate and then compile the project
   dev       watch, regenerate, rebuild, and restart
   doctor    report what a named environment will actually run
   version   print the version, revision, and toolchain
   help      print this message
 ```
 
-Each command has its own page under [pw command](/pw/overview/).
+[pw command](/pw/overview/) says what each one is for and where it is documented.
 
 ## The library
 

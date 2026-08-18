@@ -18,10 +18,13 @@ Commands:
   init      create a project in a new directory
   add       enable a capability in a project that declined it
   new       scaffold a handler or a page beside the ones you have
-  generate  regenerate everything derived from your sources
+  generate  write everything a compiler needs, stopping before the compiler
+  check     report generated files that are stale or missing
+  fmt       format template sources into their canonical form
+  i18n      reconcile message catalogs against the templates that use them
   migrate   inspect and apply database migrations
   seed      load seed datasets into the database
-  build     generate, build assets, and compile the project
+  build     run generate and then compile the project
   dev       watch, regenerate, rebuild, and restart
   doctor    report what a named environment will actually run
   version   print the version, revision, and toolchain
@@ -42,9 +45,17 @@ Commands:
 | [`pw new`](/ja/pw/project/new/) | ハンドラ・ルート・テンプレートをまとめて追加する |
 | [`pw generate`](/ja/pw/project/generate/) | ビルドに必要な入力を一式書き出し、コンパイラの手前で止まる |
 | [`pw check`](/ja/pw/project/check/) | 生成された Go が古いか欠けているかを報告する |
+| `pw fmt` | テンプレートとクエリのソースを正規形に整形する |
+| `pw i18n` | メッセージカタログを、それを使うテンプレートと突き合わせる |
 | [`pw dev`](/ja/pw/project/dev/) | 監視、再生成、マイグレーション、再起動 |
 | [`pw build`](/ja/pw/project/build/) | リリース用バイナリを作る |
 | [`pw doctor`](/ja/pw/project/doctor/) | その環境で何が動き、どこが間違っているかを報告する |
+
+`pw fmt` と `pw i18n` には専用のページがなく、それぞれが属する作業のページで扱っています。
+整形は [`pw check`](/ja/pw/project/check/#ci-では) にあります。ビルドの中で整形をどこで
+走らせるか、なぜ生成より前なのかを説明している場所だからです。カタログのコマンドは
+[ページの翻訳](/ja/guides/frontend/i18n/)にあり、カタログが支えているメッセージ構文の
+すぐ隣に置いてあります。
 
 ### データベース
 
