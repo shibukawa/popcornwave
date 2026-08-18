@@ -342,7 +342,7 @@ func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 Call `RegisterConfig()` from `main` **after** every package `init` has run and **before** parsing begins (registering after `ParseConfig` panics). The prefix must be a string literal; prefixes share one namespace and may contain dots (`"middleware.cache"`). Read anywhere a request context is:
 
 ```go
-app := pw.Config[AppConfig](r.Context())
+app := pw.Config[AppConfig](r)
 ```
 
 No error return: an unparsed prefix yields declared defaults, an unregistered type yields the zero value, `nil` is accepted outside a request.

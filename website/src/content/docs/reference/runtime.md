@@ -63,7 +63,8 @@ runner, a one-shot job.
 | Function | What it does |
 | --- | --- |
 | `RegisterConfig[T](prefix)` | Registers one configuration struct under a TOML prefix (**generated**) |
-| `Config[T](ctx) T` | Returns the parsed struct; `nil` is an acceptable context outside a request |
+| `Config[T](r) T` | Returns the parsed struct for this request |
+| `ConfigContext[T](ctx) T` | The same below the handler; `nil` is an acceptable context outside a request |
 | `Env() string` | The resolved environment token |
 | `RegisterSubCommand[T](name, help)` | Registers typed CLI-only input |
 | `Command[T]() (T, bool)` | The selected and parsed subcommand, after `ParseConfig` |
@@ -98,8 +99,9 @@ zero-valued when there is none.
 
 | | |
 | --- | --- |
-| `RequestAuthentication(ctx) Authentication` | The verified authentication result |
-| `Authenticated(ctx) bool` | Whether the request carries a verified identity |
+| `RequestAuthentication(r) Authentication` | The verified authentication result |
+| `Authenticated(r) bool` | Whether the request carries a verified identity |
+| `RequestAuthenticationContext(ctx)`, `AuthenticatedContext(ctx)` | The same below the handler |
 
 **Functions**
 
@@ -107,6 +109,14 @@ zero-valued when there is none.
 | --- | --- |
 | `Parse[T](r) (T, error)` | Binds path, query, body, header, cookie, and method into one struct |
 | `IsBot(r) bool` | Whether the client will run the boundary runtime |
+| `Context(r) context.Context` | The request's context, for the layers below the handler |
+
+`Context` is the supported crossing between the two currencies: a handler holds
+the request, and generated SQL, a service function, and anything else callable
+without a request take a `context.Context`. `r.Context()` returns the same value
+and stays legal — it is a method on the `net/http` request type, which is the
+one read a second transport cannot follow, so `pw.Context` is what a fasthttp
+build rewrites cleanly.
 
 Authorization must consume `RequestAuthentication`, never the presence of a
 cookie. A request that passed through no authentication middleware, and an
@@ -278,12 +288,13 @@ clause instead of taking the process down.
 
 | Function | What it does |
 | --- | --- |
-| `DB(ctx) (*sql.DB, bool)` | The pool of the effective connection group |
-| `DBDriver(ctx) (string, bool)` | The driver scheme of that pool |
-| `SelectDB(ctx, group) context.Context` | Pins a named connection group |
-| `SelectWriteDB(ctx) (context.Context, error)` | Pins the group framework-owned writes use |
-| `SelectSessionDB(ctx) (context.Context, error)` | Pins the group holding the session table |
-| `Transaction(ctx, fn) error` | Runs `fn` in a transaction whose context the generated SQL uses |
+| `DB(r) (*sql.DB, bool)` | The pool of the effective connection group |
+| `DBDriver(r) (string, bool)` | The driver scheme of that pool |
+| `SelectDB(r, group) context.Context` | Pins a named connection group |
+| `SelectWriteDB(r) (context.Context, error)` | Pins the group framework-owned writes use |
+| `SelectSessionDB(r) (context.Context, error)` | Pins the group holding the session table |
+| `Transaction(r, fn) error` | Runs `fn` in a transaction whose context the generated SQL uses |
+| `DBContext`, `DBDriverContext`, `SelectDBContext`, `SelectWriteDBContext`, `SelectSessionDBContext`, `TransactionContext` | Each of the above below the handler, taking a `context.Context` — including one `SelectDB` already pinned |
 
 A nested `Transaction` opens a savepoint rather than a second transaction, so
 its failure rolls back only its own work and leaves the outer one usable.
@@ -302,7 +313,8 @@ deployment topology. See [Relational databases](/guides/storage/rdb/).
 
 | | |
 | --- | --- |
-| `Logger(ctx) Log` | The logger bound to the request, its stable attributes, and the active span |
+| `Logger(r) Log` | The logger bound to the request, its stable attributes, and the active span |
+| `LoggerContext(ctx) Log` | The same below the handler, and inside a child span |
 
 **`Attribute`** — one scalar key-value pair, the same type a span attribute uses.
 
@@ -322,9 +334,9 @@ nil check. Acquire it again inside a child span to correlate records with that
 span:
 
 ```go
-ctx, span := pw.StartSpan(ctx, "load-user")
+ctx, span := pw.StartSpan(r, "load-user")
 defer span.End()
-pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
+pw.LoggerContext(ctx).Info("loaded", pw.Int("rows", n))
 ```
 
 There is no `Fatal` and no `Panic`. Logging reports what happened; it does not
@@ -339,8 +351,9 @@ and a value that needs a structure belongs in attributes of its own.
 
 | | |
 | --- | --- |
-| `StartSpan(ctx, name, ...Attribute) (context.Context, *Span)` | Opens a child of the active span |
-| `StartSpanKind(ctx, name, kind, ...Attribute)` | The same, for work that is not internal |
+| `StartSpan(r, name, ...Attribute) (context.Context, *Span)` | Opens a child of the request span |
+| `StartSpanKind(r, name, kind, ...Attribute)` | The same, for work that is not internal |
+| `StartSpanContext(ctx, …)`, `StartSpanKindContext(ctx, …)` | The same below the handler, nesting under the span the context carries |
 
 **Constants**
 
@@ -353,8 +366,9 @@ and a value that needs a structure belongs in attributes of its own.
 
 | Function | What it does |
 | --- | --- |
-| `TraceID(ctx) string`, `SpanID(ctx) string` | The current identifiers, or empty outside a trace |
-| `Traced(ctx) bool` | Whether the context carries a valid span context |
+| `TraceID(r) string`, `SpanID(r) string` | The current identifiers, or empty outside a trace |
+| `Traced(r) bool` | Whether the request carries a valid span context |
+| `TraceIDContext(ctx)`, `SpanIDContext(ctx)`, `TracedContext(ctx)` | The same below the handler |
 
 Outside a trace, or with tracing disabled, `StartSpan` returns a span that
 records nothing and costs nothing to end — the `defer span.End()` needs no

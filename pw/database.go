@@ -2,6 +2,7 @@ package pw
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/shibukawa/popcornweb/pwdatabase"
 	"github.com/shibukawa/popcornweb/pwruntime"
@@ -9,27 +10,27 @@ import (
 
 func validateConfiguredRuntime() error {
 	if err := validateRuntimeConfig(
-		Config[ServerConfig](nil),
-		Config[SecurityConfig](nil),
-		Config[MiddlewareConfig](nil),
-		Config[ObservabilityConfig](nil),
+		ConfigContext[ServerConfig](nil),
+		ConfigContext[SecurityConfig](nil),
+		ConfigContext[MiddlewareConfig](nil),
+		ConfigContext[ObservabilityConfig](nil),
 	); err != nil {
 		return err
 	}
 	// The cookie policy is the one rule here that reads the environment: the
 	// same value is deliberate on a loopback development machine and a defect
 	// anywhere else.
-	if err := validateSessionConfig(Config[SessionConfig](nil), Env(), Development()); err != nil {
+	if err := validateSessionConfig(ConfigContext[SessionConfig](nil), Env(), Development()); err != nil {
 		return err
 	}
-	return validateHTMLConfig(Config[HTMLConfig](nil))
+	return validateHTMLConfig(ConfigContext[HTMLConfig](nil))
 }
 
 // initializeRuntimeDatabase opens the configured pools and registers their
 // release. Opening is pwdatabase's; what stays here is that a pool this
 // process opened is closed by the same shutdown that closes an extension.
 func initializeRuntimeDatabase() error {
-	config := Config[MiddlewareConfig](nil).RDB
+	config := ConfigContext[MiddlewareConfig](nil).RDB
 	if !config.Enabled {
 		return nil
 	}
@@ -67,18 +68,29 @@ func reportDatabaseConnections(connections *pwruntime.ConnectionSet) {
 //
 // A replica can never be selected this way, so a caller that must write does
 // not have to know the deployment topology.
-func SelectWriteDB(ctx context.Context) (context.Context, error) {
+func SelectWriteDB(r *http.Request) (context.Context, error) {
+	return pwdatabase.SelectWriteDB(r.Context())
+}
+
+// SelectWriteDBContext is SelectWriteDB for code below the handler.
+func SelectWriteDBContext(ctx context.Context) (context.Context, error) {
 	return pwdatabase.SelectWriteDB(ctx)
 }
 
 // SelectSessionDB pins the connection group holding the session table:
 // session.rdb.group, falling back to the framework write group.
-func SelectSessionDB(ctx context.Context) (context.Context, error) {
+func SelectSessionDB(r *http.Request) (context.Context, error) {
+	return pwdatabase.SelectSessionDB(r.Context())
+}
+
+// SelectSessionDBContext is SelectSessionDB for code below the handler, which
+// is where the framework's own session storage calls it.
+func SelectSessionDBContext(ctx context.Context) (context.Context, error) {
 	return pwdatabase.SelectSessionDB(ctx)
 }
 
 // configuredDatabaseDSN reports the DSN of the migration group so system:pw-cli
 // can migrate and seed without reimplementing configuration precedence.
 func configuredDatabaseDSN() (string, error) {
-	return Config[MiddlewareConfig](nil).RDB.MigrationDSN()
+	return ConfigContext[MiddlewareConfig](nil).RDB.MigrationDSN()
 }

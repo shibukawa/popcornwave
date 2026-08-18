@@ -247,6 +247,32 @@ func Options(sqlDialect string) (generator.Options, error) {
 		// The third branch of an action handler, beside WantsUpdate. A handler
 		// asking which caller it has is a handler either transport can serve.
 		{name: "WantsValue", writer: -1, request: 0},
+		// The request-scoped accessors, per policy:request-scoped-accessor-shape.
+		// Each is the base form of a pair whose other half takes a context and
+		// needs no pattern, having no transport argument to drop. They are the
+		// largest block here because a handler reads more than it writes: the
+		// configuration it was started with, the pool it queries, the logger and
+		// the span it reports through, who the reader is, and where a cached
+		// result lives.
+		{name: "Context", writer: -1, request: 0},
+		{name: "Config", writer: -1, request: 0},
+		{name: "Logger", writer: -1, request: 0},
+		{name: "DB", writer: -1, request: 0},
+		{name: "DBDriver", writer: -1, request: 0},
+		{name: "SelectDB", writer: -1, request: 0},
+		{name: "SelectWriteDB", writer: -1, request: 0},
+		{name: "SelectSessionDB", writer: -1, request: 0},
+		{name: "Transaction", writer: -1, request: 0},
+		{name: "RequestAuthentication", writer: -1, request: 0},
+		{name: "Authenticated", writer: -1, request: 0},
+		{name: "StartSpan", writer: -1, request: 0},
+		{name: "StartSpanKind", writer: -1, request: 0},
+		{name: "TraceID", writer: -1, request: 0},
+		{name: "SpanID", writer: -1, request: 0},
+		{name: "Traced", writer: -1, request: 0},
+		{name: "MemoStore", writer: -1, request: 0},
+		{name: "RequestLocale", writer: -1, request: 0},
+		{name: "LocalePath", writer: -1, request: 0},
 		// The locale switching surface. LocaleChoices reads the request because
 		// a choice names this same page in another language, and SetLocale
 		// writes the cookie a reader's explicit choice is stored in. Neither

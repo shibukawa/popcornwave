@@ -90,6 +90,6 @@ func chatSocket(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		// The refusal — a cross-site origin, a request that is not an upgrade —
 		// has already been written as a problem document. This is for the log.
-		pw.Logger(r.Context()).Warn("chat upgrade refused", pw.Err(err))
+		pw.Logger(r).Warn("chat upgrade refused", pw.Err(err))
 	}
 }

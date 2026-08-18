@@ -15,7 +15,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	user, authenticated := auth.User(r.Context())
 	// Which method signed this request in. A passkey session and an OIDC
 	// session are the same session once created; only this differs.
-	viaPasskey := pw.RequestAuthentication(r.Context()).Method == auth.MethodPasskey
+	viaPasskey := pw.RequestAuthentication(r).Method == auth.MethodPasskey
 	pw.WriteHTML(w, r, Home(HomeParams{
 		Authenticated: authenticated,
 		DisplayName:   user.DisplayName,

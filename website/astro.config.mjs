@@ -28,8 +28,8 @@ export default defineConfig({
     // --code-only flag on the same page.
     '/pw/project/prepare': `${base}/pw/project/generate/`,
     '/ja/pw/project/prepare': `${base}/ja/pw/project/generate/`,
-    // The framework was renamed from Popcorn Wave to Popcorn Web, which moved
-    // the page that argues for it.
+    // Renaming the framework moved the page that argues for it. The key is the
+    // slug it had under the old name, so a bulk rename must not touch it.
     '/start/why-popcorn-wave': `${base}/start/why-popcorn-web/`,
     '/ja/start/why-popcorn-wave': `${base}/ja/start/why-popcorn-web/`,
   },

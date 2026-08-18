@@ -212,7 +212,7 @@ if !ok {
 
 accountID := caller.AccountID
 claims := caller.Identity.Claims
-authentication := pw.RequestAuthentication(r.Context())
+authentication := pw.RequestAuthentication(r)
 ```
 
 `admission = "authenticated"` はサーバー側のストアを使いません。`claim` も検証済み

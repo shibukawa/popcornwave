@@ -208,7 +208,7 @@ func Chat(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}); err != nil {
-		pw.Logger(r.Context()).Warn("upgrade refused", pw.Err(err))
+		pw.Logger(r).Warn("upgrade refused", pw.Err(err))
 	}
 }
 ```
@@ -263,15 +263,17 @@ Scaffolded projects carry status templates including `templates/400.pw.html`, `4
 
 | Call | Returns |
 | --- | --- |
-| `pw.Logger(ctx)` | request-scoped logger; never nil. `pw.WithLogAttributes(ctx, …)` adds attributes |
-| `pw.Config[T](ctx)` | a registered configuration struct; never fails (zero value if unregistered) |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` — `false` on PostgreSQL (native pgx pool; use `postgres.WithConn`) |
-| `pw.Transaction(ctx, fn)` | runs `fn` in a transaction; generated queries recover it from the context |
-| `pw.RequestAuthentication(ctx)` | the verified authentication result; `.Subject` is what a private cache key uses |
-| `pw.Authenticated(ctx)` | whether the request carries a verified identity |
-| `pw.LocaleContext(ctx)` | the resolved locale (see [i18n.md](i18n.md)) |
-| `pw.MemoStore(ctx, name)` | a configured data cache (see [caching.md](caching.md)) |
-| `pw.TraceID(ctx)` / `pw.SpanID(ctx)` | correlation ids, empty outside a trace |
+| `pw.Logger(r)` | request-scoped logger; never nil. `pw.WithLogAttributes(ctx, …)` adds attributes |
+| `pw.Config[T](r)` | a registered configuration struct; never fails (zero value if unregistered) |
+| `pw.DB(r)` | `(*sql.DB, bool)` — `false` on PostgreSQL (native pgx pool; use `postgres.WithConn`) |
+| `pw.Transaction(r, fn)` | runs `fn` in a transaction; generated queries recover it from the context |
+| `pw.RequestAuthentication(r)` | the verified authentication result; `.Subject` is what a private cache key uses |
+| `pw.Authenticated(r)` | whether the request carries a verified identity |
+| `pw.RequestLocale(r)` | the resolved locale (see [i18n.md](i18n.md)) |
+| `pw.MemoStore(r, name)` | a configured data cache (see [caching.md](caching.md)) |
+| `pw.TraceID(r)` / `pw.SpanID(r)` | correlation ids, empty outside a trace |
+
+Each takes the request. Below the handler — a service function, a job, a child span — the same accessor takes a `context.Context` under a `Context` suffix: `pw.LoggerContext(ctx)`, `pw.ConfigContext[T](ctx)`, `pw.DBContext(ctx)`, `pw.TransactionContext(ctx, fn)`. `pw.Context(r)` is how a handler produces the context those take, and the one to prefer over `r.Context()`.
 | `pw.IsBot(r)` | User-Agent heuristic; use only for render-branch choice, never access decisions |
 
 Reading one value off the request goes through the framework rather than the
@@ -287,7 +289,7 @@ the answer), `pw.WantsUpdate(r)` (the runtime intercepted a gesture and expects
 regions), `pw.WantsLive(r)` (a live subscription).
 
 ```go
-err = pw.Transaction(r.Context(), func(ctx context.Context) error {
+err = pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, input.Name, input.Email); err != nil {
 		return err
 	}

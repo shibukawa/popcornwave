@@ -11,7 +11,7 @@ sidebar:
 
 ## テレメトリのモデル
 
-アプリケーションコードは [`pw.Logger(ctx)`](/ja/reference/runtime/#ロギング) から構造化
+アプリケーションコードは [`pw.Logger(r)`](/ja/reference/runtime/#ロギング) から構造化
 レコードを書きます。コンテキストは
 実行中のトレース識別子を持つため、スパン内で出したレコードには `trace_id`、`span_id`、
 `trace_flags` が自動的に入ります。フレームワークの診断も同じロガーを使います。メッセージは
@@ -28,7 +28,7 @@ import (
 
 func showAccount(w http.ResponseWriter, r *http.Request) {
     accountID := r.PathValue("id")
-    pw.Logger(r.Context()).Info(
+    pw.Logger(r).Info(
         "account requested",
         pw.String("account_id", accountID),
         pw.Bool("cached", false),

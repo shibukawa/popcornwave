@@ -43,9 +43,14 @@ pinning_returns_a_context:
     lifetime: the wrapper holds the pooled request value, so a context derived from the request inherits the rule that it does not outlive the handler
   transaction: api:transaction-runner keeps taking a context, because a caller holding a pinned context wants the transaction on that group; its request form is the entry point and its Context form is what a pinned caller uses
 migration:
-  fact: today every accessor takes ctx first, so the base form is a breaking rename across a pre-1.0 surface
+  applied: 2026-08-18, in one change rather than the three steps below, because the rename is what makes the base name available and splitting it would have shipped two spellings of the same call
+  fact: every accessor took ctx first, so the base form was a breaking rename across a pre-1.0 surface
   order: add the base form, move scaffolds and examples onto it, then rename the ctx form with its suffix
   not_removed: no context form is deleted, because the layers below the handler are its callers
+  what_moved: Config, Logger, DB, DBDriver, SelectDB, SelectWriteDB, SelectSessionDB, Transaction, RequestAuthentication, Authenticated, StartSpan, StartSpanKind, TraceID, SpanID, Traced, MemoStore, LocalePath, and the locale read, plus pw.Context itself
+  the_one_exception: the locale read has no base name to take, Locale being the type; RequestLocale is the base form and LocaleContext, which already carried the suffix, is unchanged
+  stayed_on_the_context: the cache operations, Go, WithLogAttributes, and the startup entries, none of which reads the request — each passes its context down rather than reading a value out of it
+  a_call_site_migrates_by_argument: pw.DB(ctx) becomes pw.DB(r), so the diff of an application is r for r.Context() and never a new name
 rules:
   - an accessor pair reads one resource; the two forms never diverge in behavior
   - a new request-scoped accessor lands with both forms, the way policy:context-value-storage requires a capsule field and its accessor together

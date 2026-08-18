@@ -176,7 +176,7 @@ share one namespace, so give them distinct names (`app`, `billing`, `search`).
 ### 3. Read it
 
 ```go
-app := pw.Config[AppConfig](r.Context())
+app := pw.Config[AppConfig](r)
 ```
 
 `pw.Config` is available anywhere a request context is, and takes `nil` outside

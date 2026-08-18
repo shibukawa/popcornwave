@@ -29,7 +29,7 @@ registration_shape:
 the_pw_surface_to_register:
   response: WriteHTML, WriteHTMLPage, WriteHTMLChain, WriteHTMLFragment, WriteAPI, WriteProblem
   update: Redraw, RedrawComponents, WriteUpdate, WriteUpdateNavigate, and the WantsUpdate predicate
-  request: Parse, IsBot, and every api:request-context-accessors base form once policy:request-scoped-accessor-shape moves them to take the request
+  request: Parse, IsBot, and every api:request-context-accessors base form, registered 2026-08-18 when policy:request-scoped-accessor-shape moved them to take the request — the largest single block in the set, and the one a handler reaches most
   redirect: api:redirect-response, which is transport-only and needs the pattern that shape requires
   stream: the api:typed-stream entry, whose callback form is what makes it rewritable at all
   openapi: OpenAPIJSON

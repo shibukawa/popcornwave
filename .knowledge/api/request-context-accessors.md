@@ -7,13 +7,14 @@ Users retrieve individual framework resources without observing data:request-con
 
 ```yaml
 shape:
-  today: every accessor below takes context.Context first, so a handler writes r.Context() at each call
-  direction: policy:request-scoped-accessor-shape adds a base form taking the request handle and renames these with a Context suffix
-  status: proposed, not yet applied to this surface
+  applied: 2026-08-18; each accessor takes the request handle, and the Context-suffixed form beside it takes context.Context for the layers below the handler
+  governed_by: policy:request-scoped-accessor-shape, which also records what deliberately stayed on the context
+  second_transport: each base form is registered per requirement:pw-call-registration, so the request argument collapses onto the fasthttp request value rather than refusing the handler; pwfast declares both spellings over one body
 surface:
-  - pw.Config[T](context.Context) returns one immutable typed binding
-  - pw.Logger(context.Context) returns api:logger bound to the current trace and request
-  - pw.DB(context.Context) returns the *sql.DB of the effective group and presence
+  - pw.Context(r) returns the request's context.Context, and is the supported crossing between the two forms
+  - pw.Config[T](r) returns one immutable typed binding
+  - pw.Logger(r) returns api:logger bound to the current trace and request
+  - pw.DB(r) returns the *sql.DB of the effective group and presence
   - pw.SelectDB pins a group, per api:database-selection
   - generated SQL retrieves the active database or transaction executor
   - session accessors return validated typed session state

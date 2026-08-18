@@ -120,7 +120,7 @@ func emitBootReport(listening string) {
 	}
 	bootState.emitted = true
 	report := bootState.report
-	switch resolveBootLogFormat(Config[ObservabilityConfig](nil).BootLog) {
+	switch resolveBootLogFormat(ConfigContext[ObservabilityConfig](nil).BootLog) {
 	case BootLogOff:
 	case BootLogTree:
 		_, _ = os.Stderr.WriteString(renderBootTree(report, listening, bootStyleFor(os.Stderr)))

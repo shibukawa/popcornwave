@@ -281,3 +281,83 @@ func pwEntriesTakingTheTransport(t *testing.T) []string {
 	}
 	return names
 }
+
+// What the accessor pair is actually worth, checked on the emitted source
+// rather than on the design.
+//
+// policy:request-scoped-accessor-shape has a handler take the request and the
+// layers below it take a context, which is only affordable if the second
+// transport gets the same handler for free. It does, and this is the mechanism:
+// the collapsed parameter becomes the context, the first transport argument of
+// a registered call is substituted with it rather than dropped, and the import
+// rewrite sends the selector to the pwfast entry of the same name. So
+// pw.DB(r) is emitted as pwfast.DB(ctx) with no argument moved, and the
+// Context form beside it, which carries no transport, is emitted unchanged.
+func TestARequestScopedAccessorIsRewrittenOntoTheCollapsedContext(t *testing.T) {
+	options, err := pwgen.Options(sqlbind.DialectSQLite)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transform := pwgen.FastTransform(options.Calls.Set)
+
+	dir, err := filepath.Abs(filepath.Join("..", "transportfixture"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
+			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedDeps | packages.NeedImports,
+		Dir: dir,
+	}, "./...")
+	if err != nil {
+		t.Fatalf("the handler fixture could not be loaded: %v", err)
+	}
+
+	var emitted string
+	for _, pkg := range loaded {
+		if len(pkg.Errors) > 0 || pkg.TypesInfo == nil {
+			continue
+		}
+		plan, err := generator.AnalyzeTransform(pkg, transform)
+		if err != nil {
+			t.Fatalf("%s: %v", pkg.PkgPath, err)
+		}
+		if len(plan.Admitted) == 0 {
+			continue
+		}
+		output, err := generator.RewriteTransform(pkg, plan, transform)
+		if err != nil {
+			t.Fatalf("%s: %v", pkg.PkgPath, err)
+		}
+		emitted = string(output.Source)
+	}
+	if emitted == "" {
+		t.Fatal("nothing was emitted, so this proves nothing")
+	}
+
+	// The local name of the rewritten import is the authored one, so the
+	// selector in a rewritten body is untouched and only the path moves. The
+	// collapsed parameter is ctx2 rather than ctx because this handler already
+	// names a ctx: the rewriter picks a free identifier rather than shadowing.
+	for _, want := range []string{
+		`pw "github.com/shibukawa/popcornweb/pwfast"`,
+		"func AccessorHandler(ctx2 *fasthttp.RequestCtx)",
+		"pw.DB(ctx2)",
+		`pw.StartSpan(ctx2, "accessors")`,
+		"pw.TraceID(ctx2)",
+		"pw.Authenticated(ctx2)",
+		"pw.RequestAuthentication(ctx2)",
+		// The other half of the pair carries no transport, so it crosses with
+		// the context the span produced and no argument moved.
+		"pw.LoggerContext(ctx)",
+	} {
+		if !strings.Contains(emitted, want) {
+			t.Errorf("the emitted handler does not contain %q", want)
+		}
+	}
+	// net/http itself survives, because the fixture names a status and a
+	// sentinel error from it. The request type is what has to be gone.
+	if strings.Contains(emitted, "*http.Request") {
+		t.Error("the emitted handler still names the net/http request type")
+	}
+}

@@ -23,6 +23,10 @@ type Locale = pwruntime.Locale
 // rule about messages. See .knowledge data:locale-bindings.
 func LocaleContext(ctx context.Context) Locale { return pwruntime.LocaleContext(ctx) }
 
+// RequestLocale is LocaleContext for a handler. It is not spelled Locale
+// because that name is the locale type itself.
+func RequestLocale(r *http.Request) Locale { return pwruntime.LocaleContext(r.Context()) }
+
 // ParseLocale resolves a BCP 47 tag against the declared set by RFC 4647
 // lookup, so ja-JP finds ja. It reports absence rather than substituting the
 // default.
@@ -62,6 +66,12 @@ func SetLocale(w http.ResponseWriter, locale Locale) { pwruntime.SetLocale(w, lo
 // It is for URLs composed outside a template: a redirect Location, a mail body,
 // a push deep link. Inside a template the locale is written with the framework's
 // binding instead, per .knowledge decision:explicit-locale-in-links.
-func LocalePath(ctx context.Context, locale Locale, path string) string {
+func LocalePath(r *http.Request, locale Locale, path string) string {
+	return LocalePathContext(r.Context(), locale, path)
+}
+
+// LocalePathContext is LocalePath for code below the handler — a mail body or
+// a job payload composed after the response.
+func LocalePathContext(ctx context.Context, locale Locale, path string) string {
 	return pwruntime.LocalePath(locale, pwruntime.LocaleModeContext(ctx), path)
 }

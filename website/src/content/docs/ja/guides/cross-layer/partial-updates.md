@@ -219,7 +219,7 @@ URLを要求し、ハンドラは通常どおり描画し、サーバーが変�
 
 ```go
 func Orders(w http.ResponseWriter, r *http.Request) {
-    if !pw.Authenticated(r.Context()) {
+    if !pw.Authenticated(r) {
         pw.WriteProblem(w, r, pw.Unauthorized())
         return
     }

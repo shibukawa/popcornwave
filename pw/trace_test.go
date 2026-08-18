@@ -48,7 +48,7 @@ func TestRuntimeHandlerOpensARequestRootSpan(t *testing.T) {
 	recorder := tracedRuntime(t)
 	var traced bool
 	handler, err := buildRuntimeHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		traced = Traced(r.Context())
+		traced = TracedContext(r.Context())
 		w.WriteHeader(http.StatusNoContent)
 	}), ServerConfig{}, SecurityConfig{}, MiddlewareConfig{}, pwruntime.Resources{}, true)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestRuntimeHandlerSkipsTracingWhenNothingExports(t *testing.T) {
 	recorder := tracedRuntime(t)
 	var traced bool
 	handler, err := buildRuntimeHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		traced = Traced(r.Context())
+		traced = TracedContext(r.Context())
 		w.WriteHeader(http.StatusNoContent)
 	}), ServerConfig{}, SecurityConfig{}, MiddlewareConfig{}, pwruntime.Resources{}, false)
 	if err != nil {
@@ -99,9 +99,9 @@ func TestLoggerCorrelatesWithTheSpanItWasTakenFrom(t *testing.T) {
 	resources := pwruntime.Resources{Log: pwruntime.NewLogBackend(LevelInfo, sink)}
 
 	handler, err := buildRuntimeHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		Logger(r.Context()).Info("in the root span")
-		ctx, span := StartSpan(r.Context(), "load-user", String("db.system.name", "sqlite"))
-		Logger(ctx).Info("in the child span", Int("rows", 3))
+		LoggerContext(r.Context()).Info("in the root span")
+		ctx, span := StartSpanContext(r.Context(), "load-user", String("db.system.name", "sqlite"))
+		LoggerContext(ctx).Info("in the child span", Int("rows", 3))
 		span.End()
 		w.WriteHeader(http.StatusNoContent)
 	}), ServerConfig{}, SecurityConfig{}, MiddlewareConfig{}, resources, true)
@@ -139,7 +139,7 @@ func TestLoggerCorrelatesWithTheSpanItWasTakenFrom(t *testing.T) {
 // a span that records nothing is still safe to end.
 func TestSpanAccessorsOutsideATrace(t *testing.T) {
 	ctx := context.Background()
-	if Traced(ctx) || TraceID(ctx) != "" || SpanID(ctx) != "" {
+	if TracedContext(ctx) || TraceIDContext(ctx) != "" || SpanIDContext(ctx) != "" {
 		t.Fatal("an untraced context reported trace identity")
 	}
 }

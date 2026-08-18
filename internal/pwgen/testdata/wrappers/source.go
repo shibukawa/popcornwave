@@ -84,7 +84,7 @@ func create(w http.ResponseWriter, r *http.Request) {
 // key is the argument beside the result rather than a type argument, so nothing
 // here spells itemSummary in brackets.
 func summary(w http.ResponseWriter, r *http.Request) {
-	store, err := pw.MemoStore(r.Context(), "upstream")
+	store, err := pw.MemoStore(r, "upstream")
 	if err != nil {
 		pw.WriteProblem(w, r, pw.InternalServerError(err))
 		return

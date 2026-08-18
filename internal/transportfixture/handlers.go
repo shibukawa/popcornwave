@@ -91,7 +91,7 @@ type ServerMsg struct {
 // value belongs to whichever request occupies that slot next.
 func SocketHandler(w http.ResponseWriter, r *http.Request) {
 	room, _ := pw.QueryValue(r, "room")
-	who := pw.RequestAuthentication(r.Context())
+	who := pw.RequestAuthentication(r)
 
 	_ = pw.WebSocket(w, r, func(socket *pw.Socket[ClientMsg, ServerMsg]) error {
 		for {
@@ -115,6 +115,30 @@ func SocketHandler(w http.ResponseWriter, r *http.Request) {
 // application mounts rather than writes.
 func SpecHandler(w http.ResponseWriter, r *http.Request) {
 	pw.OpenAPIJSON(w, r)
+}
+
+// AccessorHandler reads the request-scoped surface a handler reads: the pool
+// it queries, the span and the logger it reports through, and who is asking.
+//
+// Each of those takes the request, per policy:request-scoped-accessor-shape,
+// and each is registered so that the argument collapses onto this transport's
+// single value. The Context form appears here too, on the line after the span
+// is opened: below the handler, and inside it once a child span has produced a
+// context, the pair's other half is what reads.
+func AccessorHandler(w http.ResponseWriter, r *http.Request) {
+	if _, ok := pw.DB(r); !ok {
+		pw.WriteProblem(w, r, pw.InternalServerError(http.ErrNoCookie))
+		return
+	}
+	ctx, span := pw.StartSpan(r, "accessors")
+	defer span.End()
+	pw.LoggerContext(ctx).Info("serving", pw.String("trace", pw.TraceID(r)))
+
+	if pw.Authenticated(r) {
+		pw.WriteAPI(w, r, Greeting{Message: pw.RequestAuthentication(r).Subject})
+		return
+	}
+	pw.WriteAPI(w, r, Greeting{Message: "anonymous"})
 }
 
 // renderError is the shared helper the eligibility rule exists to carry: it

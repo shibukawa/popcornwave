@@ -26,6 +26,6 @@ func myPage(w http.ResponseWriter, r *http.Request) {
 		KeyClaim:    user.KeyClaim,
 		Key:         user.Key,
 		Subject:     user.Subject,
-		Method:      pw.RequestAuthentication(r.Context()).Method,
+		Method:      pw.RequestAuthentication(r).Method,
 	}))
 }

@@ -159,8 +159,8 @@ func port(address net.Addr) string {
 func netApplication() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /whoami", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprint(w, whoami(pw.RequestAuthentication(r.Context()).Authenticated,
-			pw.RequestAuthentication(r.Context()).Method, r.Context()))
+		_, _ = fmt.Fprint(w, whoami(pw.RequestAuthentication(r).Authenticated,
+			pw.RequestAuthentication(r).Method, r.Context()))
 	})
 	mux.HandleFunc("GET /private", func(w http.ResponseWriter, r *http.Request) {
 		user, _ := auth.User(r.Context())

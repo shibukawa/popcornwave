@@ -192,7 +192,7 @@ counter, err := queries.IncrementAccess(r.Context())
 The transaction boundary is explicit — the framework never wraps a request in one automatically:
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, name); err != nil {
 		return err
 	}
@@ -202,12 +202,12 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 
 A nested `pw.Transaction` opens a savepoint: its failure rolls back only the inner work. Drivers without savepoint support return `ErrSavepointUnsupported`.
 
-Nothing in `.pw.sql` names a database. Unpinned statements go to the default connection group; `pw.SelectDB(ctx, "writer")` pins one, for a single statement or a whole transaction:
+Nothing in `.pw.sql` names a database. Unpinned statements go to the default connection group; `pw.SelectDB(r, "writer")` pins one, for a single statement or a whole transaction:
 
 ```go
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+user, err := queries.CreateUser(pw.SelectDB(r, "writer"), name)
 
-err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
+err := pw.TransactionContext(pw.SelectDB(r, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
 })
 ```
@@ -216,7 +216,7 @@ One transaction never spans two groups (`ErrCrossGroupTransaction`). A single-co
 
 ## Escape hatches when a query does not fit
 
-`db, ok := pw.DB(r.Context())` returns the pool — but on **PostgreSQL `ok` is `false`**: requests run on a native pgx pool with no `*sql.DB` behind them. The way to that connection is `postgres.WithConn`:
+`db, ok := pw.DB(r)` returns the pool — but on **PostgreSQL `ok` is `false`**: requests run on a native pgx pool with no `*sql.DB` behind them. The way to that connection is `postgres.WithConn`:
 
 ```go
 err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {

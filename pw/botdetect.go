@@ -26,7 +26,7 @@ func IsBot(r *http.Request) bool {
 	if r == nil {
 		return false
 	}
-	return isBotRequest(r, Config[HTMLConfig](requestContext(r)))
+	return isBotRequest(r, ConfigContext[HTMLConfig](requestContext(r)))
 }
 
 func isBotRequest(r *http.Request, config HTMLConfig) bool {

@@ -2857,7 +2857,7 @@ func me(w http.ResponseWriter, r *http.Request) {
 	// path outside auth.protection.include gets. Adding "/me" to that list
 	// makes the framework answer 401 before this handler runs, and this check
 	// is what a path left public still needs.
-	authentication := pw.RequestAuthentication(r.Context())
+	authentication := pw.RequestAuthentication(r)
 	if !authentication.Authenticated {
 		pw.WriteProblem(w, r, pw.Unauthorized(errors.New("this route needs a bearer token")))
 		return

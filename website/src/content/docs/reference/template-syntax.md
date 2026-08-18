@@ -706,7 +706,7 @@ reason: the duration would describe an expiry that cannot happen.
 
 A private component's key is prefixed with the identity of the reader it was
 rendered for, so two readers never reach one entry. Popcorn Web supplies that
-value from `pw.RequestAuthentication(ctx).Subject` — the local account
+value from `pw.RequestAuthentication(r).Subject` — the local account
 identifier a session login, a passkey assertion, and a bearer token all resolve
 to before any handler runs. An anonymous request has none, and a storing private
 component rendered without one stores nothing rather than storing under a blank

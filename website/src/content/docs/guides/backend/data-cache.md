@@ -77,7 +77,7 @@ type QuoteKey struct {
 }
 
 func ShowQuote(w http.ResponseWriter, r *http.Request) {
-	store, err := pw.MemoStore(r.Context(), "rates")
+	store, err := pw.MemoStore(r, "rates")
 	if err != nil {
 		pw.WriteProblem(w, r, err)
 		return
@@ -132,7 +132,7 @@ the result is a function of the key and nothing else.
 
 Everything else stays private, and the default is a security boundary rather
 than a tuning knob. A private entry's key is prefixed with the identity of the
-reader it was fetched for — `pw.RequestAuthentication(ctx).Subject`, the local
+reader it was fetched for — `pw.RequestAuthentication(r).Subject`, the local
 account identifier a session login, a passkey assertion, and a bearer token all
 resolve to — so two readers never reach one entry. Declare `public` on something
 that is actually per-reader and the cache hands one person's data to the next

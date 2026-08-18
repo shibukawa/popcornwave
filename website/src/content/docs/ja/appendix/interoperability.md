@@ -100,7 +100,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 SQLite と MySQL では、プールは `*sql.DB` で、リクエストの context から取れます。
 
 ```go
-db, ok := pw.DB(r.Context())
+db, ok := pw.DB(r)
 if !ok {
 	pw.WriteProblem(w, r, pw.ServiceUnavailable("database unavailable"))
 	return
@@ -127,7 +127,7 @@ PostgreSQL では `ok` は常に `false` です。フレームワークはリク
 1 リクエストで両方を混ぜるときはトランザクション自体を取り出します。
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, input.Name); err != nil {
 		return err
 	}

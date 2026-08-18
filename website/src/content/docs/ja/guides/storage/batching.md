@@ -19,7 +19,7 @@ PostgreSQL ではバッチに意味を持たせるための前提になります
 SQLite はその都度 fsync を実行します。ループ全体をトランザクションで囲めば、fsync は1回で済みます。
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	for _, name := range names {
 		if _, err := queries.InsertItem(ctx, name); err != nil {
 			return err
@@ -57,7 +57,7 @@ import (
 )
 
 func ImportItems(w http.ResponseWriter, r *http.Request, names []string) {
-	ctx, span := pw.StartSpanKind(r.Context(), "import-items", pw.SpanKindClient)
+	ctx, span := pw.StartSpanKind(r, "import-items", pw.SpanKindClient)
 	defer span.End()
 
 	err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
@@ -78,7 +78,7 @@ func ImportItems(w http.ResponseWriter, r *http.Request, names []string) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
-	pw.Logger(ctx).Info("imported", pw.Int("rows", len(names)))
+	pw.Logger(r).Info("imported", pw.Int("rows", len(names)))
 }
 ```
 
@@ -123,7 +123,7 @@ err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
 if err != nil {
 	return err
 }
-pw.Logger(ctx).Info("copied items", pw.Int64("rows", copied))
+pw.LoggerContext(ctx).Info("copied items", pw.Int64("rows", copied))
 ```
 
 `pgx.Identifier` はテーブル名を識別子としてクォートします。列リストの文字列も値を SQL
@@ -163,7 +163,7 @@ MySQL では `pw.DB` がプールを返すので、ドライバ自身のバッ�
 フレームワークの助けなしで届きます。
 
 ```go
-db, ok := pw.DB(ctx)
+db, ok := pw.DBContext(ctx)
 if !ok {
 	return errors.New("no pool on this connection")
 }

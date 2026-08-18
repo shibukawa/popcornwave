@@ -26,14 +26,14 @@ func init() {
 // because that stack wraps the extension chain from outside, where the session
 // has not been resolved yet and the token would have nothing to compare against.
 func setupCSRF(ctx context.Context) (Middleware, error) {
-	config := Config[SecurityConfig](ctx)
+	config := ConfigContext[SecurityConfig](ctx)
 	if !config.CSRF.Enabled {
 		return nil, nil
 	}
 	if err := checkCSRFFieldName(config.CSRF.FormField); err != nil {
 		return nil, err
 	}
-	sessionConfig := Config[SessionConfig](ctx)
+	sessionConfig := ConfigContext[SessionConfig](ctx)
 	sameSite, err := session.ParseSameSite(sessionConfig.Cookie.SameSite)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func setupCSRF(ctx context.Context) (Middleware, error) {
 	// The origin this check compares against is reconstructed from the
 	// request, and a deployment whose TLS terminates upstream reconstructs
 	// http for an https browser unless the proxy set says otherwise.
-	trusted, err := compileTrustedProxies(Config[ServerConfig](ctx).TrustedProxies)
+	trusted, err := compileTrustedProxies(ConfigContext[ServerConfig](ctx).TrustedProxies)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func checkCSRFFieldName(configured string) error {
 // The reason reaches the log and never the response. A refusal that named which
 // check failed would tell a caller which half to work on next.
 func writeCSRFProblem(w http.ResponseWriter, r *http.Request, reason error) {
-	Logger(r.Context()).Log(r.Context(), LevelWarn, "CSRF check refused a request",
+	LoggerContext(r.Context()).Log(r.Context(), LevelWarn, "CSRF check refused a request",
 		String("reason", reason.Error()), String("method", r.Method), String("path", r.URL.Path))
 	if responseCommitted(w) {
 		return

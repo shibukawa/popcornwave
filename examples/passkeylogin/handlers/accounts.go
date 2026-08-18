@@ -72,7 +72,7 @@ func resolveAccount(ctx context.Context, identity auth.Identity, provision bool)
 	}
 	// The account row and its identity link are written together, so a failed
 	// login never leaves an unreachable account behind.
-	err = pw.Transaction(ctx, func(ctx context.Context) error {
+	err = pw.TransactionContext(ctx, func(ctx context.Context) error {
 		if _, err := queries.InsertAccount(ctx, id, displayName, email); err != nil {
 			return err
 		}

@@ -230,10 +230,17 @@ reaches OpenAPI. That is
 
 | Call | Returns |
 | --- | --- |
-| `pw.Logger(ctx)` | request-scoped `*slog.Logger` |
-| `pw.Config[T](ctx)` | a registered configuration struct |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` — `false` on PostgreSQL, which runs on a native pgx pool |
-| `pw.Transaction(ctx, fn)` | runs `fn` inside a transaction |
+| `pw.Logger(r)` | request-scoped `*slog.Logger` |
+| `pw.Config[T](r)` | a registered configuration struct |
+| `pw.DB(r)` | `(*sql.DB, bool)` — `false` on PostgreSQL, which runs on a native pgx pool |
+| `pw.Transaction(r, fn)` | runs `fn` inside a transaction |
+
+Each takes the request, because the request is what a handler holds. Below the
+handler — a service function, a job, anything callable without a request — the
+same accessor takes a `context.Context` under the `Context` suffix
+`database/sql` spells `ExecContext` with: `pw.LoggerContext(ctx)`,
+`pw.ConfigContext[T](ctx)`, `pw.DBContext(ctx)`. `pw.Context(r)` is how a
+handler produces the context those take.
 
 ```go
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +249,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	err = pw.Transaction(r.Context(), func(ctx context.Context) error {
+	err = pw.Transaction(r, func(ctx context.Context) error {
 		if _, err := queries.InsertUser(ctx, input.Name, input.Email); err != nil {
 			return err
 		}

@@ -101,7 +101,7 @@ var renderVersion = updateBuildID
 // document render did and a delivery addresses a placeholder already on screen.
 func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, config HTMLConfig, options ...HTMLOption) {
 	ctx := requestContext(r)
-	logger := Logger(ctx)
+	logger := LoggerContext(ctx)
 	// A page with nothing live answers immediately rather than holding a
 	// connection open for deliveries that cannot exist. The client should not
 	// have asked: the document marker told it so.
@@ -391,7 +391,7 @@ func liveClientKey(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	if authentication := RequestAuthentication(requestContext(r)); authentication.Authenticated && authentication.Subject != "" {
+	if authentication := RequestAuthenticationContext(requestContext(r)); authentication.Authenticated && authentication.Subject != "" {
 		return "subject:" + authentication.Subject
 	}
 	// The resolved caller rather than r.RemoteAddr: behind a terminating proxy

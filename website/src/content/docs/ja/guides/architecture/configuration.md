@@ -169,7 +169,7 @@ prefix はひとつの名前空間を共有するので、`app`、`billing`、`s
 ### 3. 読む
 
 ```go
-app := pw.Config[AppConfig](r.Context())
+app := pw.Config[AppConfig](r)
 ```
 
 `pw.Config` はリクエスト context があるところならどこでも使え、リクエスト外では

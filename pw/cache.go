@@ -2,6 +2,7 @@ package pw
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/shibukawa/popcornweb/pwruntime"
 )
@@ -39,7 +40,13 @@ type (
 // on a nil store falls through to its fetch, so a deployment removes caching
 // without editing a call site. An unconfigured name is an error naming what is
 // configured.
-func MemoStore(ctx context.Context, name string) (*CacheStore, error) {
+func MemoStore(r *http.Request, name string) (*CacheStore, error) {
+	return pwruntime.MemoStore(r.Context(), name)
+}
+
+// MemoStoreContext is MemoStore for code below the handler, and for a
+// resolution done once at startup rather than per request.
+func MemoStoreContext(ctx context.Context, name string) (*CacheStore, error) {
 	return pwruntime.MemoStore(ctx, name)
 }
 
