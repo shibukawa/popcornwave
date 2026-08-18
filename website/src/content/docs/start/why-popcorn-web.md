@@ -164,6 +164,15 @@ None of it is a client-side framework. The reader receives server-rendered HTML
 from the first byte to the last, and the only browser code involved is one small
 module that moves finished markup into place.
 
+Rendering only on the server can look like a step backwards. It is not. Next.js
+and React, the projects that led the web frontend ecosystem to where it is, have
+spent the last few years moving back toward the server, and server components
+rendering server-side are what they now put in front. The code they ship to the
+browser is the part they are trying to shrink. Rebuilding that client-component
+ecosystem in Go would cost more than it returns. Server components are a
+different proposition: assembling HTML on the server and sending it is work Go is
+already good at, and there is room to do it with less energy and more speed.
+
 The JavaScript ecosystem has been relentless in its pursuit of productivity; the
 Go ecosystem has favored stability. Popcorn Web is not trying to split the
 difference. The aim is to keep Go's stable interfaces and predictable operations,
