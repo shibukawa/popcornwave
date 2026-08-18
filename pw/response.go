@@ -93,16 +93,16 @@ func WriteProblem(w http.ResponseWriter, r *http.Request, err error) {
 		return
 	}
 	if responseCommitted(w) {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "problem after response commit", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "problem after response commit", Err(err))
 		return
 	}
 	p := mapProblem(err)
 	if p.Status >= 500 {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "request failed", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "request failed", Err(err))
 	}
 	p = sanitizedProblem(p)
 	if err := pwruntime.ApplyProblemHeaders(w.Header(), p); err != nil {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "invalid rate limit response metadata", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "invalid rate limit response metadata", Err(err))
 	}
 	// One handler answers a browser form post and an API client on the same
 	// route. Which representation this failure takes is the client's to say, so
@@ -224,7 +224,7 @@ func WriteAPI[T any](w http.ResponseWriter, r *http.Request, value T) {
 func encodedBodyWriter(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, func(bool)) {
 	encoder, err := prepareResponseEncoder(w, r)
 	if err != nil {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder unavailable", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "response encoder unavailable", Err(err))
 	}
 	if encoder == nil {
 		return w, func(bool) {}
@@ -238,7 +238,7 @@ func encodedBodyWriter(w http.ResponseWriter, r *http.Request) (http.ResponseWri
 			return
 		}
 		if closeErr := encoder.Close(); closeErr != nil {
-			Logger(requestContext(r)).Log(requestContext(r), LevelError, "response encoder close failed", Err(closeErr))
+			LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "response encoder close failed", Err(closeErr))
 		}
 	}
 }
@@ -287,7 +287,7 @@ func (e *encodedResponseWriter) Flush() {
 func WriteStatus[T any](w http.ResponseWriter, r *http.Request, status int, value T) {
 	if err := tinybind.WriteStatus(w, r, status, value); err != nil {
 		ctx := r.Context()
-		Logger(ctx).Log(ctx, LevelError, "write status failed after the response committed",
+		LoggerContext(ctx).Log(ctx, LevelError, "write status failed after the response committed",
 			Int("status", status), Err(err))
 	}
 }
@@ -322,7 +322,7 @@ func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrappe
 // finished document instead of the fallbacks it can never replace.
 func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
 	SetRoute(w, r)
-	config := Config[HTMLConfig](requestContext(r))
+	config := ConfigContext[HTMLConfig](requestContext(r))
 	// Every unsafe form in this chain carries the session's token, and the
 	// document path is where that is supplied: WriteHTMLFragment renders no
 	// document and shares only the option builder below, so it is untouched.
@@ -480,7 +480,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 		// branch can only patch into a 200 still carries its real status here.
 		var unrecovered *htmlbind.UnrecoveredError
 		if errors.As(err, &unrecovered) {
-			Logger(requestContext(r)).Log(requestContext(r), LevelError,
+			LoggerContext(requestContext(r)).Log(requestContext(r), LevelError,
 				"await boundary failed with no recover clause", Err(unrecovered.Err))
 			writeHTMLProblem(w, r, wrappers, mapProblem(unrecovered.Err))
 			return
@@ -493,7 +493,7 @@ func WriteHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapp
 	// before. A failed render never reaches here, so no client is seeded with a
 	// manifest for a page that was replaced by an error document.
 	if err := writeDocumentManifest(body, config, manifest); err != nil {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError,
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError,
 			"document manifest write failed", Err(err))
 	}
 	render.wrote(body.Len())
@@ -551,7 +551,7 @@ func chainRenderOptions(config HTMLConfig, csrfToken string, csrfOff bool) []HTM
 // check on and no secret on this request is misconfigured — no session, or a
 // store that failed — and rendering an unprotected form for it would hide that.
 func csrfDisabled(ctx context.Context) bool {
-	return !Config[SecurityConfig](ctx).CSRF.Enabled
+	return !ConfigContext[SecurityConfig](ctx).CSRF.Enabled
 }
 
 func csrfRenderToken(ctx context.Context) string {
@@ -588,7 +588,7 @@ func csrfRenderToken(ctx context.Context) string {
 func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFragment) {
 	SetRoute(w, r)
 	ctx := requestContext(r)
-	config := Config[HTMLConfig](ctx)
+	config := ConfigContext[HTMLConfig](ctx)
 	// Contributions fold upward at generation time, so this covers the leaf's own
 	// head element and every component it calls statically.
 	if head := fragment.Head(); len(head) > 0 {
@@ -628,7 +628,7 @@ func WriteHTMLFragment(w http.ResponseWriter, r *http.Request, fragment HTMLFrag
 		// with a whole page, and a swap library already reads the status instead.
 		var unrecovered *htmlbind.UnrecoveredError
 		if errors.As(err, &unrecovered) {
-			Logger(ctx).Log(ctx, LevelError, "await boundary failed with no recover clause", Err(unrecovered.Err))
+			LoggerContext(ctx).Log(ctx, LevelError, "await boundary failed with no recover clause", Err(unrecovered.Err))
 			WriteProblem(w, r, InternalServerError(unrecovered.Err))
 			return
 		}
@@ -654,10 +654,10 @@ func commitHTMLBody(w http.ResponseWriter, r *http.Request, body *bytes.Buffer) 
 		w.Header().Set("Content-Length", strconv.Itoa(body.Len()))
 	}
 	if _, err := body.WriteTo(writer); err != nil {
-		Logger(ctx).Log(ctx, LevelError, "HTML response write failed", Err(err))
+		LoggerContext(ctx).Log(ctx, LevelError, "HTML response write failed", Err(err))
 	}
 	if err := closeWriter(); err != nil {
-		Logger(ctx).Log(ctx, LevelError, "HTML response close failed", Err(err))
+		LoggerContext(ctx).Log(ctx, LevelError, "HTML response close failed", Err(err))
 	}
 }
 
@@ -680,7 +680,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 	// that ends the initial pass, into the end of the initial build span.
 	writer = render.writer(writer)
 	render.initialBuild()
-	logger := Logger(ctx)
+	logger := LoggerContext(ctx)
 	failed := false
 	// A live connection follows this document and re-renders every boundary on
 	// it, including the ones that settled once. Handing that connection the
@@ -962,7 +962,7 @@ func renderOptions(ctx context.Context, config HTMLConfig, bot bool, extra []HTM
 	options := []htmlbind.Option{
 		htmlbind.WithContext(ctx),
 		htmlbind.WithErrorReporter(func(err error) {
-			Logger(ctx).Log(ctx, LevelError, "await boundary failed", Err(err))
+			LoggerContext(ctx).Log(ctx, LevelError, "await boundary failed", Err(err))
 		}),
 	}
 	if timeout := boundaryTimeout(config, bot); timeout > 0 {
@@ -1018,7 +1018,7 @@ func prepareHTMLResponse(w http.ResponseWriter, r *http.Request) (io.Writer, fun
 // response happened to be: a cache holding the identity form must not answer a
 // request that asked for a coding.
 func prepareResponseEncoder(w http.ResponseWriter, r *http.Request) (responseEncoder, error) {
-	config := Config[MiddlewareConfig](requestContext(r))
+	config := ConfigContext[MiddlewareConfig](requestContext(r))
 	if !config.Compression {
 		return nil, nil
 	}
@@ -1136,7 +1136,7 @@ func writeChainCachePolicy(w http.ResponseWriter, r *http.Request, wrappers []HT
 	}
 	if source := htmlbind.PrivateSource(wrappers, leaf); source != "" {
 		ctx := requestContext(r)
-		Logger(ctx).Log(ctx, LevelWarn, "chain declaring public rendered private",
+		LoggerContext(ctx).Log(ctx, LevelWarn, "chain declaring public rendered private",
 			String("declared_by", source))
 	}
 }

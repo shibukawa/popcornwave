@@ -99,7 +99,7 @@ func build() (*deployment, error) {
 func application() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /whoami", func(w http.ResponseWriter, r *http.Request) {
-		authentication := pw.RequestAuthentication(r.Context())
+		authentication := pw.RequestAuthentication(r)
 		if !authentication.Authenticated {
 			_, _ = fmt.Fprint(w, "anonymous")
 			return

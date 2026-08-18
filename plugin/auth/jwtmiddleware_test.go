@@ -229,7 +229,7 @@ func TestPublishedIdentityCarriesNoTokenBody(t *testing.T) {
 	if _, found := published.Identity.Claims.Raw("__raw_token"); found {
 		t.Fatal("the raw token reached the handler")
 	}
-	if pw.RequestAuthentication(t.Context()).Authenticated {
+	if pw.RequestAuthenticationContext(t.Context()).Authenticated {
 		t.Fatal("an unrelated context reported an authenticated request")
 	}
 }

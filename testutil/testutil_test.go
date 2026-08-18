@@ -50,9 +50,9 @@ func TestRunCopiesAndCustomizesArbitraryConfig(t *testing.T) {
 
 	var sawDefaultPort bool
 	server := TestRun(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		config := pw.Config[fixtureConfig](r.Context())
-		runtimeServer := pw.Config[pw.ServerConfig](r.Context())
-		db, ok := pw.DB(r.Context())
+		config := pw.Config[fixtureConfig](r)
+		runtimeServer := pw.Config[pw.ServerConfig](r)
+		db, ok := pw.DB(r)
 		if !ok {
 			t.Fatal("test database is missing")
 		}
@@ -101,7 +101,7 @@ func TestRunCopiesAndCustomizesArbitraryConfig(t *testing.T) {
 	if body != want {
 		t.Fatalf("body = %q, want %q", body, want)
 	}
-	global := pw.Config[fixtureConfig](nil)
+	global := pw.ConfigContext[fixtureConfig](nil)
 	if global.Name != "global" || strings.Join(global.Labels, ",") != "original" {
 		t.Fatalf("global config was mutated: %#v", global)
 	}

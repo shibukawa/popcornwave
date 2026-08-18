@@ -119,7 +119,7 @@ func buildRuntimeHandler(handler http.Handler, server ServerConfig, security Sec
 
 func writePanicProblem(w http.ResponseWriter, r *http.Request, err error) {
 	if responseCommitted(w) {
-		Logger(r.Context()).Log(r.Context(), LevelError, "panic after response commit", String("error", err.Error()))
+		LoggerContext(r.Context()).Log(r.Context(), LevelError, "panic after response commit", String("error", err.Error()))
 		return
 	}
 	WriteProblem(w, r, InternalServerError(err))

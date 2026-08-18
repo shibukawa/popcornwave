@@ -268,7 +268,7 @@ queries/todos.pw.sql:41:1: UPDATE and DELETE statements require a WHERE clause t
 ## トランザクション
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, name); err != nil {
 		return err
 	}
@@ -298,7 +298,7 @@ err := pw.Transaction(r.Context(), func(ctx context.Context) error {
 生成レイヤーに収まらないクエリのために、生のアクセスも用意されています。
 
 ```go
-db, ok := pw.DB(r.Context())
+db, ok := pw.DB(r)
 ```
 
 SQLite と MySQL では、これがプールそのものを返します。PostgreSQL では `ok` は `false`

@@ -416,7 +416,7 @@ log.Printf("sql=%s args=%v", statement.SQL, statement.Args)
 では有効な接続グループのプールを、`pw.Transaction` の中では進行中のトランザクションを運びます。
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, name); err != nil {
 		return err
 	}

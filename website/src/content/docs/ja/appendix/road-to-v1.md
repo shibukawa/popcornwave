@@ -43,7 +43,7 @@ quote, err := pw.Memo(ctx, store, QuoteKey{Pair: pair}, fetchQuote)
 
 ```go
 // 現在
-store, err := pw.MemoStore(r.Context(), "rates")
+store, err := pw.MemoStore(r, "rates")
 
 quote, err := pw.Memo(ctx, store, QuoteKey{Pair: pair}, fetchQuote)
 if pw.MemoHas(ctx, store, key) { /* … */ }
@@ -53,7 +53,7 @@ pw.MemoInvalidate(ctx, store, key)
 
 ```go
 // 移行後 — 1 行目が変わらないことこそが要点
-store, err := pw.MemoStore(r.Context(), "rates")
+store, err := pw.MemoStore(r, "rates")
 
 quote, err := store.Get(ctx, QuoteKey{Pair: pair}, fetchQuote)
 if store.Has(ctx, key) { /* … */ }

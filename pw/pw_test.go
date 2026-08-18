@@ -57,11 +57,11 @@ func TestMiddlewaresParseAndInjectConfiguration(t *testing.T) {
 		Args: []string{"--port", "9090"}, Environ: []string{"PORT=7070"},
 	})
 	handler, err := Middlewares(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		config := Config[ServerConfig](r.Context())
+		config := ConfigContext[ServerConfig](r.Context())
 		if config.Port != 9090 {
 			t.Errorf("Port = %d", config.Port)
 		}
-		if !Logger(r.Context()).Enabled(LevelError) {
+		if !LoggerContext(r.Context()).Enabled(LevelError) {
 			t.Error("nil logger")
 		}
 		w.WriteHeader(http.StatusNoContent)

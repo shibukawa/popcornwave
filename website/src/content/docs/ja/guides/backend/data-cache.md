@@ -74,7 +74,7 @@ type QuoteKey struct {
 }
 
 func ShowQuote(w http.ResponseWriter, r *http.Request) {
-	store, err := pw.MemoStore(r.Context(), "rates")
+	store, err := pw.MemoStore(r, "rates")
 	if err != nil {
 		pw.WriteProblem(w, r, err)
 		return

@@ -142,7 +142,7 @@ func writeHTMLProblem(w http.ResponseWriter, r *http.Request, wrappers []HTMLWra
 	var body bytes.Buffer
 	if err := htmlbind.RenderChain(&body, wrappers, fragment); err != nil {
 		// Never let an error page's own failure recurse into another one.
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "HTML error page render failed", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "HTML error page render failed", Err(err))
 		writeProblemJSON(w, r, problem)
 		return
 	}
@@ -154,6 +154,6 @@ func writeHTMLProblem(w http.ResponseWriter, r *http.Request, wrappers []HTMLWra
 	w.Header().Set("Content-Length", strconv.Itoa(body.Len()))
 	w.WriteHeader(status)
 	if _, err := body.WriteTo(w); err != nil {
-		Logger(requestContext(r)).Log(requestContext(r), LevelError, "HTML error response write failed", Err(err))
+		LoggerContext(requestContext(r)).Log(requestContext(r), LevelError, "HTML error response write failed", Err(err))
 	}
 }

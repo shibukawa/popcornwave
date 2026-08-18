@@ -70,7 +70,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	// Updates key their validators with a secret, and an unkeyed digest of
 	// low-entropy content lets a guess be confirmed by comparing digests. That
 	// is refused before the port is bound rather than degraded at request time.
-	if err := validateUpdateConfig(Config[HTMLConfig](nil)); err != nil {
+	if err := validateUpdateConfig(ConfigContext[HTMLConfig](nil)); err != nil {
 		return nil, err
 	}
 	// A redraw endpoint is published by a generated init, which has nowhere to
@@ -78,9 +78,9 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateReloadableRegistration(); err != nil {
 		return nil, err
 	}
-	server := Config[ServerConfig](nil)
-	security := Config[SecurityConfig](nil)
-	middleware := Config[MiddlewareConfig](nil)
+	server := ConfigContext[ServerConfig](nil)
+	security := ConfigContext[SecurityConfig](nil)
+	middleware := ConfigContext[MiddlewareConfig](nil)
 	if err := validateConfiguredRuntime(); err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateOperationalEndpointCollisions(handler, server); err != nil {
 		return nil, err
 	}
-	observability := Config[ObservabilityConfig](nil)
+	observability := ConfigContext[ObservabilityConfig](nil)
 	telemetry, err := buildObservability(observability, Env())
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func Run(ctx context.Context, handler http.Handler, option ...Option) error {
 	if handled, err := runFrameworkAction(); handled {
 		return err
 	}
-	serverConfig := Config[ServerConfig](nil)
+	serverConfig := ConfigContext[ServerConfig](nil)
 	port, err := pwconfig.HostingPort(serverConfig.Port, os.LookupEnv)
 	if err != nil {
 		return err

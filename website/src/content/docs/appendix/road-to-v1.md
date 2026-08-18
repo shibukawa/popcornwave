@@ -46,7 +46,7 @@ a value, the operations move onto it without touching the line that acquired it.
 
 ```go
 // Today
-store, err := pw.MemoStore(r.Context(), "rates")
+store, err := pw.MemoStore(r, "rates")
 
 quote, err := pw.Memo(ctx, store, QuoteKey{Pair: pair}, fetchQuote)
 if pw.MemoHas(ctx, store, key) { /* … */ }
@@ -56,7 +56,7 @@ pw.MemoInvalidate(ctx, store, key)
 
 ```go
 // Afterwards — the first line is unchanged, which is the point
-store, err := pw.MemoStore(r.Context(), "rates")
+store, err := pw.MemoStore(r, "rates")
 
 quote, err := store.Get(ctx, QuoteKey{Pair: pair}, fetchQuote)
 if store.Has(ctx, key) { /* … */ }

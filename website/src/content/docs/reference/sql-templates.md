@@ -445,7 +445,7 @@ effective connection group in an ordinary request and the active transaction
 inside `pw.Transaction`:
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, name); err != nil {
 		return err
 	}

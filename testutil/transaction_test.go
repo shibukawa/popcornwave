@@ -21,11 +21,11 @@ func notesHandler(t *testing.T) http.Handler {
 	t.Helper()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("name")
-		err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+		err := pw.Transaction(r, func(ctx context.Context) error {
 			if err := insertNote(ctx, name); err != nil {
 				return err
 			}
-			nested := pw.Transaction(ctx, func(ctx context.Context) error {
+			nested := pw.TransactionContext(ctx, func(ctx context.Context) error {
 				if err := insertNote(ctx, name+"-rolled-back"); err != nil {
 					return err
 				}

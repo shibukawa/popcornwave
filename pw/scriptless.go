@@ -136,7 +136,7 @@ func scriptlessTarget(r *http.Request, marked bool) string {
 // covers both rather than two that can disagree — the same reasoning setupCSRF
 // applies to the anonymous token cookie.
 func markScriptless(w http.ResponseWriter, r *http.Request) {
-	sessionConfig := Config[SessionConfig](requestContext(r))
+	sessionConfig := ConfigContext[SessionConfig](requestContext(r))
 	sameSite, err := session.ParseSameSite(sessionConfig.Cookie.SameSite)
 	if err != nil {
 		// An unparseable policy is a startup problem reported elsewhere. Here it

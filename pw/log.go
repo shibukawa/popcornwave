@@ -2,6 +2,7 @@ package pw
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/shibukawa/popcornwave/pwruntime"
@@ -50,13 +51,17 @@ func Duration(key string, value time.Duration) Attribute {
 //
 // Acquire it again inside a child span to correlate records with that span:
 //
-//	ctx, span := pw.StartSpan(ctx, "load-user")
+//	ctx, span := pw.StartSpan(r, "load-user")
 //	defer span.End()
-//	pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
+//	pw.LoggerContext(ctx).Info("loaded", pw.Int("rows", n))
 //
 // There is no Fatal or Panic. Logging reports what happened; it does not decide
 // whether the process keeps running.
-func Logger(ctx context.Context) Log { return pwruntime.ReadLogger(ctx) }
+func Logger(r *http.Request) Log { return pwruntime.ReadLogger(r.Context()) }
+
+// LoggerContext is Logger for code below the handler, and for a caller holding
+// a context a child span was opened on.
+func LoggerContext(ctx context.Context) Log { return pwruntime.ReadLogger(ctx) }
 
 // WithLogAttributes adds stable attributes to every record taken from the
 // returned context, which is how middleware attaches request-scoped facts.

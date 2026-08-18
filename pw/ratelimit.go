@@ -36,7 +36,7 @@ var rateLimitState = struct {
 }{}
 
 func setupRateLimitProcess(ctx context.Context) (Middleware, error) {
-	config := Config[RateLimitConfig](ctx)
+	config := ConfigContext[RateLimitConfig](ctx)
 	if !config.Enabled || config.Process <= 0 {
 		// Validation still runs through the identity frame below, so a
 		// mistake in this binding is reported whichever layer is switched on.
@@ -50,7 +50,7 @@ func setupRateLimitProcess(ctx context.Context) (Middleware, error) {
 }
 
 func setupRateLimit(ctx context.Context) (Middleware, error) {
-	config := Config[RateLimitConfig](ctx)
+	config := ConfigContext[RateLimitConfig](ctx)
 	if !config.Enabled {
 		releaseRateLimitStore()
 		return nil, nil
@@ -68,7 +68,7 @@ func setupRateLimit(ctx context.Context) (Middleware, error) {
 func rateLimitDeps(ctx context.Context, counter RateLimitCounter) middlewares.RateLimitDeps {
 	return middlewares.RateLimitDeps{
 		Counter:  counter,
-		Exempt:   rateLimitExemptions(Config[ServerConfig](ctx)),
+		Exempt:   rateLimitExemptions(ConfigContext[ServerConfig](ctx)),
 		Reject:   writeRateLimitProblem,
 		Degraded: logRateLimitDegraded,
 	}
@@ -136,7 +136,7 @@ func rateLimitExemptions(server ServerConfig) []string {
 func writeRateLimitProblem(w http.ResponseWriter, r *http.Request, limit pwruntime.RateLimit) {
 	if err := pwruntime.ApplyProblemHeaders(w.Header(),
 		pwruntime.Problem{Status: http.StatusTooManyRequests, RateLimit: &limit}); err != nil {
-		Logger(r.Context()).Log(r.Context(), LevelWarn, "rate limit metadata was omitted",
+		LoggerContext(r.Context()).Log(r.Context(), LevelWarn, "rate limit metadata was omitted",
 			String("error", err.Error()))
 	}
 	if responseCommitted(w) {
@@ -151,6 +151,6 @@ func writeRateLimitProblem(w http.ResponseWriter, r *http.Request, limit pwrunti
 // refusing here would convert a store incident into an outage of every limited
 // route at once. Silently not limiting is the state worth knowing about.
 func logRateLimitDegraded(r *http.Request, err error) {
-	Logger(r.Context()).Log(r.Context(), LevelError, "rate limit admitted a request without counting it",
+	LoggerContext(r.Context()).Log(r.Context(), LevelError, "rate limit admitted a request without counting it",
 		String("error", err.Error()), String("path", r.URL.Path))
 }

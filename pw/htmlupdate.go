@@ -45,7 +45,7 @@ var updateBuildID = pwruntime.UpdateBuildID
 // complete document after a restart and never a wrong delta. Reading it is what
 // a diagnostic and a test both need, since neither can derive it.
 func UpdateBuildID() string {
-	return updateOptions(Config[HTMLConfig](nil)).RuntimeConfig().Build
+	return updateOptions(ConfigContext[HTMLConfig](nil)).RuntimeConfig().Build
 }
 
 // updateOptions builds the transport configuration for one process.
@@ -331,7 +331,7 @@ func serveUpdate(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper,
 		// ordinary problem path still applies.
 		if responseCommitted(w) {
 			finish(true)
-			Logger(ctx).Log(ctx, LevelError, "update delta failed after commit", Err(err))
+			LoggerContext(ctx).Log(ctx, LevelError, "update delta failed after commit", Err(err))
 			return true
 		}
 		// Nothing reached the client, so the frame is discarded and the coding
@@ -450,7 +450,7 @@ type ReloadablePage interface {
 // below the checks is what extends that to the handler's own.
 func Redraw[P ReloadablePage](w http.ResponseWriter, r *http.Request, page func(P) HTMLFragment) bool {
 	_ = page
-	config := Config[HTMLConfig](requestContext(r))
+	config := ConfigContext[HTMLConfig](requestContext(r))
 	if !config.Update.Enabled {
 		return false
 	}
@@ -514,7 +514,7 @@ func RedrawComponents(w http.ResponseWriter, r *http.Request, components ...html
 	if len(components) == 0 {
 		return false
 	}
-	config := Config[HTMLConfig](requestContext(r))
+	config := ConfigContext[HTMLConfig](requestContext(r))
 	if !config.Update.Enabled {
 		return false
 	}
@@ -657,7 +657,7 @@ func writeUpdateResponse(w http.ResponseWriter, r *http.Request, answer htmlupda
 	if _, err := target.Write(answer.Body); err != nil {
 		finish(false)
 		ctx := requestContext(r)
-		Logger(ctx).Log(ctx, LevelError, "update response write failed", Err(err))
+		LoggerContext(ctx).Log(ctx, LevelError, "update response write failed", Err(err))
 		return
 	}
 	finish(true)
@@ -774,7 +774,7 @@ func serveRegisteredRedraw(w http.ResponseWriter, r *http.Request, config HTMLCo
 // takes the regions instead. Keeping it to one predicate is what stops the two
 // paths from drifting apart.
 func WantsUpdate(r *http.Request) bool {
-	config := Config[HTMLConfig](requestContext(r))
+	config := ConfigContext[HTMLConfig](requestContext(r))
 	if !config.Update.Enabled {
 		return false
 	}
@@ -801,7 +801,7 @@ func Replace(targetID string, fragment HTMLFragment) UpdateRegion {
 func WriteUpdate(w http.ResponseWriter, r *http.Request, status int, regions ...UpdateRegion) {
 	SetRoute(w, r)
 	ctx := requestContext(r)
-	config := Config[HTMLConfig](ctx)
+	config := ConfigContext[HTMLConfig](ctx)
 	// The options are the ones every other render path gets. Until system:tinybind
 	// v0.4.4 this entry took none, and a region holding a form could not render
 	// at all: CSRFField refuses a render that supplied no token, so the
@@ -838,7 +838,7 @@ func WriteUpdateNavigate(w http.ResponseWriter, r *http.Request, url string) {
 		WriteProblem(w, r, InternalServerError(errUnsafeNavigation))
 		return
 	}
-	config := Config[HTMLConfig](requestContext(r))
+	config := ConfigContext[HTMLConfig](requestContext(r))
 	answer, err := updateOptions(config).WriteNavigate(url)
 	if err != nil {
 		WriteProblem(w, r, InternalServerError(err))

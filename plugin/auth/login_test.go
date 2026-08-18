@@ -161,7 +161,7 @@ func application() http.Handler {
 	})
 	mux.HandleFunc("GET /mypage", func(w http.ResponseWriter, r *http.Request) {
 		user, _ := User(r.Context())
-		authentication := pw.RequestAuthentication(r.Context())
+		authentication := pw.RequestAuthentication(r)
 		_, _ = io.WriteString(w, fmt.Sprintf("mypage:%s:%s:%s:%s",
 			user.Subject, user.Email, authentication.Method, authentication.Subject))
 	})

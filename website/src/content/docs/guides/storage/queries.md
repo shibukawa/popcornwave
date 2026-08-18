@@ -279,7 +279,7 @@ generated struct an accurate description of every row the statement can return.
 ## Transactions
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	if _, err := queries.InsertUser(ctx, name); err != nil {
 		return err
 	}
@@ -310,7 +310,7 @@ of silently flattening the nesting.
 Raw access is there when a query does not fit the generated layer:
 
 ```go
-db, ok := pw.DB(r.Context())
+db, ok := pw.DB(r)
 ```
 
 On SQLite and MySQL that hands back the pool itself. On PostgreSQL `ok` is

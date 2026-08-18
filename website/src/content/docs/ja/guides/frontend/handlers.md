@@ -234,7 +234,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		pw.WriteProblem(w, r, pw.BadRequest(err))
 		return
 	}
-	err = pw.Transaction(r.Context(), func(ctx context.Context) error {
+	err = pw.Transaction(r, func(ctx context.Context) error {
 		if _, err := queries.InsertUser(ctx, input.Name, input.Email); err != nil {
 			return err
 		}

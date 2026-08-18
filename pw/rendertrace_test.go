@@ -277,7 +277,7 @@ func TestRenderSpanParentsTheWorkInsideIt(t *testing.T) {
 	builder := htmlbind.Builder[struct{}]{}
 	page := htmlbind.Bind(&htmlbind.Plan[struct{}]{Ops: []htmlbind.Op[struct{}]{
 		builder.RawCtx(func(ctx context.Context, _ struct{}) string {
-			_, span := StartSpan(ctx, "load")
+			_, span := StartSpanContext(ctx, "load")
 			span.End()
 			return "<main>ok</main>"
 		}),

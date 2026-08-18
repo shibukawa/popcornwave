@@ -65,7 +65,7 @@ func Chat(w http.ResponseWriter, r *http.Request) {
 		}
 	}); err != nil {
 		// The refusal has already been sent. This is for your log.
-		pw.Logger(r.Context()).Warn("upgrade refused", pw.Err(err))
+		pw.Logger(r).Warn("upgrade refused", pw.Err(err))
 	}
 }
 ```

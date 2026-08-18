@@ -61,7 +61,7 @@ func TestObservabilityExportsSpansAndCorrelatedLogs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, span := StartSpan(t.Context(), "load-user", String("db.system.name", "sqlite"))
+	ctx, span := StartSpanContext(t.Context(), "load-user", String("db.system.name", "sqlite"))
 	pwruntime.NewLogger(ctx, resolved.Backend()).Info("user loaded", Int("rows", 3))
 	span.End()
 
@@ -87,7 +87,7 @@ func TestObservabilityExportsSpansAndCorrelatedLogs(t *testing.T) {
 
 	// One trace ID appears in both payloads, which is what lets a viewer put the
 	// record next to the span it came from.
-	traceID := TraceID(ctx)
+	traceID := TraceIDContext(ctx)
 	if traceID == "" {
 		t.Fatal("the started span produced no trace ID")
 	}

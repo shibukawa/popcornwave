@@ -20,7 +20,7 @@ Every statement outside a transaction is its own transaction, which SQLite pays
 for with an fsync each time. Wrapping the loop removes all but one:
 
 ```go
-err := pw.Transaction(r.Context(), func(ctx context.Context) error {
+err := pw.Transaction(r, func(ctx context.Context) error {
 	for _, name := range names {
 		if _, err := queries.InsertItem(ctx, name); err != nil {
 			return err
@@ -58,7 +58,7 @@ import (
 )
 
 func ImportItems(w http.ResponseWriter, r *http.Request, names []string) {
-	ctx, span := pw.StartSpanKind(r.Context(), "import-items", pw.SpanKindClient)
+	ctx, span := pw.StartSpanKind(r, "import-items", pw.SpanKindClient)
 	defer span.End()
 
 	err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {

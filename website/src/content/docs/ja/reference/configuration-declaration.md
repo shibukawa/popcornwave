@@ -35,7 +35,7 @@ func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 読み出しにエラー処理は要りません。
 
 ```go
-app := pw.Config[AppConfig](r.Context())
+app := pw.Config[AppConfig](r)
 ```
 
 `pw.Config` はリクエストの外では `nil` を受け付けます。登録済みだが一度もパースされていない

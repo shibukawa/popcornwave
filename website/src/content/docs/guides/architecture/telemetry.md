@@ -30,7 +30,7 @@ import (
 
 func showAccount(w http.ResponseWriter, r *http.Request) {
     accountID := r.PathValue("id")
-    pw.Logger(r.Context()).Info(
+    pw.Logger(r).Info(
         "account requested",
         pw.String("account_id", accountID),
         pw.Bool("cached", false),

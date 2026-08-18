@@ -179,7 +179,7 @@ func TestAPIServerPresetScaffoldsNoBrowserLogin(t *testing.T) {
 	if !ok {
 		t.Fatal("no bearer handler was scaffolded")
 	}
-	if !strings.Contains(handler, "pw.RequestAuthentication(r.Context())") {
+	if !strings.Contains(handler, "pw.RequestAuthentication(r)") {
 		t.Errorf("the handler does not read the verified identity:\n%s", handler)
 	}
 	// A project with no relational database and no store to open.

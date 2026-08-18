@@ -152,7 +152,7 @@ var runtimeState = struct {
 // says whether telemetry this process produces has anywhere to go, which is what
 // the automatic tracing and metrics settings read.
 func runtimeResources(backend *pwruntime.LogBackend, meters *metric.Provider, exporting bool) pwruntime.Resources {
-	observability := Config[ObservabilityConfig](nil)
+	observability := ConfigContext[ObservabilityConfig](nil)
 	query := resolveQueryDiagnostics(observability, Development())
 	tracing := resolveTracing(observability, exporting)
 	metrics := pwobservability.MetricsPolicy(observability, meters, exporting)

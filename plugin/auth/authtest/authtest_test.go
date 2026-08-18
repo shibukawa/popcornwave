@@ -14,7 +14,7 @@ import (
 // handler reports what the framework accessors see, which is what an
 // application handler would branch on.
 func handler(w http.ResponseWriter, r *http.Request) {
-	authentication := pw.RequestAuthentication(r.Context())
+	authentication := pw.RequestAuthentication(r)
 	if !authentication.Authenticated {
 		_, _ = w.Write([]byte("anonymous"))
 		return
@@ -105,7 +105,7 @@ func TestScopeReachesTheAuthorizationCheck(t *testing.T) {
 	request := authtest.NewRequest(http.MethodGet, "/", nil, authtest.Identity{
 		AccountID: "account-1", Scope: []string{"admin", "billing"},
 	})
-	scope := pw.RequestAuthentication(request.Context()).Scope
+	scope := pw.RequestAuthentication(request).Scope
 	if len(scope) != 2 || scope[0] != "admin" {
 		t.Fatalf("scope = %v, want the values the test set", scope)
 	}
@@ -116,7 +116,7 @@ func TestScopeReachesTheAuthorizationCheck(t *testing.T) {
 func TestTheIdentitySurvivesAMiddlewareChain(t *testing.T) {
 	var seen string
 	chain := passthrough(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = pw.RequestAuthentication(r.Context()).Subject
+		seen = pw.RequestAuthentication(r).Subject
 	}))
 	chain.ServeHTTP(httptest.NewRecorder(),
 		authtest.NewRequest(http.MethodGet, "/", nil, authtest.Identity{AccountID: "account-1"}))
@@ -135,11 +135,11 @@ func passthrough(next http.Handler) http.Handler {
 
 func TestNilContextIsUsable(t *testing.T) {
 	//nolint:staticcheck // a nil context is what a careless caller passes.
-	if ctx := authtest.NewContext(nil, authtest.Identity{AccountID: "account-1"}); !pw.Authenticated(ctx) {
+	if ctx := authtest.NewContext(nil, authtest.Identity{AccountID: "account-1"}); !pw.AuthenticatedContext(ctx) {
 		t.Fatal("a nil context produced an unauthenticated result")
 	}
 	//nolint:staticcheck
-	if ctx := authtest.Anonymous(nil); pw.Authenticated(ctx) {
+	if ctx := authtest.Anonymous(nil); pw.AuthenticatedContext(ctx) {
 		t.Fatal("Anonymous produced an authenticated result")
 	}
 }

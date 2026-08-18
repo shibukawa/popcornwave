@@ -217,7 +217,7 @@ if !ok {
 
 accountID := caller.AccountID
 claims := caller.Identity.Claims
-authentication := pw.RequestAuthentication(r.Context())
+authentication := pw.RequestAuthentication(r)
 ```
 
 `admission = "authenticated"` needs no server-side store. `claim` applies a

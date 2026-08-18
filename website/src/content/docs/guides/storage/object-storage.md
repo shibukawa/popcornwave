@@ -204,7 +204,7 @@ if object.ETag != "" {
 	w.Header().Set("ETag", object.ETag)
 }
 if _, err := io.Copy(w, object.Body); err != nil {
-	pw.Logger(r.Context()).Error("download interrupted", pw.String("key", key), pw.Err(err))
+	pw.Logger(r).Error("download interrupted", pw.String("key", key), pw.Err(err))
 }
 ```
 

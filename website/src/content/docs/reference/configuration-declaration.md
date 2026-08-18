@@ -38,7 +38,7 @@ func RegisterConfig() { pw.RegisterConfig[AppConfig]("app") }
 Reading it back takes no error handling:
 
 ```go
-app := pw.Config[AppConfig](r.Context())
+app := pw.Config[AppConfig](r)
 ```
 
 `pw.Config` accepts `nil` outside a request. A registered prefix that was never
