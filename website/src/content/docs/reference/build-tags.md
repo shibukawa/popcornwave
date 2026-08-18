@@ -31,7 +31,7 @@ re-exports.
 
 | Tag | What it selects | Who passes it |
 |---|---|---|
-| `fasthttp` | The second build. `pwfast` replaces `pw`, and the binary links no `pw` at all. Requires `project.fasthttp = true` in `popcornwave.toml`. | `pw build --target fasthttp` |
+| `fasthttp` | The second build. `pwfast` replaces `pw`, and the binary links no `pw` at all. Requires `project.fasthttp = true` in `popcornwave.toml`. | `pw build --backend fasthttp` |
 | `pwdev` | The development halves: dev console, storybook, dev data, `--pw-print-dsn`. | `pw dev`, `pw storybook` and `pw migrate` pass `-tags=pwdev` to `go run` |
 | `force_tinygo_logic` | Compiles the TinyGo code path under host Go, so it can be tested without TinyGo. Defined by tinygodriver; Popcorn Wave follows the convention in its own compression and migration splits. | You, in tests |
 | `tinybind_no_openapi` | Keeps the generated OpenAPI fragments out of the build. Defined by tinybind-go, and appears in files `pw generate` writes. | You |

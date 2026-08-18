@@ -18,7 +18,7 @@ below as a scale for deciding where to investigate, not as a performance guarant
 One application, three ways to ship it. The default is host Go on `net/http`,
 and it is the one to take unless something below names your situation.
 
-`pw build --target fasthttp` compiles the same source against fasthttp instead.
+`pw build --backend fasthttp` compiles the same source against fasthttp instead.
 It is a second build rather than a mode: `pw generate` derives the handlers, the
 binders and the route registration from the net/http source you wrote, build
 tags select which half compiles, and the binary carries no `net/http` runtime at

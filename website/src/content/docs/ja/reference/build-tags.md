@@ -19,7 +19,7 @@ Popcorn Wave は Go のプロジェクトとしてはビルドタグをかなり
 
 | タグ | 選ぶもの | 渡す人 |
 |---|---|---|
-| `fasthttp` | 第二のビルド。`pwfast` が `pw` を置き換え、バイナリは `pw` を一切リンクしません。`popcornwave.toml` の `project.fasthttp = true` が前提です。 | `pw build --target fasthttp` |
+| `fasthttp` | 第二のビルド。`pwfast` が `pw` を置き換え、バイナリは `pw` を一切リンクしません。`popcornwave.toml` の `project.fasthttp = true` が前提です。 | `pw build --backend fasthttp` |
 | `pwdev` | 開発側の半分。dev コンソール、storybook、dev data、`--pw-print-dsn`。 | `pw dev`、`pw storybook`、`pw migrate` が `go run` に `-tags=pwdev` を渡します |
 | `force_tinygo_logic` | TinyGo 用のコードパスをホスト Go でコンパイルし、TinyGo 無しでテストできるようにします。定義は tinygodriver 側で、Popcorn Wave も圧縮とマイグレーションの分岐でこの規約に従っています。 | あなた（テスト時） |
 | `tinybind_no_openapi` | 生成された OpenAPI 断片をビルドから外します。定義は tinybind-go 側で、`pw generate` が書くファイルに付いてきます。 | あなた |
