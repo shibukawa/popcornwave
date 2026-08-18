@@ -79,7 +79,7 @@ func ImportItems(w http.ResponseWriter, r *http.Request, names []string) {
 		pw.WriteProblem(w, r, err)
 		return
 	}
-	pw.Logger(ctx).Info("imported", pw.Int("rows", len(names)))
+	pw.Logger(r).Info("imported", pw.Int("rows", len(names)))
 }
 ```
 
@@ -126,7 +126,7 @@ err := postgres.WithConn(ctx, func(conn *pgx.Conn) error {
 if err != nil {
 	return err
 }
-pw.Logger(ctx).Info("copied items", pw.Int64("rows", copied))
+pw.LoggerContext(ctx).Info("copied items", pw.Int64("rows", copied))
 ```
 
 `pgx.Identifier` quotes the table name as an identifier; the strings in the
@@ -166,7 +166,7 @@ how long the exchange took. Per-statement timing is what you gave up.
 reachable with no framework help:
 
 ```go
-db, ok := pw.DB(ctx)
+db, ok := pw.DBContext(ctx)
 if !ok {
 	return errors.New("no pool on this connection")
 }

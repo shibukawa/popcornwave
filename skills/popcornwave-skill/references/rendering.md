@@ -277,7 +277,7 @@ Three paths, chosen by who holds the changed input:
   Requirements: exported, exactly one root element, a required `id` parameter, every other parameter a scalar a query string carries (records, slices, `html` are errors). A page-tree page needs no handler code; a registered handler can answer a redraw before its data load, below its auth check:
 
   ```go
-  if !pw.Authenticated(r.Context()) { pw.WriteProblem(w, r, pw.Unauthorized()); return }
+  if !pw.Authenticated(r) { pw.WriteProblem(w, r, pw.Unauthorized()); return }
   if pw.Redraw(w, r, templates.OrdersPage) { return }   // page is named, not called
   ```
 

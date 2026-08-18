@@ -13,7 +13,7 @@ same destination.
 ## The telemetry model
 
 Application code writes structured records through
-[`pw.Logger(ctx)`](/reference/runtime/#logging). The
+[`pw.Logger(r)`](/reference/runtime/#logging). The
 context carries active trace identifiers, so a record emitted during a span can
 include `trace_id`, `span_id`, and `trace_flags` automatically. Framework
 diagnostics use the same logger. A message is useful to a person; typed

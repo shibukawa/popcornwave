@@ -173,7 +173,7 @@ disclose a person's screen. Those failures are not comparable.
 
 A private component's key is prefixed with the identity of the reader it
 rendered for, so two readers never reach one entry. That value is
-`pw.RequestAuthentication(ctx).Subject`, the local account identifier a session
+`pw.RequestAuthentication(r).Subject`, the local account identifier a session
 login, a passkey assertion, and a bearer token all resolve to before any handler
 runs. One person's entries therefore stay one person's however they signed in,
 and adding a second login method partitions nothing that already existed. It is

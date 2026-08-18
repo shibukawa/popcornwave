@@ -125,7 +125,7 @@ func fetchQuote(ctx context.Context, pair string) (Quote, error) {
 ます。
 
 それ以外は private のままにしてください。この既定は調整ノブではなく安全境界です。private な
-エントリのキーには、取得した相手の識別子が前置されます。`pw.RequestAuthentication(ctx).Subject`
+エントリのキーには、取得した相手の識別子が前置されます。`pw.RequestAuthentication(r).Subject`
 —— セッションログインもパスキーもベアラトークンも、ハンドラが動く前に行き着く同じ
 ローカルアカウント識別子です。だから2人の読者が1つのエントリに届くことはありません。
 実際には読者ごとに違うものを `public` と宣言すれば、キャッシュはある人のデータを次に

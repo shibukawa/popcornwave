@@ -226,10 +226,10 @@ SQL text. Write paths therefore need an explicit code change.
 
 ```go
 // One write.
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+user, err := queries.CreateUser(pw.SelectDB(r, "writer"), name)
 
 // A write transaction.
-err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
+err := pw.TransactionContext(pw.SelectDB(r, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
 })
 ```

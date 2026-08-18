@@ -62,7 +62,8 @@ sidebar:
 | 関数 | 役割 |
 | --- | --- |
 | `RegisterConfig[T](prefix)` | 設定構造体を1つ、TOML の prefix に登録する（**generated**） |
-| `Config[T](ctx) T` | 解析済みの構造体を返す。リクエスト外では `nil` を渡してよい |
+| `Config[T](r) T` | このリクエストの解析済み構造体を返す |
+| `ConfigContext[T](ctx) T` | ハンドラより下での同等物。リクエスト外では `nil` を渡してよい |
 | `Env() string` | 解決済みの実行環境トークン |
 | `RegisterSubCommand[T](name, help)` | CLI 専用の型付き入力を登録する |
 | `Command[T]() (T, bool)` | `ParseConfig` 後の、選択・解析済みサブコマンド |
@@ -96,8 +97,9 @@ sidebar:
 
 | | |
 | --- | --- |
-| `RequestAuthentication(ctx) Authentication` | 検証済みの認証結果 |
-| `Authenticated(ctx) bool` | 検証済みの identity を持つリクエストかどうか |
+| `RequestAuthentication(r) Authentication` | 検証済みの認証結果 |
+| `Authenticated(r) bool` | 検証済みの identity を持つリクエストかどうか |
+| `RequestAuthenticationContext(ctx)`, `AuthenticatedContext(ctx)` | ハンドラより下での同等物 |
 
 **関数**
 
@@ -105,6 +107,13 @@ sidebar:
 | --- | --- |
 | `Parse[T](r) (T, error)` | パス、クエリ、ボディ、ヘッダ、Cookie、メソッドをひとつの構造体へバインドする |
 | `IsBot(r) bool` | クライアントが境界ランタイムを実行するかどうか |
+| `Context(r) context.Context` | ハンドラより下の層に渡すための、リクエストのコンテキスト |
+
+`Context` は 2 つの通貨をまたぐ、サポートされた 1 本の橋です。ハンドラが持つのは
+リクエストで、生成 SQL やサービス関数、その他リクエストなしで呼べるものが取るのは
+`context.Context`。`r.Context()` も同じ値を返しますし、今後も使えます。ただしそれは
+`net/http` のリクエスト型のメソッドで、第二のトランスポートが追えない唯一の読み方
+でもあります。fasthttp 向けのビルドがきれいに書き換えられるのは `pw.Context` の方です。
 
 認可が消費すべきなのは `RequestAuthentication` であって、Cookie の有無ではありません。
 認証ミドルウェアを通っていないリクエストも、匿名のリクエストも、同じ「明示的に
@@ -270,12 +279,13 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 
 | 関数 | 役割 |
 | --- | --- |
-| `DB(ctx) (*sql.DB, bool)` | 有効な接続グループのプール |
-| `DBDriver(ctx) (string, bool)` | そのプールのドライバスキーム |
-| `SelectDB(ctx, group) context.Context` | 名前付き接続グループを固定する |
-| `SelectWriteDB(ctx) (context.Context, error)` | フレームワークの書き込みが使うグループを固定する |
-| `SelectSessionDB(ctx) (context.Context, error)` | セッションテーブルを持つグループを固定する |
-| `Transaction(ctx, fn) error` | 生成 SQL がそのトランザクションを使うコンテキストで `fn` を実行する |
+| `DB(r) (*sql.DB, bool)` | 有効な接続グループのプール |
+| `DBDriver(r) (string, bool)` | そのプールのドライバスキーム |
+| `SelectDB(r, group) context.Context` | 名前付き接続グループを固定する |
+| `SelectWriteDB(r) (context.Context, error)` | フレームワークの書き込みが使うグループを固定する |
+| `SelectSessionDB(r) (context.Context, error)` | セッションテーブルを持つグループを固定する |
+| `Transaction(r, fn) error` | 生成 SQL がそのトランザクションを使うコンテキストで `fn` を実行する |
+| `DBContext`・`DBDriverContext`・`SelectDBContext`・`SelectWriteDBContext`・`SelectSessionDBContext`・`TransactionContext` | 上記それぞれのハンドラより下の形。`context.Context` を取り、`SelectDB` で固定済みのものも渡せる |
 
 `Transaction` のネストは、2つめのトランザクションではなくセーブポイントを開きます。
 内側の失敗がロールバックするのは内側の作業だけで、外側はそのまま使えます。
@@ -294,7 +304,8 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 
 | | |
 | --- | --- |
-| `Logger(ctx) Log` | リクエスト、その固定属性、有効なスパンに結びついたロガー |
+| `Logger(r) Log` | リクエスト、その固定属性、有効なスパンに結びついたロガー |
+| `LoggerContext(ctx) Log` | ハンドラより下、および子スパンの中での同等物 |
 
 **`Attribute`** —— スカラーのキーと値の組。スパン属性と同じ型です。
 
@@ -313,9 +324,9 @@ panic はハンドルのエラーになり、プロセスを落とさずに境�
 ません。子スパンの中で取り直せば、レコードがそのスパンに紐づきます。
 
 ```go
-ctx, span := pw.StartSpan(ctx, "load-user")
+ctx, span := pw.StartSpan(r, "load-user")
 defer span.End()
-pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
+pw.LoggerContext(ctx).Info("loaded", pw.Int("rows", n))
 ```
 
 `Fatal` も `Panic` もありません。ログは起きたことを報告するものであり、プロセスを
@@ -330,8 +341,9 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 
 | | |
 | --- | --- |
-| `StartSpan(ctx, name, ...Attribute) (context.Context, *Span)` | 有効なスパンの子を開く |
-| `StartSpanKind(ctx, name, kind, ...Attribute)` | internal でない処理向けの同等物 |
+| `StartSpan(r, name, ...Attribute) (context.Context, *Span)` | リクエストのスパンの子を開く |
+| `StartSpanKind(r, name, kind, ...Attribute)` | internal でない処理向けの同等物 |
+| `StartSpanContext(ctx, …)`・`StartSpanKindContext(ctx, …)` | ハンドラより下での同等物。コンテキストが運ぶスパンの下にネストする |
 
 **定数**
 
@@ -344,8 +356,9 @@ pw.Logger(ctx).Info("loaded", pw.Int("rows", n))
 
 | 関数 | 役割 |
 | --- | --- |
-| `TraceID(ctx) string`, `SpanID(ctx) string` | 現在の識別子。トレース外では空文字列 |
-| `Traced(ctx) bool` | 有効なスパンコンテキストを持つかどうか |
+| `TraceID(r) string`, `SpanID(r) string` | 現在の識別子。トレース外では空文字列 |
+| `Traced(r) bool` | 有効なスパンコンテキストを持つリクエストかどうか |
+| `TraceIDContext(ctx)`・`SpanIDContext(ctx)`・`TracedContext(ctx)` | ハンドラより下での同等物 |
 
 トレース外、あるいはトレーシングが無効なとき、`StartSpan` は何も記録せず終了コストも
 ないスパンを返します。`defer span.End()` にガードは不要です。リクエストのルートスパンは

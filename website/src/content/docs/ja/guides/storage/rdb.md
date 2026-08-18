@@ -139,10 +139,10 @@ readonly = true
 
 ```go
 // 単一のステートメント
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+user, err := queries.CreateUser(pw.SelectDB(r, "writer"), name)
 
 // トランザクション全体。中でグループを指定しないステートメントも writer に残ります
-err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
+err := pw.TransactionContext(pw.SelectDB(r, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
 })
 ```

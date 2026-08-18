@@ -664,7 +664,7 @@ export component ProductList(rows: Product[]): html { … }
 
 private なコンポーネントのキーには、描画した相手の識別子が前置されます。2人の読み手が同じ
 エントリに届くことはありません。Popcorn Wave はその値を
-`pw.RequestAuthentication(ctx).Subject` から渡します。セッションログインもパスキーもベアラ
+`pw.RequestAuthentication(r).Subject` から渡します。セッションログインもパスキーもベアラ
 トークンも、ハンドラが走る前に1つのローカルアカウント識別子へ収束するからです。匿名リクエスト
 はそれを持ちません。識別子のないまま描画された private なコンポーネントは何も保存しません。
 空の識別子で保存すれば、private の札を下げた共有エントリになってしまいます。

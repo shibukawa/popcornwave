@@ -87,7 +87,7 @@ var (
 // Client returns the process-wide client, built from [storage] on first use.
 func Client(ctx context.Context) (*s3.Client, error) {
 	once.Do(func() {
-		config := pw.Config[Config](ctx)
+		config := pw.ConfigContext[Config](ctx)
 		var options []s3.Option
 		if config.Endpoint != "" {
 			options = append(options, s3.WithEndpoint(config.Endpoint))
@@ -101,7 +101,7 @@ func Client(ctx context.Context) (*s3.Client, error) {
 }
 
 // Bucket names the configured bucket.
-func Bucket(ctx context.Context) string { return pw.Config[Config](ctx).Bucket }
+func Bucket(ctx context.Context) string { return pw.ConfigContext[Config](ctx).Bucket }
 ```
 
 `s3.New` はネットワーク I/O を行わず、認証情報・リージョン・エンドポイントを検証
@@ -297,7 +297,7 @@ default 節は意図的です。`ErrAccessDenied`、`ErrBadCredentials`、接続
 ```go
 var storageErr *s3.Error
 if errors.As(err, &storageErr) {
-	pw.Logger(ctx).Error("s3 failed",
+	pw.LoggerContext(ctx).Error("s3 failed",
 		pw.String("op", storageErr.Op), pw.String("code", storageErr.Code),
 		pw.Int("status", storageErr.StatusCode), pw.String("request_id", storageErr.RequestID))
 }

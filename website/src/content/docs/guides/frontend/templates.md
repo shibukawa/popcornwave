@@ -445,7 +445,7 @@ export component UserCard(id: string): html {
 
 ```go
 func Authorize(ctx context.Context, id string) error {
-	if pw.RequestAuthentication(ctx).Subject != id {
+	if pw.RequestAuthenticationContext(ctx).Subject != id {
 		return pw.Forbidden("not yours")
 	}
 	return nil

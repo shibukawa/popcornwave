@@ -68,7 +68,7 @@ which has the stale window and the explicit invalidation `@cache` does not.
 
 `scope` takes `"private"` or `"public"` and defaults to `"private"`.
 
-A private component's key is prefixed with `pw.RequestAuthentication(ctx).Subject`
+A private component's key is prefixed with `pw.RequestAuthentication(r).Subject`
 — the local account identifier a session login, a passkey assertion, and a bearer
 token all resolve to before any handler runs. It is deliberately not the session
 token, which rotates. An anonymous request has no such identifier, and a storing
@@ -191,7 +191,7 @@ type QuoteKey struct {
 }
 
 func ShowQuote(w http.ResponseWriter, r *http.Request) {
-	store, err := pw.MemoStore(r.Context(), "rates")
+	store, err := pw.MemoStore(r, "rates")
 	if err != nil {
 		pw.WriteProblem(w, r, err)
 		return

@@ -218,10 +218,10 @@ max_open_conns = 20
 
 ```go
 // 単独の書き込み
-user, err := queries.CreateUser(pw.SelectDB(ctx, "writer"), name)
+user, err := queries.CreateUser(pw.SelectDB(r, "writer"), name)
 
 // 書き込みトランザクション
-err := pw.Transaction(pw.SelectDB(ctx, "writer"), func(ctx context.Context) error {
+err := pw.TransactionContext(pw.SelectDB(r, "writer"), func(ctx context.Context) error {
 	return queries.RecordAudit(ctx, "user.created")
 })
 ```

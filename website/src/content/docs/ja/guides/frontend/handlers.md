@@ -222,10 +222,17 @@ check: enum is not a check rule; use the struct tag enum:"asc,desc" instead
 
 | 呼び出し | 戻り値 |
 | --- | --- |
-| `pw.Logger(ctx)` | リクエストスコープの `*slog.Logger` |
-| `pw.Config[T](ctx)` | 登録済みの設定構造体 |
-| `pw.DB(ctx)` | `(*sql.DB, bool)` — pgx ネイティブプールで動く PostgreSQL では `false` |
-| `pw.Transaction(ctx, fn)` | `fn` をトランザクション内で実行 |
+| `pw.Logger(r)` | リクエストスコープの `*slog.Logger` |
+| `pw.Config[T](r)` | 登録済みの設定構造体 |
+| `pw.DB(r)` | `(*sql.DB, bool)` — pgx ネイティブプールで動く PostgreSQL では `false` |
+| `pw.Transaction(r, fn)` | `fn` をトランザクション内で実行 |
+
+どれもリクエストを取ります。ハンドラが手に持っているのがリクエストだからです。
+ハンドラより下の層 — サービス関数、ジョブ、リクエストなしで呼べるもの — では、同じ
+アクセサが `Context` サフィックス付きで `context.Context` を取ります。`database/sql`
+が `ExecContext` と綴るのと同じ規則で、`pw.LoggerContext(ctx)`、
+`pw.ConfigContext[T](ctx)`、`pw.DBContext(ctx)`。その `ctx` をハンドラ側で作るのが
+`pw.Context(r)` です。
 
 ```go
 func createUser(w http.ResponseWriter, r *http.Request) {
