@@ -235,16 +235,28 @@ type projectConfig struct {
 	// taking the fasthttp request, constrained to that build. And every page
 	// tree gains a second copy of the files that read the request, beside the
 	// compiled components both builds share.
-	FastHTTP  bool
-	Generate  generationScope
-	Watch     watchConfig
-	IdP       idpConfig
-	Otel      otelConfig
-	Logs      devLogsConfig
-	Console   consoleConfig
-	Migration migrationConfig
-	Seed      seedConfig
-	Tailwind  tailwindConfig
+	FastHTTP bool
+	Generate generationScope
+	// LineDirectives maps generated template code back to the template line
+	// that produced it, per requirement:template-source-positions.
+	//
+	// It is a project setting rather than a command flag because generation
+	// output must not depend on who ran it: api:cli-check compares the tree
+	// against a fresh generation, and a flag one machine passed and another
+	// did not would report drift on every one of them.
+	//
+	// Off by default, because turning it on rewrites every generated file
+	// holding a template and makes go test -cover report lines that do not
+	// exist in the file the profile names. A project takes one or the other.
+	LineDirectives bool
+	Watch          watchConfig
+	IdP            idpConfig
+	Otel           otelConfig
+	Logs           devLogsConfig
+	Console        consoleConfig
+	Migration      migrationConfig
+	Seed           seedConfig
+	Tailwind       tailwindConfig
 	// Assets is the build-time conversion set. Every field defaults to off, so
 	// a project that declares nothing embeds a copy of its authored tree and
 	// serves exactly what it served before any of this existed.
@@ -338,6 +350,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"packages",
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"generate.dynamo", "generate.firestore",
+		"generate.line_directives",
 		"dev.watch.includes", "dev.watch.excludes",
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
@@ -519,6 +532,12 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.Console.Assets, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornweb.toml: dev.console.assets.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("generate.line_directives"); ok {
+		config.LineDirectives, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: generate.line_directives: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.overlay.enabled"); ok {

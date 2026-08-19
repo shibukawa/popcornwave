@@ -87,6 +87,10 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// requirement:template-source-positions. Read from the project rather than
+	// from a flag, so every run of every command produces the same bytes and
+	// api:cli-check has something stable to compare against.
+	options.TemplateLineDirectives = config.LineDirectives
 	// The implicit bindings are declared whether or not the project has a
 	// catalog, because a binding no template reads generates byte-identical Go
 	// and making the list conditional would make output differ by whether i18n
@@ -452,6 +456,18 @@ type generationPurposes struct {
 	firestore bool
 }
 
+// sources narrows the set to the purposes that read a template source, which
+// is the half pwgen.StrayTemplateMessage decides on.
+func (p generationPurposes) sources() pwgen.SourcePurposes {
+	return pwgen.SourcePurposes{
+		Templates: p.templates,
+		Queries:   p.queries,
+		Dynamo:    p.dynamo,
+		Firestore: p.firestore,
+		Pages:     p.pages,
+	}
+}
+
 // any reports whether the directory serves any purpose at all.
 func (p generationPurposes) any() bool {
 	return p.handlers || p.templates || p.queries || p.config || p.pages || p.dynamo || p.firestore
@@ -616,27 +632,11 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 			relative = path
 		}
 		relative = filepath.ToSlash(relative)
+		if message, isStray := pwgen.StrayTemplateMessage(relative, name, purposes.sources()); isStray {
+			stray = append(stray, strayReport{relative, "pw: " + message})
+			return nil
+		}
 		switch {
-		case purposes.pages && strings.HasSuffix(name, ".pw.html"):
-			// The tree run compiles the names a page tree reserves. Any other
-			// template inside a root is compiled by neither run.
-			if !reservedPageTemplates[name] {
-				stray = append(stray, strayReport{relative, fmt.Sprintf(
-					"pw: %s is inside a page tree but is not %s, %s, or %s, so nothing compiles it",
-					relative, pwgen.PageFile, pwgen.LayoutFile, pwgen.DocumentFile)})
-			}
-		case strings.HasSuffix(name, ".pw.html") && !purposes.templates:
-			stray = append(stray, strayReport{relative, fmt.Sprintf(
-				"pw: %s is outside generate.templates and is not generated from; list its directory to include it", relative)})
-		case strings.HasSuffix(name, ".pw.sql") && !purposes.queries:
-			stray = append(stray, strayReport{relative, fmt.Sprintf(
-				"pw: %s is outside generate.queries and is not generated from; list its directory to include it", relative)})
-		case strings.HasSuffix(name, ".pw.dynamo") && !purposes.dynamo:
-			stray = append(stray, strayReport{relative, fmt.Sprintf(
-				"pw: %s is outside generate.dynamo and is not generated from; list its directory to include it", relative)})
-		case strings.HasSuffix(name, ".pw.firestore") && !purposes.firestore:
-			stray = append(stray, strayReport{relative, fmt.Sprintf(
-				"pw: %s is outside generate.firestore and is not generated from; list its directory to include it", relative)})
 		case strings.HasSuffix(name, "_pw_gen.go") && !purposes.any():
 			// The storybook harness is generated into a directory of its own
 			// and belongs to no purpose by design, so it is not stray.
@@ -686,6 +686,17 @@ type fileChange struct {
 // write. A planner that plans every file it could produce, produced or not,
 // makes both of those say a project is stale immediately after generating it.
 func appendIfChanged(changes []fileChange, path string, source []byte) ([]fileChange, error) {
+	// A requirement:template-source-positions directive restoring the
+	// generated file's own position names a placeholder until the file has a
+	// name, and only this layer has one: the generator states a suggested base
+	// and the caller decides the suffix. Skipping this leaves every scaffolding
+	// error pointing at a file that does not exist.
+	//
+	// It is a no-op on content carrying no directive, so it sits on the one
+	// funnel every generated write already passes through rather than being
+	// repeated at each of them.
+	source = generator.ResolveTemplatePositions(source, filepath.Base(path))
+
 	current, err := os.ReadFile(path)
 	if err == nil && bytes.Equal(current, source) {
 		return changes, nil
@@ -840,6 +851,10 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 		if err != nil {
 			return nil, err
 		}
+		// Here for the same reason, and for a second one: an artifact states a
+		// suggested base and this layer chooses the name, so this is the first
+		// point at which a restore directive can name the file it is in.
+		source = generator.ResolveTemplatePositions(source, filepath.Base(target))
 		current, readErr := os.ReadFile(target)
 		if readErr == nil && bytes.Equal(current, source) {
 			continue

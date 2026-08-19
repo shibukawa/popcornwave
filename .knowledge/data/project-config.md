@@ -55,6 +55,7 @@ schema:
     config: [cmd/myapp] as scaffolded
     pages: [pages] as scaffolded for a project with a concept:page-tree, and empty otherwise
     dynamo: [records] as scaffolded for a project with requirement:dynamodb-store, and empty otherwise
+    line_directives: false as scaffolded. requirement:template-source-positions, a project setting rather than a flag because api:cli-check compares against a fresh generation and output that varied by who ran it would report drift everywhere
   migration:
     dir: migrations
     auto: true for api:cli-dev only

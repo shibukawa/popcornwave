@@ -918,6 +918,11 @@ dynamo = [` + quotedList(scaffoldGenerationScope(options).Dynamo) + `]
 # The firestore-tagged types and .pw.firestore queries of the Firestore store,
 # a purpose of its own for the same reason.
 firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
+# Point the compiler, the debugger, and the editor at the template line that
+# produced a piece of generated Go, instead of at the generated file nobody
+# wrote. It costs go test -cover: with this on, a coverage profile names lines
+# that do not exist in the file it reports them against. Take one or the other.
+line_directives = false
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.

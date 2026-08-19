@@ -285,6 +285,7 @@
 {"category": "constraint", "id": "decision:storage-bounded-session-record", "path": ".knowledge/decision/storage-bounded-session-record.md", "role": "supporting", "title": "The Store Bounds Its Own Records", "type": "decision"}
 {"category": "constraint", "id": "decision:streaming-response-compression", "path": ".knowledge/decision/streaming-response-compression.md", "role": "supporting", "title": "Streaming Response Compression", "type": "decision"}
 {"category": "constraint", "id": "decision:tailwind-host-toolchain", "path": ".knowledge/decision/tailwind-host-toolchain.md", "role": "supporting", "title": "Tailwind Host Toolchain", "type": "decision"}
+{"category": "constraint", "id": "decision:template-position-mapping", "path": ".knowledge/decision/template-position-mapping.md", "role": "supporting", "title": "How a Template Position Reaches Go", "type": "decision"}
 {"category": "constraint", "id": "decision:test-authentication-seams", "path": ".knowledge/decision/test-authentication-seams.md", "role": "supporting", "title": "Test Authentication Seams", "type": "decision"}
 {"category": "constraint", "id": "decision:test-migration-snapshot", "path": ".knowledge/decision/test-migration-snapshot.md", "role": "supporting", "title": "Test Migration Snapshot", "type": "decision"}
 {"category": "constraint", "id": "decision:testutil-testing-interface", "path": ".knowledge/decision/testutil-testing-interface.md", "role": "supporting", "title": "testutil TestingT Interface", "type": "decision"}
@@ -411,6 +412,7 @@
 {"category": "constraint", "id": "policy:web-middleware", "path": ".knowledge/policy/web-middleware.md", "role": "supporting", "title": "Web Middleware Integration", "type": "policy"}
 {"category": "objective", "id": "requirement:action-invocation-runtime", "path": ".knowledge/requirement/action-invocation-runtime.md", "role": "primary", "title": "Action Invocation Runtime", "type": "requirement"}
 {"category": "objective", "id": "requirement:action-response-update", "path": ".knowledge/requirement/action-response-update.md", "role": "primary", "title": "Action Response Update", "type": "requirement"}
+{"category": "objective", "id": "requirement:additional-editor-clients", "path": ".knowledge/requirement/additional-editor-clients.md", "role": "primary", "title": "Editors Beyond VS Code", "type": "requirement"}
 {"category": "objective", "id": "requirement:agent-log-analysis-skill", "path": ".knowledge/requirement/agent-log-analysis-skill.md", "role": "primary", "title": "Agent Log Analysis Skill", "type": "requirement"}
 {"category": "objective", "id": "requirement:alternate-http-backend-readiness", "path": ".knowledge/requirement/alternate-http-backend-readiness.md", "role": "primary", "title": "Readiness For A Non-net/http Backend", "type": "requirement"}
 {"category": "objective", "id": "requirement:api-lifecycle-response-headers", "path": ".knowledge/requirement/api-lifecycle-response-headers.md", "role": "primary", "title": "API Lifecycle Response Headers", "type": "requirement"}
@@ -472,6 +474,7 @@
 {"category": "objective", "id": "requirement:data-result-cache", "path": ".knowledge/requirement/data-result-cache.md", "role": "primary", "title": "Data Result Cache", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-engine-selection", "path": ".knowledge/requirement/database-engine-selection.md", "role": "primary", "title": "Database Engine Selection", "type": "requirement"}
 {"category": "objective", "id": "requirement:database-migration", "path": ".knowledge/requirement/database-migration.md", "role": "primary", "title": "Versioned Database Migration", "type": "requirement"}
+{"category": "objective", "id": "requirement:declaration-rename", "path": ".knowledge/requirement/declaration-rename.md", "role": "primary", "title": "Declaration Rename as a Generator Operation", "type": "requirement"}
 {"category": "objective", "id": "requirement:deployed-debug-information", "path": ".knowledge/requirement/deployed-debug-information.md", "role": "primary", "title": "Debug Information In A Deployed Artifact", "type": "requirement"}
 {"category": "objective", "id": "requirement:derived-asset-pipeline", "path": ".knowledge/requirement/derived-asset-pipeline.md", "role": "primary", "title": "Derived Asset Pipeline", "type": "requirement"}
 {"category": "objective", "id": "requirement:dev-api-reference", "path": ".knowledge/requirement/dev-api-reference.md", "role": "primary", "title": "Development API Reference", "type": "requirement"}
@@ -496,12 +499,20 @@
 {"category": "objective", "id": "requirement:dynamodb-test-data", "path": ".knowledge/requirement/dynamodb-test-data.md", "role": "primary", "title": "DynamoDB Seeding And Assertion", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-test-isolation", "path": ".knowledge/requirement/dynamodb-test-isolation.md", "role": "primary", "title": "Isolated DynamoDB Tests", "type": "requirement"}
 {"category": "objective", "id": "requirement:dynamodb-typed-queries", "path": ".knowledge/requirement/dynamodb-typed-queries.md", "role": "primary", "title": "Declared DynamoDB Queries", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-code-actions", "path": ".knowledge/requirement/editor-code-actions.md", "role": "primary", "title": "Template Code Actions", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-completion", "path": ".knowledge/requirement/editor-completion.md", "role": "primary", "title": "Template Completion", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-diagnostics", "path": ".knowledge/requirement/editor-diagnostics.md", "role": "primary", "title": "In-Editor Diagnostics", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-formatting", "path": ".knowledge/requirement/editor-formatting.md", "role": "primary", "title": "Editor Formatting", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-generated-peek", "path": ".knowledge/requirement/editor-generated-peek.md", "role": "primary", "title": "Peek the Generated Go", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-inlay-hints", "path": ".knowledge/requirement/editor-inlay-hints.md", "role": "primary", "title": "Template Inlay Hints", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-language-registration", "path": ".knowledge/requirement/editor-language-registration.md", "role": "primary", "title": "Editor Language Registration", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-navigation", "path": ".knowledge/requirement/editor-navigation.md", "role": "primary", "title": "Cross-Language Navigation", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-route-explorer", "path": ".knowledge/requirement/editor-route-explorer.md", "role": "primary", "title": "Route and Page Tree View", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-runtime-diagnostics", "path": ".knowledge/requirement/editor-runtime-diagnostics.md", "role": "primary", "title": "Runtime Findings in the Editor", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-story-preview", "path": ".knowledge/requirement/editor-story-preview.md", "role": "primary", "title": "Story Preview From the Editor", "type": "requirement"}
 {"category": "objective", "id": "requirement:editor-tasks", "path": ".knowledge/requirement/editor-tasks.md", "role": "primary", "title": "Editor Commands and Tasks", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-web-host", "path": ".knowledge/requirement/editor-web-host.md", "role": "primary", "title": "Editor Support in a Web Host", "type": "requirement"}
+{"category": "objective", "id": "requirement:editor-workspace-symbols", "path": ".knowledge/requirement/editor-workspace-symbols.md", "role": "primary", "title": "Workspace Symbol Search Across Dialects", "type": "requirement"}
 {"category": "objective", "id": "requirement:engine-parameterized-docs", "path": ".knowledge/requirement/engine-parameterized-docs.md", "role": "primary", "title": "Engine-Parameterized Documentation", "type": "requirement"}
 {"category": "objective", "id": "requirement:environment-switching", "path": ".knowledge/requirement/environment-switching.md", "role": "primary", "title": "Environment Switching", "type": "requirement"}
 {"category": "objective", "id": "requirement:explicit-page-loading", "path": ".knowledge/requirement/explicit-page-loading.md", "role": "primary", "title": "Explicit Page Loading", "type": "requirement"}
@@ -579,6 +590,7 @@
 {"category": "objective", "id": "requirement:telemetry-architecture-guide", "path": ".knowledge/requirement/telemetry-architecture-guide.md", "role": "primary", "title": "Telemetry Architecture Guide", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-bound-page-loader", "path": ".knowledge/requirement/template-bound-page-loader.md", "role": "primary", "title": "Template Bound Page Loader", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-formatting", "path": ".knowledge/requirement/template-formatting.md", "role": "primary", "title": "Canonical Template Source Formatting", "type": "requirement"}
+{"category": "objective", "id": "requirement:template-source-positions", "path": ".knowledge/requirement/template-source-positions.md", "role": "primary", "title": "Template Positions In Generated Go", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-storybook", "path": ".knowledge/requirement/template-storybook.md", "role": "primary", "title": "Template Storybook", "type": "requirement"}
 {"category": "objective", "id": "requirement:template-syntax-highlighting", "path": ".knowledge/requirement/template-syntax-highlighting.md", "role": "primary", "title": "Template Syntax Highlighting", "type": "requirement"}
 {"category": "objective", "id": "requirement:test-data-seeding", "path": ".knowledge/requirement/test-data-seeding.md", "role": "primary", "title": "Test Data Seeding and Comparison", "type": "requirement"}

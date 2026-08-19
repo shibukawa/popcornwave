@@ -175,6 +175,47 @@ Generated Go is build output, not source:
 
 They can always be reproduced. Do not edit or commit them.
 
+### Pointing errors back at the template
+
+Because the generated file is output nobody wrote, an error inside it names a
+file you cannot bookmark and did not open. `generate.line_directives` in
+`popcornweb.toml` fixes that: the generator writes Go `//line` directives, and
+every tool that reads Go positions follows at once — the compiler, `go vet`,
+the debugger, gopls, and your editor.
+
+```toml
+[generate]
+line_directives = true
+```
+
+A type error in a template expression then reads:
+
+```
+./queries/users.pw.sql:8: invalid operation: mismatched types untyped int and untyped string
+```
+
+instead of naming `users_pw_gen.go`. A panic inside a generated `.pw.sql`
+function names the `.pw.sql` in its stack frame too.
+
+It is off by default, and there are two reasons to leave it off.
+
+**It costs `go test -cover`.** With directives on, the coverage profile keeps
+the generated file's path and writes the mapped line numbers, so it reports
+lines that do not exist in the file it names — and `go tool cover -html` paints
+the wrong lines and exits zero rather than complaining. Take template positions
+or take coverage; a project cannot have both.
+
+**`.pw.html` gets only half of it.** Compile-time errors map for every dialect.
+Runtime stack frames map only for `.pw.sql`, because a `.pw.html` compiles to a
+render plan that the shared runtime walks: the failing frame is inside that
+runtime, not inside generated code, and no directive on a generated file can
+move it.
+
+The setting is per project rather than a flag, because generated output must
+not depend on who ran it — [`pw check`](/pw/project/check/) compares the tree
+against a fresh generation, and a flag one machine passed and another did not
+would report drift on every one of them.
+
 `cmd/<name>/popcornweb_bootstrap_pw_gen.go` is the exception in kind rather
 than in rule: it is a generated file of blank imports that links the document
 shell and the embedded public assets into the binary, so no handler has to
