@@ -11,8 +11,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/shibukawa/popcornweb/contrib/cbor"
 	"github.com/shibukawa/popcornweb/contrib/internal/authn"
+	"github.com/shibukawa/tinygodriver/encoding/cbor"
 )
 
 const (

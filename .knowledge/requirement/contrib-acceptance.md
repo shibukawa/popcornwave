@@ -60,8 +60,8 @@ package_gates:
   requirement:contrib-auth-common:
     - malformed, non-canonical, duplicate, expired, and oversized vectors fail within configured limits
   requirement:contrib-cbor:
-    - RFC 8949 valid, malformed, duplicate-key, limit, and deterministic-encoding vectors pass
-    - COSE_Key fixtures preserve signed labels and byte strings
+    - RFC 8949 valid, malformed, duplicate-key, limit, and deterministic-encoding vectors run upstream in system:tinygodriver encoding/cbor
+    - COSE_Key signed labels and byte strings are exercised here through requirement:contrib-passkey fixtures
   requirement:contrib-passkey:
     - ES256 registration and authentication succeed against two independent authenticator fixtures or implementations
     - negative vectors cover challenge, origin, RP ID hash, flags, user handle, algorithm, signature, counter, and backup state

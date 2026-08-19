@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/shibukawa/popcornweb/contrib/cbor"
+	"github.com/shibukawa/tinygodriver/encoding/cbor"
 )
 
 // Authenticator data flags, from the WebAuthn authenticator data layout.
