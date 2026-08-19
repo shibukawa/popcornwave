@@ -126,13 +126,23 @@ passes. The extension relies on that rather than repeating the check, and pins
 tinybind v0.3.2 or later to get it — `test/formatter.test.mjs` asserts the pin,
 so a downgrade fails rather than quietly removing the protection.
 
-### Version skew
+### Which formatter ran
 
-The bundled formatter is a fixed tinybind version (currently v0.5.16),
-independent of the one your project pins. If they differ, this extension and
-your CI can disagree about canonical form. A `pw fmt` delegation that removes
-this is planned; this version always uses the bundled module and says so once
-per session in the Popcorn Web output channel.
+In a trusted workspace with a `pw` the extension can resolve, formatting runs
+`pw fmt --stdin` — the same binary your build runs, so the editor and CI agree
+about canonical form by construction. Everywhere else it runs the bundled
+module: no workspace, no binary, an untrusted workspace, or a `pw` too old.
+
+The bundled module is a fixed tinybind version (currently v0.5.17) and your
+project's may differ, so which one produced a result is said once per session
+in the Popcorn Web output channel.
+
+A resolved `pw` is checked once before it is used, and the check is a property
+rather than a version. The extension formats the source that was unstable
+before tinybind v0.3.2 — a literal brace run in a `<style>` body — and requires
+a second pass to return the first unchanged. A `pw` that fails it is refused,
+because the extension applies a result without re-verifying it and relies on
+the formatter's own idempotence guard to make that safe.
 
 ## Accuracy
 

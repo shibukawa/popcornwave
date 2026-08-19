@@ -2,7 +2,7 @@
   "name": "popcornweb",
   "displayName": "Popcorn Web",
   "description": "Syntax highlighting and canonical formatting for Popcorn Web .pw.html, .pw.sql, and .pw.dynamo sources.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "shibukawa",
   "license": "Apache-2.0",
   "repository": {

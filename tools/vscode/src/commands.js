@@ -7,6 +7,9 @@
 // all of it: nothing runs without an explicit action, nothing runs in an
 // untrusted workspace, and the binary is the one binary.js resolved.
 
+const { execFile } = require("node:child_process");
+const { isAbsolute, join } = require("node:path");
+
 const vscode = require("vscode");
 
 const { COMMANDS, PROBLEM_MATCHERS, TASK_TYPE, commandById, taskCommands } = require("./tasks");
@@ -200,7 +203,6 @@ class CommandRunner {
 
   /** Runs one command and collects its output, without a terminal. */
   capture(resolved, args) {
-    const { execFile } = require("node:child_process");
     return new Promise((resolve) => {
       execFile(
         resolved.binary,
@@ -219,7 +221,6 @@ class CommandRunner {
 }
 
 function absolute(root, file) {
-  const { isAbsolute, join } = require("node:path");
   return isAbsolute(file) ? file : join(root, file);
 }
 

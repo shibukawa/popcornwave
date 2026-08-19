@@ -4,6 +4,7 @@
 // lives in formatter.js, binary.js, and client.js, so this file stays thin
 // enough to read in one pass.
 
+const { execFile } = require("node:child_process");
 const { readFile } = require("node:fs/promises");
 const { join } = require("node:path");
 
@@ -11,6 +12,7 @@ const vscode = require("vscode");
 const { LanguageClient, TransportKind } = require("vscode-languageclient/node");
 
 const { EmbeddedFormatter, FormatError } = require("./formatter");
+const { DelegatedFormatter } = require("./delegate");
 const { resolvePw, INSTALL_HINT } = require("./binary");
 const { CommandRunner } = require("./commands");
 const { GENERATED_SCHEME, renderGenerated, routeItems, routePlaceholder, routeCaveat } = require("./views");
@@ -347,36 +349,100 @@ class RuntimeWatch {
   }
 }
 
+/**
+ * A delegated formatter per resolved binary, kept so the one-time probe is one
+ * time rather than one per format. A different binary is a different answer,
+ * so it gets its own.
+ */
+const delegates = new Map();
+
+function delegateFor(resolved) {
+  let delegated = delegates.get(resolved.binary);
+  if (!delegated) {
+    delegated = new DelegatedFormatter((args, input) => runPw(resolved, args, input));
+    delegates.set(resolved.binary, delegated);
+  }
+  return delegated;
+}
+
+/** Runs pw with input on stdin and collects what it wrote. */
+function runPw(resolved, args, input) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      resolved.binary,
+      args,
+      { cwd: resolved.folder, maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        // A nonzero exit is an answer rather than a failure: pw fmt refuses a
+        // source that does not parse, and the caller renders that.
+        if (error && typeof error.code !== "number") {
+          reject(error);
+          return;
+        }
+        resolve({ code: error?.code ?? 0, stdout: stdout ?? "", stderr: stderr ?? "" });
+      },
+    );
+    child.stdin.end(input);
+  });
+}
+
 function registerFormatter(context, output) {
-  const formatter = new EmbeddedFormatter(() =>
+  const embedded = new EmbeddedFormatter(() =>
     readFile(join(context.extensionPath, "wasm", "pwfmt.wasm")),
   );
 
-  // decision:formatter-delivery names two paths and this version ships one.
-  // Saying which produced a result makes a surprising diff traceable, and
-  // leaves an obvious place for the delegated path to announce itself.
+  // decision:formatter-delivery names two paths. Which one produced a result
+  // is said once per session, because a surprising diff is otherwise
+  // untraceable: the two are different tinybind versions by construction.
   let announced = false;
-  const announce = () => {
+  const announce = (line) => {
     if (announced) {
       return;
     }
     announced = true;
-    output.appendLine(
-      "Formatting with the embedded tinybind formatter. " +
-        "The pw fmt delegation is not available in this version, so a project " +
-        "pinning a different tinybind may format differently in CI.",
-    );
+    output.appendLine(line);
+  };
+
+  /**
+   * The delegated formatter when the workspace allows one and the resolved pw
+   * has it, and the embedded module otherwise.
+   *
+   * Resolved per format rather than once, because trust is granted and the
+   * setting is changed while a window is open, and a formatter chosen before
+   * either would keep answering with the wrong one.
+   */
+  const chooseFormatter = async () => {
+    if (!vscode.workspace.isTrusted) {
+      return { formatter: embedded, why: "this workspace is not trusted, so no process is started" };
+    }
+    const resolved = resolveWorkspace(output);
+    if (!resolved) {
+      return { formatter: embedded, why: "no pw was resolved" };
+    }
+    const delegated = delegateFor(resolved);
+    const { usable, reason } = await delegated.usable();
+    if (!usable) {
+      return { formatter: embedded, why: reason };
+    }
+    return { formatter: delegated, binary: resolved.binary };
   };
 
   const provider = {
     async provideDocumentFormattingEdits(document) {
+      const { formatter, why, binary } = await chooseFormatter();
       try {
         const { text, changed } = await formatter.format(
           document.languageId,
           document.getText(),
           document.fileName,
         );
-        announce();
+        announce(
+          binary
+            ? `Formatting with ${binary}, so the editor and your build agree by construction.`
+            : "Formatting with the embedded tinybind formatter, because " +
+                why +
+                ". A project pinning a different tinybind may format differently in CI.",
+        );
         if (!changed) {
           // No edit at all, so an already canonical buffer never touches the
           // undo stack and never marks the document dirty.

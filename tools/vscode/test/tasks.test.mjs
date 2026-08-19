@@ -103,3 +103,26 @@ test("a matcher resolves a path against the workspace folder", async () => {
     assert.deepEqual(matcher.fileLocation, ["relative", "${workspaceFolder}"]);
   }
 });
+
+test("the manifest version has a changelog entry", async () => {
+  // requirement:extension-distribution: both registries require the changelog,
+  // and a version published without one tells a reader nothing about what
+  // changed. The tag is what publishes, so the entry has to exist before it.
+  const { readFileSync } = await import("node:fs");
+  const changelog = readFileSync(join(extensionRoot, "CHANGELOG.md"), "utf8");
+
+  assert.match(
+    changelog,
+    new RegExp(`^## ${manifest.version.replace(/\./g, "\\.")}$`, "m"),
+    `CHANGELOG.md has no entry for ${manifest.version}`,
+  );
+});
+
+test("the changelog opens with the version being published", async () => {
+  // A new entry appended below an older one is one nobody reads first.
+  const { readFileSync } = await import("node:fs");
+  const changelog = readFileSync(join(extensionRoot, "CHANGELOG.md"), "utf8");
+  const first = changelog.split("\n").find((line) => line.startsWith("## "));
+
+  assert.equal(first, `## ${manifest.version}`);
+});

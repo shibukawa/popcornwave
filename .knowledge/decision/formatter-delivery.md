@@ -6,7 +6,7 @@ title: Formatter Delivery to the Editor
 Ship the system:tinybind formatter to the editor twice: as a WebAssembly module inside the extension, which always works, and as api:cli-fmt, which is preferred whenever the project has one.
 
 ```yaml
-status: embedded path implemented at tools/vscode 0.3.0, carrying system:tinybind v0.5.16; delegated path waits on api:cli-fmt
+status: both paths implemented at tools/vscode 0.4.0; the embedded module carries system:tinybind v0.5.17 and the delegated path runs the resolved pw
 problem:
   - requirement:editor-formatting needs the upstream Go formatter to run inside a system:vscode extension host
   - decision:textmate-grammar-first bought stage 1 a property worth keeping: highlighting works with no binary, no project, and no trust
@@ -36,7 +36,9 @@ decision:
     transport: the api:cli-fmt --stdin filter mode, because an editor formats a buffer rather than a file
     detection: run pw fmt --stdin against an empty buffer once per session; a nonzero exit or an unknown-command error selects the embedded path
     guard_floor: a project pinning below system:tinybind v0.3.2 has no idempotence guard, so this path either refuses that version or restores the check requirement:editor-formatting dropped
-    now_possible: api:cli-fmt exists and the framework is on v0.3.5, so this path is unblocked and simply not written yet
+    guard_check: a property rather than a version. The extension formats the source that was unstable before system:tinybind v0.3.2 — a literal brace run in a style body — and requires a second pass to return the first unchanged; a pw that fails it is refused. Asking a binary for its tinybind version is not possible, and the version was never the question: what requirement:editor-formatting relies on is the guard
+    probe_cost: once per resolved binary per session, because it protects a format and running it per format would double what it protects
+    selection: decided per format rather than once, because trust is granted and popcornweb.pw.path is changed while a window is open
   reporting: the extension names which of the two produced a result the first time it formats in a session, so a surprising diff is traceable
 why_not_only_the_cli:
   - a .pw.html opened from a review checkout has no project and no binary, and refusing to format it is the behavior stage 1 deliberately avoided

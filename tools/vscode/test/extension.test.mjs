@@ -34,6 +34,7 @@ function createStubVscode({ trusted = true, settings = {}, folders = [], confirm
     externals: [],
     diagnostics: new Map(),
     taskProviders: [],
+    spawned: [],
   };
 
   class Position {
@@ -217,7 +218,38 @@ function createStubClientModule(state, { failWith = null } = {}) {
   };
 }
 
-function loadExtension(vscode, clientModule) {
+/**
+ * A child_process whose execFile answers from a script instead of running
+ * anything. Both the pw commands and the delegated formatter spawn, and a test
+ * that ran either would be testing this machine's pw.
+ */
+function createStubChildProcess(state, spawnReply) {
+  return {
+    execFile(file, args, options, callback) {
+      const call = { file, args, options, input: "" };
+      state.spawned.push(call);
+      const finish = () => {
+        const reply = spawnReply
+          ? spawnReply(call)
+          : { code: 0, stdout: "", stderr: "" };
+        const error = reply.code === 0 ? null : Object.assign(new Error("exit"), { code: reply.code });
+        setImmediate(() => callback(error, reply.stdout ?? "", reply.stderr ?? ""));
+      };
+      return {
+        stdin: {
+          end(input) {
+            call.input = input ?? "";
+            finish();
+          },
+        },
+        // A caller that never writes stdin still expects an answer.
+        then: undefined,
+      };
+    },
+  };
+}
+
+function loadExtension(vscode, clientModule, childProcess) {
   const require = createRequire(import.meta.url);
   const original = Module._load;
   Module._load = function (request, parent, isMain) {
@@ -226,6 +258,9 @@ function loadExtension(vscode, clientModule) {
     }
     if (request === "vscode-languageclient/node") {
       return clientModule;
+    }
+    if (request === "node:child_process") {
+      return childProcess;
     }
     return original.call(this, request, parent, isMain);
   };
@@ -255,7 +290,11 @@ function makeDocument(languageId, text, fileName = "/tmp/example.pw.sql") {
 
 function activateStub(options = {}) {
   const { vscode, state } = createStubVscode(options);
-  const extension = loadExtension(vscode, createStubClientModule(state, options));
+  const extension = loadExtension(
+    vscode,
+    createStubClientModule(state, options),
+    createStubChildProcess(state, options.spawnReply),
+  );
   const context = { extensionPath: extensionRoot, subscriptions: [] };
   extension.activate(context);
   return { state, context };
@@ -574,4 +613,91 @@ test("a desktop host says nothing about being a web host", async () => {
   await settled();
 
   assert.doesNotMatch(state.output.join("\n"), /browser-hosted/);
+});
+
+/** A pw that formats by upper-casing, and is stable on a second pass. */
+const workingPw = (call) => ({ code: 0, stdout: call.input.toUpperCase(), stderr: "" });
+
+test("a trusted workspace with a working pw formats through it", async () => {
+  // decision:formatter-delivery prefers this path, because the bytes then come
+  // from the same binary the project's own pw fmt runs.
+  const { state } = activateStub({
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    spawnReply: workingPw,
+  });
+  await settled();
+  const { provider } = state.providers.find((p) => p.language === "pw-sql");
+
+  const edits = await provider.provideDocumentFormattingEdits(makeDocument("pw-sql", "abc"));
+
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].newText, "ABC");
+  const formatCalls = state.spawned.filter((call) => call.args[0] === "fmt");
+  assert.equal(formatCalls.length, 3, "two probe passes and the format itself");
+  assert.match(state.output.join("\n"), /so the editor and your build agree by construction/);
+});
+
+test("a pw whose second pass disagrees is refused and the module is used", async () => {
+  // The idempotence guard requirement:editor-formatting relies on. A pw
+  // without it would let the editor apply an unstable result.
+  let pass = 0;
+  const { state } = activateStub({
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    spawnReply: () => ({ code: 0, stdout: `pass ${++pass}\n`, stderr: "" }),
+  });
+  await settled();
+  const { provider } = state.providers.find((p) => p.language === "pw-sql");
+
+  const edits = await provider.provideDocumentFormattingEdits(
+    makeDocument("pw-sql", "package q\nexport statement F():sql.exec{DELETE FROM t}\n"),
+  );
+
+  // The embedded module produced this, so it is the canonical form rather than
+  // the fake pw's answer.
+  assert.match(edits[0].newText, /export statement F\(\): sql\.exec \{/);
+  assert.match(state.output.join("\n"), /embedded tinybind formatter, because .*second pass/);
+});
+
+test("an untrusted workspace formats without starting anything", async () => {
+  // The property stage 1 bought and this must not spend: formatting works in a
+  // workspace where no process may run.
+  const { state } = activateStub({
+    trusted: false,
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    spawnReply: workingPw,
+  });
+  await settled();
+  const { provider } = state.providers.find((p) => p.language === "pw-sql");
+
+  const edits = await provider.provideDocumentFormattingEdits(
+    makeDocument("pw-sql", "package q\nexport statement F():sql.exec{DELETE FROM t}\n"),
+  );
+
+  assert.match(edits[0].newText, /export statement F\(\): sql\.exec \{/);
+  assert.deepEqual(state.spawned, []);
+  assert.match(state.output.join("\n"), /not trusted/);
+});
+
+test("a refusal from pw leaves the buffer alone and names the line", async () => {
+  const { state } = activateStub({
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    spawnReply: (call) =>
+      call.input.includes("ProbeStyleBraces")
+        ? { code: 0, stdout: call.input, stderr: "" }
+        : { code: 1, stdout: "", stderr: "pw: fmt: <stdin>:3:1: missing closing tag </p>\n" },
+  });
+  await settled();
+  const { provider } = state.providers.find((p) => p.language === "pw-html");
+
+  const edits = await provider.provideDocumentFormattingEdits(
+    makeDocument("pw-html", "export component X(): html {\n<p>unclosed\n", "/tmp/x.pw.html"),
+  );
+
+  assert.deepEqual(edits, []);
+  assert.equal(state.warnings.length, 1);
+  assert.match(state.warnings[0], /was not formatted \(line 3\)/);
 });

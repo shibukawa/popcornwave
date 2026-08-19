@@ -27,6 +27,19 @@ That property is deliberate. Reviewing a pull request in a browser-hosted editor
 is the case where a template most needs to be readable and where the least
 tooling is available.
 
+Where a `pw` *is* available and the workspace is trusted, formatting runs
+`pw fmt --stdin` instead — the same binary your build runs, so the editor and CI
+cannot disagree about canonical form. The bundled module is a fixed tinybind
+version and your project's may differ, so the output channel says once per
+session which one produced a result.
+
+A resolved `pw` is checked once before it is trusted, and the check is a
+property rather than a version: the extension formats the source that was
+unstable before tinybind v0.3.2 — a literal brace run in a `<style>` body — and
+requires a second pass to return the first unchanged. One that fails is refused,
+because the editor applies a formatting result without re-verifying it and
+relies on the formatter's own guard to make that safe.
+
 ```bash
 # Optional: format on save, for these languages only.
 # "[pw-html]": { "editor.formatOnSave": true }
