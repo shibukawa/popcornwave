@@ -6,7 +6,7 @@ title: Formatter Delivery to the Editor
 Ship the system:tinybind formatter to the editor twice: as a WebAssembly module inside the extension, which always works, and as api:cli-fmt, which is preferred whenever the project has one.
 
 ```yaml
-status: embedded path implemented at tools/vscode 0.3.0, carrying system:tinybind v0.3.2; delegated path waits on api:cli-fmt
+status: embedded path implemented at tools/vscode 0.3.0, carrying system:tinybind v0.5.16; delegated path waits on api:cli-fmt
 problem:
   - requirement:editor-formatting needs the upstream Go formatter to run inside a system:vscode extension host
   - decision:textmate-grammar-first bought stage 1 a property worth keeping: highlighting works with no binary, no project, and no trust
@@ -14,18 +14,19 @@ problem:
   - a formatter that only ships in the extension can format differently from the pw the project pins, which is worse than not formatting
 measurement:
   taken: 2026-08-02, against tinybind-go v0.3.1, formatting every .pw source in this repository
-  tinygo_wasip1: 608 KB, 233 KB compressed into the vsix, correct output on every source that parses; 610 KB once the pin moved to v0.3.2
+  tinygo_wasip1: 608 KB, 233 KB compressed into the vsix, correct output on every source that parses; 610 KB once the pin moved to v0.3.2, 672 KB at v0.5.16
   go_wasip1: 3.7 MB stripped, 1.05 MB compressed, same output
   latency: about 50 ms for a whole cold process including instantiation, so an in-process cached module is far under a save
   measured_again_after_implementing: 15 ms for the first format including compilation, then a 2.4 ms median for a guarded format, which is two full passes over a real component
-  packaged: the vsix grew from 19 KB to 252 KB
+  packaged: the vsix grew from 19 KB to 252 KB, and to 280 KB at v0.5.16
   conclusion: TinyGo is the target, which also keeps the extension honest with decision:force-tinygo-logic
 decision:
   embedded:
     build: templatefmt behind a small wasip1 entry, compiled with TinyGo, committed as a build artifact of the extension
     isolation: the entry is a Go module of its own under the extension, which excludes it from the root go build ./... more simply than a build tag would
     host_interface: the seven WASI preview1 functions the module imports, shimmed in the extension in about 150 lines rather than taken from a package, because the extension host's Node may not expose node:wasi and a web host has none
-    reproducibility: CI rebuilds the module and fails when the bytes differ from the commit, pinned to the TinyGo version the extension records
+    reproducibility: CI rebuilds the module and fails when the committed one formats any of the repository's own sources differently, pinned to the TinyGo version the extension records
+    why_not_a_hash: TinyGo 0.41.1 emits 610613 bytes on darwin/arm64 and 614645 on linux/amd64 from the same source, the same Go and the same Binaryen, and the Go patch level moves it again, so a hash committed from a maintainer's machine is one the Linux runner can never reproduce; the output is what the extension promises and it is identical across those builds
     call_contract: a dialect argument, the source on stdin, the result on stdout, which is the same shape api:cli-fmt --stdin will have, so the delegated path is a swap rather than a rewrite
     used_when: no project, no resolved pw, an untrusted workspace, or a pw too old to have api:cli-fmt
     reach: pure functions over a byte slice, so the module needs no filesystem preopen and no network capability

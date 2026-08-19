@@ -41,9 +41,11 @@ jobs:
           go-version-file: tools/vscode/wasm/go.mod
           cache-dependency-path: tools/vscode/wasm/go.sum
 
-      # Must match tools/vscode/wasm/TOOLCHAIN: a different TinyGo emits
-      # different bytes, which the freshness check below would report as drift.
-      - uses: acifani/setup-tinygo@v2
+      # Pinned to the version tools/vscode/wasm/TOOLCHAIN records. The
+      # freshness check below compares behavior rather than bytes, so a patch
+      # release would not fail it, but the module the extension ships and the
+      # one CI reasons about should still be the same compiler's output.
+      - uses: acifani/setup-tinygo@v3
         with:
           tinygo-version: '0.41.1'
 
@@ -51,7 +53,7 @@ jobs:
         run: npm ci
         working-directory: tools/vscode
 
-      - name: Committed formatter module matches a fresh build
+      - name: Committed formatter module behaves like a fresh build
         run: npm run check:wasm
         working-directory: tools/vscode
 
