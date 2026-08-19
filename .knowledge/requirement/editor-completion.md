@@ -6,7 +6,7 @@ title: Template Completion
 Completion offers what the current position can legally hold, which for these dialects is a small closed set the server already knows exactly.
 
 ```yaml
-status: proposed
+status: implemented at internal/pwlsp; the position is decided from the text around the caret rather than the body AST, so completion works in a buffer mid-keystroke that does not parse
 stage: 3 of vision:editor-support
 server: requirement:pw-language-server
 positions:

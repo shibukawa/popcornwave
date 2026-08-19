@@ -6,7 +6,7 @@ title: Cross-Language Navigation
 A name that crosses the boundary between a template source, its generated Go, and the handwritten Go that calls it is navigable in one jump, because that boundary is where the framework's indirection lives.
 
 ```yaml
-status: proposed
+status: hover, definition, and references implemented at internal/pwlsp over the type graph of requirement:pw-language-server, for the template-to-template half; every Go direction is unimplemented and needs the generated output and the call sites gopls indexes
 stage: 3 of vision:editor-support
 server: requirement:pw-language-server
 jumps:

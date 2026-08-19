@@ -21,15 +21,6 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-// reservedPageTemplates are the template names a page tree gives a meaning.
-// Anything else ending in .pw.html inside a root is compiled by nothing, which
-// is worth saying rather than leaving to be noticed.
-var reservedPageTemplates = map[string]bool{
-	pwgen.PageFile:     true,
-	pwgen.LayoutFile:   true,
-	pwgen.DocumentFile: true,
-}
-
 // planPageTrees generates every configured page tree and returns its output
 // grouped by the directory it belongs in.
 //

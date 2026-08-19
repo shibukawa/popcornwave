@@ -6,7 +6,7 @@ title: pw lsp
 pw lsp speaks the Language Server Protocol over stdio for one workspace, exposing the same analysis api:cli-generate and api:cli-doctor already run.
 
 ```yaml
-status: proposed
+status: stdio transport, the data:project-config model, syntax diagnostics, documentSymbol, and workspace/symbol implemented at internal/pwlsp; the capabilities needing a resolved type are unimplemented
 usage: "pw lsp [--stdio] [--log=path] [--root=path]"
 requirement: requirement:pw-language-server
 mechanism: decision:language-server-in-pw-cli

@@ -6,7 +6,7 @@ title: Language Server Inside the pw CLI
 Editor analysis is a system:pw-cli subcommand written in Go, not a TypeScript service inside the extension, because the parsers, the check catalog, and the project loader already exist there.
 
 ```yaml
-status: proposed
+status: accepted; api:cli-lsp ships in the pw binary and the system:vscode client holds no analysis
 problem:
   - requirement:editor-diagnostics must report exactly what api:cli-generate reports, and a second implementation of the same parse diverges
   - decision:shared-check-catalog already refused a second implementation of one condition for api:cli-doctor

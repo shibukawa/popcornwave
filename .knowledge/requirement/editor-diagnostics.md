@@ -6,7 +6,7 @@ title: In-Editor Diagnostics
 A problem the developer would otherwise find at api:cli-generate or api:cli-dev appears in the editor at the position that causes it, with the same identifier and the same wording.
 
 ```yaml
-status: proposed
+status: the syntax source and the project source are implemented; the generation source reaches the editor through the save-time api:cli-check task of requirement:editor-tasks rather than from the server, which is the opt-in fallback decision:language-server-in-pw-cli named
 stage: 2 of vision:editor-support
 server: requirement:pw-language-server
 one_message_rule: decision:shared-check-catalog, extended to a third runner
@@ -20,9 +20,13 @@ sources:
     when: on save
     examples: an unknown external function, an output type the root keyword does not allow, an SQL result contract the statement cannot satisfy, a dynamo attribute absent from the type's tags
   project:
-    from: the decision:shared-check-catalog entries whose inputs are project files
+    from: the decision:shared-check-catalog entries whose inputs are project files, and the placement rule api:cli-generate applies to a source no purpose compiles
     examples: a source outside its generate purpose, a generate entry naming a missing directory, an unknown popcornweb.toml key, a dynamo declaration naming a table decision:dynamodb-table-registry does not know
     position: the popcornweb.toml line for a configuration finding, the file for a placement finding
+    delivered:
+      placement: served by requirement:pw-language-server from the project model, in the words pwgen states once for both readers; a page tree applies the stricter rule that only the names it reserves are compiled
+      catalog: reached through the api:cli-doctor --format=json command of requirement:editor-tasks, whose findings are placed on the file or the configuration line their evidence names
+      why_two_paths: a catalog run resolves the import graph and merges every environment's configuration, which is a command a developer invokes rather than something a keystroke may start
 severity:
   error: what would stop api:cli-generate
   warning: what api:cli-generate warns about, such as a source outside its purpose

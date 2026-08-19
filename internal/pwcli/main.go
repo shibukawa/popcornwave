@@ -44,6 +44,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		err = runDev(ctx, args[1:], stdout, stderr)
 	case "doctor":
 		err = runDoctor(ctx, args[1:], stdout, stderr)
+	case "lsp":
+		err = runLSP(args[1:], os.Stdin, stdout)
 	case "version", "--version", "-v":
 		err = runVersion(args[1:], stdout)
 	case "help", "-h", "--help":
@@ -88,6 +90,7 @@ var commandSummaries = []struct{ name, summary string }{
 	{"build", "run generate and then compile the project"},
 	{"dev", "watch, regenerate, rebuild, and restart"},
 	{"doctor", "report what a named environment will actually run"},
+	{"lsp", "serve editor analysis over the Language Server Protocol"},
 	{"version", "print the version, revision, and toolchain"},
 	{"help", "print this message"},
 }
@@ -123,6 +126,9 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  Without it the artifact carries neither, which is what staging and")
 	fmt.Fprintln(w, "  production want: an artifact that ships its own sources rehearses nothing.")
 	fmt.Fprintln(w, doctorUsage)
+	fmt.Fprintln(w, lspUsage)
+	fmt.Fprintln(w, "  Started by an editor rather than by hand; stdio carries the protocol,")
+	fmt.Fprintln(w, "  so nothing but protocol messages may be written to it.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Documentation: https://shibukawa.github.io/popcornweb/")
 }
