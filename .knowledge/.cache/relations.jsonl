@@ -1726,7 +1726,6 @@
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-common", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state-memory", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
@@ -1736,6 +1735,7 @@
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-html-template", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-auth-state-redis", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-postgresql", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/decision/contrib-delivery-order.md", "source": "decision:contrib-delivery-order", "target": "requirement:contrib-mysql", "target_category": "objective", "target_type": "requirement"}
@@ -4076,6 +4076,7 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-auth-state-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-auth-common", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "requirement:contrib-passkey-test", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-acceptance.md", "source": "requirement:contrib-acceptance", "target": "decision:passkey-test-authenticator", "target_category": "constraint", "target_type": "decision"}
@@ -4148,6 +4149,7 @@
 {"context": "body", "path": ".knowledge/requirement/contrib-auth-state.md", "source": "requirement:contrib-auth-state", "target": "requirement:contrib-auth-state-redis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-auth-state.md", "source": "requirement:contrib-auth-state", "target": "requirement:contrib-auth-state-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/contrib-auth-state.md", "source": "requirement:contrib-auth-state", "target": "requirement:contrib-auth-state-dynamo", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/contrib-cbor.md", "source": "requirement:contrib-cbor", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/contrib-cgosqlite.md", "source": "requirement:contrib-cgosqlite", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/requirement/contrib-cgosqlite.md", "source": "requirement:contrib-cgosqlite", "target": "data:database-driver-contract", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/contrib-database.md", "source": "requirement:contrib-database", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
@@ -6492,6 +6494,7 @@
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "decision:websocket-upgrade-capable-server", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "api:pwfast-package", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "system:tinybind-websocket", "target_category": "external", "target_type": "system"}
+{"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "rule:batch-engine-capability", "target_category": "constraint", "target_type": "rule"}
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "system:tinygodriver-dynamodb", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/system/tinygodriver.md", "source": "system:tinygodriver", "target": "system:tinygodriver-firestore", "target_category": "external", "target_type": "system"}
@@ -6542,13 +6545,14 @@
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state-redis", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state-sqlite", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-auth-state-dynamo", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-passkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-otel", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-jwt", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-oauth", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-oidc", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-html-template", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-cbor", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "system:tinygodriver", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-devidp", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "decision:devidp-scope-reduction", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "policy:contrib-compatibility", "target_category": "constraint", "target_type": "policy"}

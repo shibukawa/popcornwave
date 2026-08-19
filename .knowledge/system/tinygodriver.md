@@ -18,6 +18,7 @@ packages:
   fasthttp: github.com/shibukawa/tinygodriver/fasthttp
   fasthttpwebsocket: github.com/shibukawa/tinygodriver/fasthttpwebsocket
   zstd: github.com/shibukawa/tinygodriver/compress/zstd
+  cbor: github.com/shibukawa/tinygodriver/encoding/cbor
   sqlite: github.com/shibukawa/tinygodriver/database/sql/sqlite
   postgresql: github.com/shibukawa/tinygodriver/database/pgx/stdlib, renamed from database/sql/pgxstdlib in v1.1.11, plus database/pgx/pgxpool for the native pool
   mysql: github.com/shibukawa/tinygodriver/database/sql/mysql
@@ -35,6 +36,7 @@ roles:
   fasthttp: the fasthttp fork api:pwfast-package serves on, so the request type is one type rather than two that agree
   fasthttpwebsocket: fasthttp/websocket v1.5.12 fork, the callback-shaped upgrade half; both websocket packages are reached through system:tinybind-websocket rather than directly
   zstd: bounded TinyGo encoder with optimized host fallback, streaming-capable from v1.0.4
+  cbor: bounded reflection-free CBOR decoder and deterministic encoder, upstreamed from contrib/cbor in v1.2.6; what requirement:contrib-cbor is satisfied by
   sqlite: portable database/sql SQLite facade selecting a host or TinyGo backend
   postgresql: pgx stdlib driver, vendored with TLS rerouted for TinyGo, from v1.0.6
   mysql: MySQL and MariaDB driver forked from go-sql-driver for TinyGo, from v1.1.0
