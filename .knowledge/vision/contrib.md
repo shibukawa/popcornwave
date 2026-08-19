@@ -14,13 +14,15 @@ packages:
   - requirement:contrib-auth-state-redis
   - requirement:contrib-auth-state-sqlite
   - requirement:contrib-auth-state-dynamo
-  - requirement:contrib-cbor
   - requirement:contrib-passkey
   - requirement:contrib-otel
   - requirement:contrib-jwt
   - requirement:contrib-oauth
   - requirement:contrib-oidc
   - requirement:contrib-html-template
+upstreamed_packages:
+  - package: requirement:contrib-cbor
+    destination: system:tinygodriver encoding/cbor, from v1.2.6
 host_only_packages:
   - package: requirement:contrib-devidp
     reason: development identity provider that never links into an application binary

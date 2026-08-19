@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornweb/authstate/memory"
-	"github.com/shibukawa/popcornweb/contrib/cbor"
+	"github.com/shibukawa/tinygodriver/encoding/cbor"
 )
 
 type passkeyFixture struct {

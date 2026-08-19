@@ -14,7 +14,6 @@ phases:
       - requirement:contrib-auth-common
       - requirement:contrib-auth-state
       - requirement:contrib-auth-state-memory
-      - requirement:contrib-cbor
       - requirement:contrib-jwt
       - requirement:contrib-otel
   - phase: 2
@@ -28,10 +27,11 @@ phases:
       - requirement:contrib-auth-state-redis
   - phase: supplied-by-tinygodriver
     packages:
+      - requirement:contrib-cbor
       - requirement:contrib-sqlite
       - requirement:contrib-postgresql
       - requirement:contrib-mysql
-    note: these ship with system:tinygodriver, so the work here is consumption and acceptance rather than implementation
+    note: these ship with system:tinygodriver, so the work here is consumption and acceptance rather than implementation; cbor shipped in phase 1 first and was upstreamed in v1.2.6
   - phase: feasibility-gated
     packages:
       - requirement:contrib-auth-state-sqlite

@@ -3,15 +3,21 @@ id: requirement:contrib-cbor
 type: requirement
 title: TinyGo CBOR and COSE Foundation
 ---
-contrib/cbor provides bounded reflection-free CBOR decoding and deterministic encoding for WebAuthn authenticator and COSE key data.
+Bounded reflection-free CBOR decoding and deterministic encoding for WebAuthn authenticator and COSE key data, supplied by system:tinygodriver encoding/cbor since v1.2.6; the contrib/cbor implementation was upstreamed there and removed here.
 
 ```yaml
-package: contrib/cbor
+package: github.com/shibukawa/tinygodriver/encoding/cbor
+history: implemented as contrib/cbor first, upstreamed into tinygodriver v1.2.6, contrib/cbor deleted
 public_api:
   - NewDecoder(io.Reader, DecoderOptions)
   - typed token and container readers
   - RawMessage for bounded deferred decoding
   - NewEncoder(io.Writer, EncoderOptions)
+upstream_additions:
+  - NewReader byte-slice reader with typed width-checked readers
+  - Marshal* single-item helpers
+  - selectable KeyOrder (length-first CTAP2/COSE default, bytewise core deterministic)
+  - profile presets and RejectFloats
 supported:
   - unsigned and negative integers
   - byte and text strings with UTF-8 validation
@@ -33,7 +39,6 @@ limits:
   - retained RawMessage bytes
 non_goals:
   - reflection-based arbitrary struct mapping
-  - diagnostic notation or general-purpose data-model conversion in the first release
   - COSE signing, encryption, or key management beyond passkey parsing needs
 standards:
   cbor: https://www.rfc-editor.org/rfc/rfc8949.html

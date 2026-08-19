@@ -120,8 +120,8 @@ github.com/shibukawa/dbtestify v0.5.0 h1:Fay1k+5iQVtLqUPbepMU/j2SZtD8RG15LG2XIX8
 github.com/shibukawa/dbtestify v0.5.0/go.mod h1:ZYHV3hcW8E6456hg3DUByd5y3WlW2kV34awn7V6AAqs=
 github.com/shibukawa/tinybind-go v0.5.16 h1:sEsRPz3wxZUtuiwWXtmnqhO1IsP+N35k8/bVunXli14=
 github.com/shibukawa/tinybind-go v0.5.16/go.mod h1:G3CDE7n9Z6mcHOED+Pi+m2t5qvDfkwBaNguvDrlvAoc=
-github.com/shibukawa/tinygodriver v1.2.4 h1:JmD1vB3hxtiMogityhF6S7gUOPBfKz2pa5qIiyDeY2A=
-github.com/shibukawa/tinygodriver v1.2.4/go.mod h1:DLwOzLMnjY7+kmpALZ+lnwv7s8sWNXT1HanLp2WIUkk=
+github.com/shibukawa/tinygodriver v1.2.6 h1:zXsex7fYGWm03G/1KvVPkpdhIrzz10xKJRIksFDXwtk=
+github.com/shibukawa/tinygodriver v1.2.6/go.mod h1:DLwOzLMnjY7+kmpALZ+lnwv7s8sWNXT1HanLp2WIUkk=
 github.com/shirou/gopsutil/v4 v4.26.6 h1:Mzr/npDtQC/xpeEuQKHZt8Zo9CmPvhTj8nkR8w5TLDs=
 github.com/shirou/gopsutil/v4 v4.26.6/go.mod h1:LZ6ewCSkBqUpvSOf+LsTGnRinC6iaNUNMGBtDkJBaLQ=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
