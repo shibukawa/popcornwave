@@ -50,13 +50,16 @@ Install it with Homebrew, Nix, a release archive, or the Go toolchain — see
 | [`pw dev`](/pw/project/dev/) | watch, regenerate, migrate, and restart |
 | [`pw build`](/pw/project/build/) | produce a release binary |
 | [`pw doctor`](/pw/project/doctor/) | report what an environment would run, and what is wrong |
+| `pw lsp` | serve editor analysis over the Language Server Protocol |
 
-`pw fmt` and `pw i18n` are documented with the work they belong to rather than on
-a page of their own. Formatting appears under [`pw check`](/pw/project/check/#in-ci),
-which is where a formatting pass has to run in a build and why it comes before
-generation; the catalog commands appear in
+`pw fmt`, `pw i18n`, and `pw lsp` are documented with the work they belong to
+rather than on a page of their own. Formatting appears under
+[`pw check`](/pw/project/check/#in-ci), which is where a formatting pass has to
+run in a build and why it comes before generation; the catalog commands appear in
 [Translated Pages](/guides/frontend/i18n/), beside the message syntax whose
-catalogs they maintain.
+catalogs they maintain; and `pw lsp` appears in
+[Editor Support](/productivity/editor-support/), because you never run it
+yourself — an editor does.
 
 ### Database
 

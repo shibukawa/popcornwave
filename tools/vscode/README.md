@@ -16,19 +16,100 @@ template forms inside the body: `{expression}`, `{if}` / `{else}` / `{/if}`,
 
 ## What this version does
 
-Highlighting, bracket matching, comment toggling, snippets, and **Format
-Document**.
+Highlighting, bracket matching, comment toggling, snippets, **Format
+Document**, and — when a `pw` binary is available — syntax diagnostics and a
+document outline from a language server.
 
 Formatting runs the tinybind formatter itself, compiled to WebAssembly with
-TinyGo and bundled in the extension. No `pw` binary is spawned, nothing is
-downloaded, and no network is touched, so the extension works on a file opened
-with no workspace, no `popcornweb.toml`, and no `pw` on `PATH`, and is fully
-supported in an untrusted workspace.
+TinyGo and bundled in the extension. No `pw` binary is spawned for it, nothing
+is downloaded, and no network is touched, so highlighting and formatting work
+on a file opened with no workspace, no `popcornweb.toml`, and no `pw` on
+`PATH`, and they work in an untrusted workspace.
 
-There is still **no language server, no diagnostics, and no completion**.
-Those are planned for a later version through a `pw lsp` server. Until then,
-run `pw check` or `pw doctor` for the errors an editor would
-otherwise report.
+There is still **no completion, no go-to-definition, and no project-wide
+check** in the editor. Run `pw check` or `pw doctor` for those.
+
+## Diagnostics and the outline
+
+A trusted workspace with `pw` available starts `pw lsp`, which reports a syntax
+error as you type, fills the outline with the declarations of the open file,
+answers **Go to Symbol in Workspace** across the project, and resolves hover and
+go-to-definition on a declaration name. All of it comes from the same parsers
+`pw generate` runs, so the editor and the build never disagree about whether a
+file parses.
+
+Hover, definition, references, completion, and inlay hints all resolve across
+files and packages by the rule generation uses: your own package first, then the
+exported declarations of what you import. Hover adds the Go types a component's
+parameters lower to when the module analyzes cleanly. Completion is decided from
+the text around the caret rather than from a parse, so it works in a buffer
+mid-keystroke. Hints annotate what the source never writes — a `{val}` binding,
+a loop variable, an `{await}` binding — and never a parameter, which writes its
+own type.
+
+What is resolved is the identifier under the cursor rather than the syntactic
+position it sits in, so a name matching a declaration resolves inside a string
+literal too.
+
+Three more surfaces come from this server's own `pw/*` methods: **Popcorn Web
+Routes** in the Explorer, **Peek Generated Code** on the context menu, and
+**Preview Story**. `popcornweb.runtimeDiagnostics.enabled` additionally reports
+what `pw dev` is currently failing on; it is the one thing the extension reads
+over the network, it is a loopback read of a console you started, and it is off
+by default.
+
+The workspace search covers the `.pw.*` sources the project's `[generate]`
+purposes list, and an open buffer overrides its indexed copy, so a declaration
+you have not saved is still found. Editing `popcornweb.toml` reloads the model
+in place; the client watches the file and the server registers no watcher of
+its own.
+
+The binary is looked up in this order, and never downloaded or installed:
+
+1. the workspace devbox environment, at `.devbox/nix/profile/default/bin/pw`;
+2. `PATH`;
+3. `popcornweb.pw.path`, if you set it to an absolute path.
+
+Nothing starts in an untrusted workspace, and nothing starts if you turn
+`popcornweb.languageServer.enabled` off. In both cases highlighting and
+formatting keep working, and the Popcorn Web output channel says once what was
+not started and why. **Popcorn Web: Restart Language Server** restarts it after
+you install or update `pw`.
+
+The server reads the buffers the editor sends it and the `.pw.*` sources the
+project declares. It writes no file and contacts nothing. It writes a protocol trace only if you point
+`popcornweb.languageServer.log` at a file.
+
+## Running pw
+
+The palette carries **Generate**, **Check**, **Doctor**, **Migrate**, and
+**Dev** under **Popcorn Web**, and all but Dev are also resolvable tasks:
+
+```json
+{ "type": "pw", "command": "check", "problemMatcher": ["$pw", "$pw-source"] }
+```
+
+`$pw` reads a `file:line:column: message`, which is what the template parsers
+and the Go toolchain print; `$pw-source` reads a finding about a whole source,
+such as a template no generate purpose compiles. Both are contributed here, so a
+project writes neither.
+
+`pw check` writes nothing and is the one to bind to a save; `pw generate` writes
+files and is explicit only. `pw dev` gets one long-lived terminal rather than a
+task, and a second invocation focuses it. `pw doctor` runs as `--format=json`
+and its findings land on the files and configuration lines the report names,
+with what the run could not determine printed to the output channel rather than
+silently dropped. `pw migrate` asks first.
+
+Nothing starts implicitly, and nothing runs in an untrusted workspace.
+
+### Settings
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `popcornweb.languageServer.enabled` | `true` | Run `pw lsp`. |
+| `popcornweb.pw.path` | `""` | Absolute path to `pw`, used when neither devbox nor `PATH` has one. |
+| `popcornweb.languageServer.log` | `""` | File the server appends a protocol trace to. |
 
 ## Formatting
 
@@ -47,7 +128,7 @@ so a downgrade fails rather than quietly removing the protection.
 
 ### Version skew
 
-The bundled formatter is a fixed tinybind version (currently v0.3.2),
+The bundled formatter is a fixed tinybind version (currently v0.5.16),
 independent of the one your project pins. If they differ, this extension and
 your CI can disagree about canonical form. A `pw fmt` delegation that removes
 this is planned; this version always uses the bundled module and says so once
@@ -86,9 +167,25 @@ npm run build:wasm
 ```
 
 `wasm/` is a Go module of its own, so `go build ./...` at the repository root
-never compiles it. `npm run check:wasm` rebuilds and fails when the result
-differs from the committed artifact; CI runs it, pinned to the TinyGo version
-in `wasm/TOOLCHAIN`.
+never compiles it. `npm run check:wasm` rebuilds the module and fails when the
+committed artifact formats anything differently from that fresh build: every
+`.pw.*` source in the repository, plus a handful of probes for the diagnostics
+path, run through both. CI runs it, pinned to the TinyGo version in
+`wasm/TOOLCHAIN`.
+
+The comparison is behavioral because a byte comparison is not reproducible
+across machines. The same TinyGo and the same Binaryen emit a different module
+on macOS than on the Linux runner, and the Go patch level moves it again, so a
+hash committed from a laptop can never match the one CI computes. The rebuild
+writes to a scratch path and leaves the checkout alone.
+
+The language server is not in this directory: it is `pw lsp`, in
+`internal/pwlsp` of the framework repository, so the analysis is the same Go
+the CLI runs. Its project model is read through the CLI's own
+`popcornweb.toml` loader rather than a second reader, which is why
+`internal/pwcli/lspproject.go` exists. What lives here is the client — `src/binary.js` decides which
+`pw` to run, `src/client.js` decides what it is told to be, and both are
+tested without an extension host.
 
 `npm test` runs two things: the behavioral tests in `test/grammar.test.mjs`,
 and a drift guard that tokenizes every `.pw.*` source in the repository and

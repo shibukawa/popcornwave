@@ -50,12 +50,14 @@ Commands:
 | [`pw dev`](/ja/pw/project/dev/) | 監視、再生成、マイグレーション、再起動 |
 | [`pw build`](/ja/pw/project/build/) | リリース用バイナリを作る |
 | [`pw doctor`](/ja/pw/project/doctor/) | その環境で何が動き、どこが間違っているかを報告する |
+| `pw lsp` | Language Server Protocol でエディタ向けの解析を提供する |
 
-`pw fmt` と `pw i18n` には専用のページがなく、それぞれが属する作業のページで扱っています。
-整形は [`pw check`](/ja/pw/project/check/#ci-では) にあります。ビルドの中で整形をどこで
-走らせるか、なぜ生成より前なのかを説明している場所だからです。カタログのコマンドは
-[ページの翻訳](/ja/guides/frontend/i18n/)にあり、カタログが支えているメッセージ構文の
-すぐ隣に置いてあります。
+`pw fmt`、`pw i18n`、`pw lsp` には専用のページがなく、それぞれが属する作業のページで
+扱っています。整形は [`pw check`](/ja/pw/project/check/#ci-では) にあります。ビルドの中で
+整形をどこで走らせるか、なぜ生成より前なのかを説明している場所だからです。カタログの
+コマンドは[ページの翻訳](/ja/guides/frontend/i18n/)にあり、カタログが支えているメッセージ
+構文のすぐ隣に置いてあります。`pw lsp` は[エディタ対応](/ja/productivity/editor-support/)
+にあります。自分で起動するコマンドではなく、エディタが起動するものだからです。
 
 ### データベース
 

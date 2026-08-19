@@ -29,7 +29,12 @@ process_rules:
   - every process is a child of the extension host and stops with the window
   - a command runs in a visible terminal or an output channel, so what ran is inspectable
 network:
-  extension: contacts nothing
+  extension: contacts nothing, with one stated exception below
+  loopback_exception:
+    what: requirement:editor-runtime-diagnostics reads the requirement:dev-console loop state over loopback
+    bounds: off by default and contacting nothing until switched on; one host, which is the console port data:project-config declares; a read, never a write; and the record itself never leaves the machine
+    why_it_is_allowed: the console is a process the developer started on their own machine, and the alternative is a class of failure the editor cannot see at all
+    why_it_is_stated: an exception a reader has to infer from an implementation is one that grows; this is the only one, and a second needs its own line here
   server: api:cli-lsp runs with the api:cli-doctor online check set disabled, so no configured endpoint is probed from a keystroke
 data:
   - no source, no configuration value, and no diagnostic leaves the machine

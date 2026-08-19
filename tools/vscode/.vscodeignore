@@ -4,6 +4,20 @@ test/**
 package-lock.json
 **/*.map
 
+# The language client is the one runtime dependency, so its production tree is
+# put back after the blanket exclusion above. Listing it rather than relying on
+# a bundler keeps the vsix contents readable, which is what
+# requirement:extension-distribution asks the package to be. A negated pattern
+# re-includes the whole subtree, so the handful of readmes inside it ship too.
+!node_modules/vscode-languageclient/**
+!node_modules/vscode-languageserver-protocol/**
+!node_modules/vscode-languageserver-types/**
+!node_modules/vscode-jsonrpc/**
+!node_modules/minimatch/**
+!node_modules/brace-expansion/**
+!node_modules/balanced-match/**
+!node_modules/semver/**
+
 # The formatter's Go source and build script stay in the repository; only the
 # compiled module ships.
 wasm/*.go

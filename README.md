@@ -93,6 +93,7 @@ the project by walking upward from the working directory until it reaches
 | [`pw build`](https://shibukawa.github.io/popcornweb/pw/project/build/) | generate and compile a release binary |
 | [`pw dev`](https://shibukawa.github.io/popcornweb/pw/project/dev/) | watch, regenerate, migrate, rebuild, and restart |
 | [`pw doctor`](https://shibukawa.github.io/popcornweb/pw/project/doctor/) | report what a named environment will actually run |
+| [`pw lsp`](https://shibukawa.github.io/popcornweb/productivity/editor-support/) | serve editor analysis over the Language Server Protocol |
 
 `pw build --backend` selects the HTTP implementation (`nethttp` or `fasthttp`)
 and `--target` selects deployment packaging (`lambda`, `azure-functions`,

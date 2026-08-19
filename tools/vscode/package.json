@@ -30,8 +30,8 @@
   ],
   "capabilities": {
     "untrustedWorkspaces": {
-      "supported": true,
-      "description": "Highlighting is a static grammar and formatting runs a WebAssembly module bundled with the extension. Nothing is spawned and nothing is downloaded, so an untrusted workspace loses no functionality."
+      "supported": "limited",
+      "description": "Highlighting is a static grammar and formatting runs a WebAssembly module bundled with the extension, so both work here. The language server is a project binary and is not started in an untrusted workspace, which costs diagnostics and the outline."
     },
     "virtualWorkspaces": true
   },
@@ -122,6 +122,52 @@
         "command": "popcornweb.showOutput",
         "title": "Show Output",
         "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.restartLanguageServer",
+        "title": "Restart Language Server",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.generate",
+        "title": "Generate",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.check",
+        "title": "Check",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.doctor",
+        "title": "Doctor",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.migrate",
+        "title": "Migrate",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.dev",
+        "title": "Dev",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.peekGenerated",
+        "title": "Peek Generated Code",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.previewStory",
+        "title": "Preview Story",
+        "category": "Popcorn Web"
+      },
+      {
+        "command": "popcornweb.refreshRoutes",
+        "title": "Refresh Routes",
+        "category": "Popcorn Web",
+        "icon": "$(refresh)"
       }
     ],
     "configurationDefaults": {
@@ -137,10 +183,130 @@
         "editor.insertSpaces": true,
         "editor.tabSize": 2
       }
+    },
+    "configuration": {
+      "title": "Popcorn Web",
+      "properties": {
+        "popcornweb.languageServer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run pw lsp for diagnostics and the document outline. Highlighting and formatting do not depend on it."
+        },
+        "popcornweb.pw.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a pw binary, used only when none is found in the workspace devbox environment or on PATH. The extension never downloads or installs one."
+        },
+        "popcornweb.languageServer.log": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a file the server appends protocol tracing to. Empty means no tracing, so nothing is written to the workspace by default."
+        },
+        "popcornweb.runtimeDiagnostics.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Report the failures pw dev is currently reporting, as diagnostics. This is the one thing the extension reads over the network: a loopback request to the development console you started. Off by default, and it contacts nothing while it is off."
+        }
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "pw",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "generate",
+              "check",
+              "doctor",
+              "migrate"
+            ],
+            "description": "The pw command to run. pw dev is not a task: it owns an interactive terminal."
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Extra arguments appended to the command."
+          }
+        }
+      }
+    ],
+    "problemPatterns": [
+      {
+        "name": "pw-position",
+        "regexp": "^(?:pw:\\s+)?(.+?):(\\d+):(?:(\\d+):)?\\s+(.*)$",
+        "file": 1,
+        "line": 2,
+        "column": 3,
+        "message": 4
+      },
+      {
+        "name": "pw-file",
+        "regexp": "^pw:\\s+(\\S+\\.pw\\.(?:html|sql|dynamo|firestore))\\s+(is .*)$",
+        "file": 1,
+        "message": 2
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "pw",
+        "owner": "pw",
+        "source": "pw",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": "$pw-position"
+      },
+      {
+        "name": "pw-source",
+        "owner": "pw",
+        "source": "pw",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": "$pw-file"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "popcornweb.routes",
+          "name": "Popcorn Web Routes",
+          "icon": "$(list-tree)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "popcornweb.refreshRoutes",
+          "when": "view == popcornweb.routes",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "popcornweb.peekGenerated",
+          "when": "editorLangId == pw-html || editorLangId == pw-sql || editorLangId == pw-dynamo",
+          "group": "navigation@1"
+        },
+        {
+          "command": "popcornweb.previewStory",
+          "when": "editorLangId == pw-html",
+          "group": "navigation@2"
+        }
+      ]
     }
   },
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test \"test/**/*.test.mjs\"",
     "build:wasm": "sh wasm/build.sh",
     "check:wasm": "node test/check-wasm-fresh.mjs",
     "package": "vsce package --out popcornweb.vsix",
@@ -157,6 +323,11 @@
   "activationEvents": [
     "onLanguage:pw-html",
     "onLanguage:pw-sql",
-    "onLanguage:pw-dynamo"
-  ]
+    "onLanguage:pw-dynamo",
+    "onView:popcornweb.routes",
+    "workspaceContains:popcornweb.toml"
+  ],
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
 }

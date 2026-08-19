@@ -6,7 +6,7 @@ title: Editor Commands and Tasks
 The system:pw-cli commands a developer runs while editing are reachable from the editor, with their output parsed into the Problems view instead of only printed.
 
 ```yaml
-status: proposed
+status: implemented at tools/vscode; every command below is a palette entry and a resolvable task, with the problem matchers the extension contributes
 stage: 2 of vision:editor-support
 safety: policy:editor-tool-execution
 commands:
