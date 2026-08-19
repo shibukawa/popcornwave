@@ -101,7 +101,8 @@ type cacheEntry struct {
 // The typed operations are package functions rather than methods because a Go
 // method may not declare its own type parameters. When that changes they become
 // Get, Has, and Set on this type, and no call site that already holds a handle
-// has to move.
+// has to move. cache_go127.go carries them written already, behind the build tag
+// for the release expected to allow them.
 type CacheStore struct {
 	name    string
 	ttl     time.Duration

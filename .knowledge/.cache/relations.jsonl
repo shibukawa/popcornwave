@@ -717,6 +717,7 @@
 {"context": "body", "path": ".knowledge/api/request-binding.md", "source": "api:request-binding", "target": "system:tinybind", "target_category": "external", "target_type": "system"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "data:request-context-capsule", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "policy:request-scoped-accessor-shape", "target_category": "constraint", "target_type": "policy"}
+{"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "requirement:pw-call-registration", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "api:logger", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "api:database-selection", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/api/request-context-accessors.md", "source": "api:request-context-accessors", "target": "decision:tinybind-sql-runtime", "target_category": "constraint", "target_type": "decision"}
