@@ -17,6 +17,7 @@ reason:
   - the scaffolded project already carries a .vscode/settings.json, so the audience is already there
   - TextMate grammars are consumed unchanged by several other editors, so stage 1 is not thrown away by a second target
   - LSP is the only feature surface where a second editor costs a thin client instead of a reimplementation
+second_target: requirement:additional-editor-clients, which names Zed and states what the tree-sitter half costs
 consequences:
   - a JetBrains or Neovim user gets nothing at stage 1 and everything but highlighting at stage 2
   - the grammar is a duplicated definition of an upstream grammar and needs the drift guard rule:template-grammar-scopes states
