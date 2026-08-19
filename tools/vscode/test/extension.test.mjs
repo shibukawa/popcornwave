@@ -18,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = join(here, "..");
 
 /** Minimal stand-ins for the VS Code API surface extension.js touches. */
-function createStubVscode({ trusted = true, settings = {}, folders = [], confirmAnswer = undefined, uiKind = 1 } = {}) {
+function createStubVscode({ trusted = true, settings = {}, folders = [], confirmAnswer = undefined, uiKind = 1, activeEditor = null } = {}) {
   const state = {
     output: [],
     warnings: [],
@@ -32,6 +32,7 @@ function createStubVscode({ trusted = true, settings = {}, folders = [], confirm
     treeProviders: {},
     opened: [],
     externals: [],
+    revealed: [],
     diagnostics: new Map(),
     taskProviders: [],
     spawned: [],
@@ -85,8 +86,11 @@ function createStubVscode({ trusted = true, settings = {}, folders = [], confirm
         state.treeProviders[id] = provider;
         return { dispose() {} };
       },
-      showTextDocument: () => Promise.resolve({}),
-      activeTextEditor: null,
+      showTextDocument: (document, options) => {
+        state.revealed.push({ document, options });
+        return Promise.resolve({});
+      },
+      activeTextEditor: activeEditor,
     },
     languages: {
       registerDocumentFormattingEditProvider: (language, provider) => {
@@ -154,6 +158,11 @@ function createStubVscode({ trusted = true, settings = {}, folders = [], confirm
       dispose() {}
     },
     ViewColumn: { Beside: 2 },
+    Position: class {
+      constructor(line, character) {
+        Object.assign(this, { line, character });
+      }
+    },
     UIKind: { Desktop: 1, Web: 2 },
     TreeItem: class {
       constructor(label) {
@@ -199,7 +208,7 @@ function createStubVscode({ trusted = true, settings = {}, folders = [], confirm
  * one thing these tests must not do; what is worth checking is whether the
  * extension decided to start it at all.
  */
-function createStubClientModule(state, { failWith = null } = {}) {
+function createStubClientModule(state, { failWith = null, requestReply = null } = {}) {
   return {
     TransportKind: { stdio: 0 },
     LanguageClient: class {
@@ -212,6 +221,9 @@ function createStubClientModule(state, { failWith = null } = {}) {
           throw new Error(failWith);
         }
         state.started.push(this.server.run);
+      }
+      async sendRequest(method, params) {
+        return requestReply ? requestReply(method, params) : null;
       }
       async stop() {}
     },
@@ -700,4 +712,54 @@ test("a refusal from pw leaves the buffer alone and names the line", async () =>
   assert.deepEqual(edits, []);
   assert.equal(state.warnings.length, 1);
   assert.match(state.warnings[0], /was not formatted \(line 3\)/);
+});
+
+/** An editor whose caret sits on one word of a Go file. */
+function goEditorOn(word) {
+  return {
+    document: {
+      languageId: "go",
+      getWordRangeAtPosition: () => ({ word }),
+      getText: (range) => range.word,
+    },
+    selection: { active: { line: 0, character: 0 } },
+  };
+}
+
+test("a generated symbol in Go jumps to the declaration that produced it", async () => {
+  // vision:editor-support leaves Go documents to gopls, so this is a command
+  // rather than a definition provider standing in front of it.
+  const { state } = activateStub({
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    activeEditor: goEditorOn("RoomByID"),
+    requestReply: (method) =>
+      method === "pw/declarationFor"
+        ? {
+            name: "RoomByID",
+            location: { uri: "file:///w/queries/rooms.pw.sql", range: { start: { line: 2, character: 17 } } },
+          }
+        : null,
+  });
+  await settled();
+
+  await state.commands["popcornweb.goToDeclaration"]();
+
+  assert.equal(state.revealed.length, 1, "nothing was opened");
+  assert.equal(state.opened[0].uri.value, "file:///w/queries/rooms.pw.sql");
+});
+
+test("a handwritten Go symbol says so instead of opening nothing", async () => {
+  const { state } = activateStub({
+    folders: [extensionRoot],
+    settings: { "pw.path": process.execPath },
+    activeEditor: goEditorOn("ordinaryHelper"),
+    requestReply: () => null,
+  });
+  await settled();
+
+  await state.commands["popcornweb.goToDeclaration"]();
+
+  assert.deepEqual(state.revealed, []);
+  assert.match(state.output.join("\n"), /No Popcorn Web declaration generated ordinaryHelper/);
 });

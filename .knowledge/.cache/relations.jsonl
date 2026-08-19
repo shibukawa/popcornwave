@@ -4832,14 +4832,14 @@
 {"context": "body", "path": ".knowledge/requirement/editor-language-registration.md", "source": "requirement:editor-language-registration", "target": "concept:project-layout", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/editor-language-registration.md", "source": "requirement:editor-language-registration", "target": "api:cli-init", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/editor-language-registration.md", "source": "requirement:editor-language-registration", "target": "requirement:extension-distribution", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "requirement:pw-language-server", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "vision:editor-support", "target_category": "objective", "target_type": "vision"}
+{"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "requirement:pw-language-server", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "flow:page-route-generation", "target_category": "behavior", "target_type": "flow"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "api:server-action", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "data:migration-source", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
-{"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "decision:dual-router-coexistence", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "vision:editor-support", "target_category": "objective", "target_type": "vision"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
@@ -6556,9 +6556,9 @@
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:contrib-redis-valkey", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:dynamodb-store", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/contrib.md", "source": "vision:contrib", "target": "requirement:tinygodriver-adoption", "target_category": "objective", "target_type": "requirement"}
-{"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "requirement:editor-navigation", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "requirement:editor-runtime-diagnostics", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "requirement:editor-web-host", "target_category": "objective", "target_type": "requirement"}
+{"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "requirement:editor-navigation", "target_category": "objective", "target_type": "requirement"}
 {"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "concept:template-source-dialects", "target_category": "concept", "target_type": "concept"}
 {"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
 {"context": "body", "path": ".knowledge/vision/editor-support.md", "source": "vision:editor-support", "target": "system:vscode", "target_category": "external", "target_type": "system"}

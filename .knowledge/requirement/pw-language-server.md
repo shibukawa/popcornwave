@@ -52,6 +52,7 @@ capabilities:
     pw/routes: the concept:page-tree routes, per requirement:editor-route-explorer
     pw/storyFor: the requirement:template-storybook URL of a component, per requirement:editor-story-preview
     pw/project: the loaded project's root, name, and console URL, so a client builds a URL without reading data:project-config itself
+    pw/declarationFor: the .pw.* declaration behind a generated Go symbol, named by the client because the document it was read from is Go and gopls owns those
   stage_4:
     - textDocument/rename, delegated to requirement:declaration-rename rather than implemented here, because the edit set reaches handwritten Go and sometimes a route
     - textDocument/codeAction, per requirement:editor-code-actions

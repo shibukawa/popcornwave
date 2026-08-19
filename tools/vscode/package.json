@@ -168,6 +168,11 @@
         "title": "Refresh Routes",
         "category": "Popcorn Web",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "popcornweb.goToDeclaration",
+        "title": "Go to Template Declaration",
+        "category": "Popcorn Web"
       }
     ],
     "configurationDefaults": {
@@ -301,6 +306,11 @@
           "command": "popcornweb.previewStory",
           "when": "editorLangId == pw-html",
           "group": "navigation@2"
+        },
+        {
+          "command": "popcornweb.goToDeclaration",
+          "when": "editorLangId == go",
+          "group": "navigation@3"
         }
       ]
     }
@@ -325,7 +335,8 @@
     "onLanguage:pw-sql",
     "onLanguage:pw-dynamo",
     "onView:popcornweb.routes",
-    "workspaceContains:popcornweb.toml"
+    "workspaceContains:popcornweb.toml",
+    "onLanguage:go"
   ],
   "dependencies": {
     "vscode-languageclient": "^9.0.1"

@@ -69,9 +69,21 @@ template never states. Go-to-definition jumps to it, across files and across
 packages, following the same rule generation follows: a declaration in your own
 package wins, and an import brings in that package's exported declarations.
 
-This works with no generated output at all. It is the template half of
-navigation; jumping from a generated function call in a handler back to the
-`.pw.sql` that produced it needs the generated Go, and is not here yet.
+This works with no generated output at all.
+
+Navigation crosses into Go as well. Find-references on a declaration lists the
+handwritten Go that calls what it generated, alongside the template references —
+which is the crossing this framework's indirection is made of, and the one a
+result list stopping at the template boundary would hide. The names it looks for
+are read out of the generated file rather than derived from the declaration,
+because the naming scheme belongs to the generator and a copy of it here would
+drift on the next release.
+
+From the other side, **Popcorn Web: Go to Template Declaration** on a symbol in
+a `.go` file opens the `.pw.*` declaration that produced it, skipping the
+`_pw_gen.go` in between. It is a command rather than a go-to-definition
+provider, because gopls owns Go files and standing in front of it would be
+worse than adding one entry to a menu.
 
 Find-references works the same way in the other direction, and it only scans the
 files that can actually see the declaration, so another package's unrelated

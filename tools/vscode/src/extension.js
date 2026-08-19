@@ -41,6 +41,7 @@ function activate(context) {
   registerRouteView(context, server);
   context.subscriptions.push(
     vscode.commands.registerCommand("popcornweb.previewStory", () => previewStory(server, output)),
+    vscode.commands.registerCommand("popcornweb.goToDeclaration", () => goToDeclaration(server, output)),
   );
   const runtime = new RuntimeWatch(server, output);
   runtime.start();
@@ -384,6 +385,39 @@ function runPw(resolved, args, input) {
     );
     child.stdin.end(input);
   });
+}
+
+/**
+ * The Go direction of requirement:editor-navigation: from a generated function
+ * call in handwritten Go to the .pw.* declaration that produced it.
+ *
+ * A command rather than a definition provider, because vision:editor-support
+ * leaves Go documents to gopls. Registering a provider for them would put this
+ * extension in the way of the one that owns the language.
+ */
+async function goToDeclaration(server, output) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+  const range = editor.document.getWordRangeAtPosition(editor.selection.active);
+  const name = range ? editor.document.getText(range) : "";
+  if (name === "") {
+    return;
+  }
+  const found = await server.request("pw/declarationFor", { name });
+  if (!found) {
+    output.appendLine(
+      `No Popcorn Web declaration generated ${name}. It may be handwritten Go, ` +
+        "or the language server may not be running.",
+    );
+    output.show();
+    return;
+  }
+  const target = vscode.Uri.parse(found.location.uri);
+  const document = await vscode.workspace.openTextDocument(target);
+  const at = new vscode.Position(found.location.range.start.line, found.location.range.start.character);
+  await vscode.window.showTextDocument(document, { selection: new vscode.Range(at, at) });
 }
 
 function registerFormatter(context, output) {

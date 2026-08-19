@@ -6,7 +6,7 @@ title: Editor Support Vision
 Popcorn Web ships editor support for its own source dialects, so a .pw.html, .pw.sql, or .pw.dynamo file reads and edits as a known language instead of as plain text.
 
 ```yaml
-status: stages 1, 1.5, and 2 shipped; stage 3 shipped except for the Go directions of requirement:editor-navigation, the browser-report source of requirement:editor-runtime-diagnostics, and the web build of requirement:editor-web-host
+status: stages 1, 1.5, and 2 shipped; stage 3 shipped except for the browser-report source of requirement:editor-runtime-diagnostics, the web build of requirement:editor-web-host, and the four resolver-bound jumps requirement:editor-navigation still lists
 problem: concept:template-source-dialects files open with no grammar, so a declaration header, an embedded expression, and the HTML or SQL body all render as one undifferentiated block
 primary_actor: actor:application-developer
 first_target: system:vscode, per decision:vscode-first-editor-target

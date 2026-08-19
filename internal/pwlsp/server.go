@@ -168,6 +168,8 @@ func (s *Server) handleRequest(message incoming) {
 		s.routesRequest(message)
 	case "pw/storyFor":
 		s.storyForRequest(message)
+	case "pw/declarationFor":
+		s.declarationForRequest(message)
 	case "pw/project":
 		project, _, _ := s.project.snapshot()
 		s.respond(message.ID, projectInfo(project))
@@ -716,11 +718,17 @@ func (s *Server) referencesRequest(message incoming) {
 		return
 	}
 	project, _, _ := s.project.snapshot()
-	s.respond(message.ID, referencesFor(referenceContext{
+	open := s.openText()
+	found := referencesFor(referenceContext{
 		project: project,
 		graph:   s.currentGraph(),
-		open:    s.openText(),
-	}, symbol, params.Context.IncludeDeclaration))
+		open:    open,
+	}, symbol, params.Context.IncludeDeclaration)
+	// The Go direction of requirement:editor-navigation: a declaration is
+	// referenced from the handwritten Go that calls what it generated, and a
+	// result list that stopped at the template boundary would hide exactly the
+	// crossing this framework's indirection is made of.
+	s.respond(message.ID, append(found, goCallSites(project, symbol, open)...))
 }
 
 // openText is the buffer of every open document, so a scan reads what the
@@ -838,4 +846,30 @@ func (s *Server) storyForRequest(message incoming) {
 	}
 	project, _, _ := s.project.snapshot()
 	s.respond(message.ID, storyFor(project, symbol, resolved))
+}
+
+// declarationForRequest answers where the template declaration behind a
+// generated Go symbol is written.
+//
+// The name comes from the client rather than from a document this server
+// holds, because the document is Go and gopls owns those.
+func (s *Server) declarationForRequest(message incoming) {
+	var params struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		s.respondError(message.ID, codeInvalidParams, "unusable params: "+err.Error())
+		return
+	}
+	symbol, resolved := declarationNamed(s.currentGraph(), params.Name)
+	if !resolved {
+		s.respond(message.ID, nil)
+		return
+	}
+	s.respond(message.ID, map[string]any{
+		"name":      symbol.Name,
+		"signature": symbol.Signature(),
+		"container": symbol.Container,
+		"location":  Location{URI: symbol.URI, Range: symbol.Range},
+	})
 }

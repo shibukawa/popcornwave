@@ -6,7 +6,16 @@ title: Cross-Language Navigation
 A name that crosses the boundary between a template source, its generated Go, and the handwritten Go that calls it is navigable in one jump, because that boundary is where the framework's indirection lives.
 
 ```yaml
-status: hover, definition, and references implemented at internal/pwlsp over the type graph of requirement:pw-language-server, for the template-to-template half; every Go direction is unimplemented and needs the generated output and the call sites gopls indexes
+status: >
+  hover, definition, and references implemented at internal/pwlsp, with both Go
+  directions. What is not implemented is the page_tree, action, sql_table, and
+  dynamo_attribute jumps below, each of which needs a resolver this server does
+  not have yet
+go_directions:
+  declaration_to_call: part of textDocument/references. The names to look for are read out of the declaration's own generated file rather than derived from it, because the naming scheme belongs to api:cli-generate and a copy here would drift on its next release; with no generated output the declaration name alone is used, which is the exported entry every dialect emits
+  call_to_declaration: the pw/declarationFor request and an editor command, not a definition provider. vision:editor-support leaves Go documents to gopls, and registering a provider for them would put this extension in front of the one that owns the language
+  never_a_destination: a *_pw_gen.go is excluded from call sites, per the generated_files rule below
+  ambiguity: a wrapper carries the declaration name inside its own, and so does every shorter declaration whose name is a substring of it; the longest match wins, because taking any match would answer with whichever the index happened to yield first
 stage: 3 of vision:editor-support
 server: requirement:pw-language-server
 jumps:
