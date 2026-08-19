@@ -6,7 +6,7 @@ title: Typed API Method Convergence
 Every typed operation a project writes as a package function only because a Go method cannot take type parameters becomes a method once the language allows, and this is where that intent and its upstream requests are held.
 
 ```yaml
-status: the available-today half shipped upstream in v0.5.9; the rest is blocked on the language
+status: the available-today half shipped upstream in v0.5.9; the three sites built here are written behind a go1.27 build tag; the upstream ones wait on the language
 constraint: a Go method may not declare its own type parameters, so an operation needing one is a package function whatever the design prefers
 expected: hoped for Go 1.27, roughly 2027-02 given 1.26 in 2026-08; not a committed language feature, so the release notes decide and nothing here breaks if it slips
 why_it_is_held_here:
@@ -16,6 +16,13 @@ migration_shape:
   method_becomes_the_body: the existing package function stays as a deprecated wrapper calling it
   additive: a project moves call site by call site and no compiler error forces any of it
   nothing_stored_moves: each of these is a call shape, so no generated artifact, stored entry, or wire format changes
+written_ahead_behind_a_build_tag:
+  what: the three sites built here carry their methods already, in files tagged go1.27 beside the code they extend, so the release is a flip rather than a design
+  where: pwruntime/cache_go127.go, testutil/testutil_go127.go and session/registry_go127.go, each with a test file beside it
+  invisible_until_then: an older toolchain does not select the file, so today's build is unchanged; TinyGo reports the release tags of the Go it accepts, so both builds cross at one point
+  the_tag_names_a_release_rather_than_the_feature: if 1.27 arrives without methods taking type parameters the tag has to move to the release that does carry them, because a consumer building on 1.27 would otherwise take a file that does not compile
+  how_it_was_checked: no toolchain parses the syntax yet, so each file was mechanically lowered — the receiver becomes the first argument — and its tests run in that form; the delegation is verified and the syntax is not
+  what_the_release_still_costs: the functions keep the bodies and the documentation, so the flip moves each body onto its method, marks the function deprecated, and updates the public page, which still describes all of this as waiting
 sites:
   firestore_transaction:
     priority: first, and the only one whose value is more than tidiness

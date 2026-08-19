@@ -14,6 +14,8 @@ import (
 // functions rather than methods on the store because a Go method may not
 // declare its own type parameters; when that changes they become Get, Has, and
 // Set on the handle, and a call site that already resolved one does not move.
+// The methods are written already, in the runtime's cache_go127.go, and they
+// reach this package through the alias below rather than through a wrapper.
 
 type (
 	// CacheStore is a handle to one configured store, resolved by name.
