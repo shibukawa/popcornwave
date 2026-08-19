@@ -256,7 +256,11 @@ type: those need the whole project analyzed, which is what the `pw check` task
 above is for.
 
 One thing it does report from the project model: a `.pw.*` source no `[generate]`
-purpose compiles, in the same words `pw generate` uses for it. A template inside
+purpose compiles, in the same words `pw generate` uses for it — with a quick fix
+that lists the file's own directory under the purpose that would compile it, as
+a one-line edit to `popcornweb.toml`. It does not offer to move the file: where
+that belongs is a judgement about your layout, and listing the directory you
+already chose is not. A template inside
 a page tree that is not `page.pw.html`, `layout.pw.html`, or
 `document.pw.html` gets the same treatment, because a tree compiles only the
 names it reserves.

@@ -6,7 +6,19 @@ title: Template Code Actions
 A diagnostic whose repair is mechanical offers that repair, and the offer exists only where requirement:editor-diagnostics already reported the problem.
 
 ```yaml
-status: proposed
+status: >
+  the out_of_purpose_source action is implemented at internal/pwlsp. The rest
+  are unimplemented, and the gate below is why rather than an omission: the
+  server produces two findings, and this is the only one with a mechanical
+  repair
+delivered:
+  out_of_purpose_source: offers to list the file's own directory under the purpose that would compile it, as a one-line edit to popcornweb.toml
+  why_not_move_the_file: the requirement names moving it too, and where to move it is a judgement about the project's layout; an action that picked a destination would be choosing for the developer, while listing the directory they already chose is not a choice
+  one_line_not_the_document: the configuration is the developer's, full of the comments the scaffold wrote, so a re-serialized TOML would hand it back reformatted; a value spread over several lines is left alone for the same reason
+  page_tree_finding: no action, because that finding is about the file's name rather than its directory and listing the directory would repair nothing
+  syntax_errors: no action, because what to write is the developer's answer and a guess would be the invented code excluded below
+blocked_on:
+  the_rest: every other action repairs a finding that needs a resolved type or the check catalog, which requirement:editor-diagnostics does not serve from the server yet
 stage: 4 of vision:editor-support
 server: requirement:pw-language-server
 gate: every action repairs a decision:shared-check-catalog finding, so the editor offers nothing api:cli-generate would not have complained about

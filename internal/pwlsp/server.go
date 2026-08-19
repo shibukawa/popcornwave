@@ -159,6 +159,8 @@ func (s *Server) handleRequest(message incoming) {
 		s.completionRequest(message)
 	case "textDocument/inlayHint":
 		s.inlayHintRequest(message)
+	case "textDocument/codeAction":
+		s.codeActionRequest(message)
 	// Two requests of this server's own, for the surfaces LSP has no method
 	// for. They are namespaced so a client cannot mistake one for a standard
 	// capability, and a client that does not know them never sends one.
@@ -255,6 +257,7 @@ func (s *Server) initialize(raw json.RawMessage) initializeResult {
 			ReferencesProvider:      true,
 			InlayHintProvider:       true,
 			CompletionProvider:      &completionOptions{TriggerCharacters: []string{"<", "{"}},
+			CodeActionProvider:      true,
 		},
 		ServerInfo: serverInfo{Name: s.options.Name, Version: s.options.Version},
 	}
@@ -872,4 +875,23 @@ func (s *Server) declarationForRequest(message incoming) {
 		"container": symbol.Container,
 		"location":  Location{URI: symbol.URI, Range: symbol.Range},
 	})
+}
+
+func (s *Server) codeActionRequest(message incoming) {
+	var params codeActionParams
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		s.respondError(message.ID, codeInvalidParams, "unusable params: "+err.Error())
+		return
+	}
+	s.mutex.Lock()
+	doc := s.documents[params.TextDocument.URI]
+	s.mutex.Unlock()
+	if doc == nil {
+		s.respond(message.ID, []CodeAction{})
+		return
+	}
+	project, _, _ := s.project.snapshot()
+	// The findings come from the request rather than from a fresh analysis, so
+	// an action is always attached to something the developer is looking at.
+	s.respond(message.ID, codeActionsFor(project, doc, params.Range, params.Context.Diagnostics))
 }

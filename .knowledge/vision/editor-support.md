@@ -43,6 +43,7 @@ staging:
     - requirement:editor-code-actions
     - requirement:declaration-rename
     ships: the features that write; they are last because each edits source the developer did not open
+    started: requirement:editor-code-actions serves the one finding with a mechanical repair, which is what its own gate leaves available today
 outside_the_staging:
   requirement:template-source-positions: >
     a generator property rather than an editor feature. requirement:editor-navigation,

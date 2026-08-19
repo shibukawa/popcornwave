@@ -60,6 +60,7 @@ type serverCapabilities struct {
 	ReferencesProvider      bool                    `json:"referencesProvider"`
 	InlayHintProvider       bool                    `json:"inlayHintProvider"`
 	CompletionProvider      *completionOptions      `json:"completionProvider,omitempty"`
+	CodeActionProvider      bool                    `json:"codeActionProvider"`
 }
 
 // completionOptions declares what a client should re-ask on. The characters
@@ -132,6 +133,19 @@ type referenceParams struct {
 
 type referenceOptions struct {
 	IncludeDeclaration bool `json:"includeDeclaration"`
+}
+
+type codeActionParams struct {
+	TextDocument textDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Context      codeActionContext      `json:"context"`
+}
+
+// codeActionContext carries the findings the client is showing at the range.
+// They are taken from the request rather than recomputed, so an action is
+// always attached to a finding the developer can see.
+type codeActionContext struct {
+	Diagnostics []Diagnostic `json:"diagnostics"`
 }
 
 type inlayHintParams struct {

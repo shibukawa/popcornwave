@@ -55,7 +55,7 @@ capabilities:
     pw/declarationFor: the .pw.* declaration behind a generated Go symbol, named by the client because the document it was read from is Go and gopls owns those
   stage_4:
     - textDocument/rename, delegated to requirement:declaration-rename rather than implemented here, because the edit set reaches handwritten Go and sometimes a route
-    - textDocument/codeAction, per requirement:editor-code-actions
+    - textDocument/codeAction, per requirement:editor-code-actions; implemented for the one finding that has a mechanical repair
   deferred:
     - formatting over LSP, because requirement:editor-formatting already delivers it through decision:formatter-delivery and a third path would be a third answer to the same question
 performance:

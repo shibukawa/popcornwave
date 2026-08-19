@@ -4841,6 +4841,9 @@
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "data:migration-source", "target_category": "structure", "target_type": "data"}
 {"context": "body", "path": ".knowledge/requirement/editor-navigation.md", "source": "requirement:editor-navigation", "target": "policy:generated-artifacts", "target_category": "constraint", "target_type": "policy"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "decision:dual-router-coexistence", "target_category": "constraint", "target_type": "decision"}
+{"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "api:cli-generate", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "api:cli-doctor", "target_category": "interface", "target_type": "api"}
+{"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "decision:shared-check-catalog", "target_category": "constraint", "target_type": "decision"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "vision:editor-support", "target_category": "objective", "target_type": "vision"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "actor:application-developer", "target_category": "behavior", "target_type": "actor"}
 {"context": "body", "path": ".knowledge/requirement/editor-route-explorer.md", "source": "requirement:editor-route-explorer", "target": "concept:page-tree", "target_category": "concept", "target_type": "concept"}
