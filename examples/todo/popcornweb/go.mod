@@ -4,8 +4,7 @@ go 1.26.0
 
 require (
 	github.com/shibukawa/popcornweb v0.0.0
-	github.com/shibukawa/tinybind-go v0.5.17
-	github.com/shibukawa/tinygodriver v1.2.6
+	github.com/shibukawa/tinygodriver v1.2.7
 )
 
 require (
@@ -20,6 +19,7 @@ require (
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0 // indirect
 	github.com/shibukawa/dbtestify v0.5.0 // indirect
+	github.com/shibukawa/tinybind-go v0.5.20 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

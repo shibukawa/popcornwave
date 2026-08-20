@@ -55,7 +55,7 @@ const generatedSuffix = "_pw_gen.go"
 // pw generate writes.
 var packageArtifacts = map[string]bool{
 	"popcornweb_bootstrap_pw_gen.go": true,
-	"tinybind_openapi_pw_gen.go":      true,
+	"tinybind_openapi_pw_gen.go":     true,
 	// The development registrations are generated from what a package already
 	// produced rather than from one source beside them, so a scan looking for
 	// that source finds none and would report every project carrying them.

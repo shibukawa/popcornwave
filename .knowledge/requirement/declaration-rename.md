@@ -6,7 +6,13 @@ title: Declaration Rename as a Generator Operation
 Renaming a .pw.* declaration is performed by the generator's own view of the project and offered to the editor through it, because the name decides a generated Go symbol, its call sites, and sometimes a route.
 
 ```yaml
-status: proposed
+status: implemented. pw rename previews the edit set and --apply writes it; requirement:pw-language-server serves textDocument/rename from the same plan
+route_note: >
+  no route moves. The route among what a name decides is the concept:page-tree
+  directory name rather than the declaration inside it, so renaming the
+  declaration in a page.pw.html leaves the URL where it was. Renaming the
+  directory is a different operation and this is not it, which is why the
+  separate confirmation below has nothing to confirm
 stage: 4 of vision:editor-support
 why_not_an_editor_refactor: requirement:pw-language-server defers rename for this reason; this requirement is where the deferral is answered rather than reversed
 what_a_name_decides:

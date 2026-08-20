@@ -1098,7 +1098,7 @@ func PublicFS() fs.FS {
 			// Everything under dist is built, except the sentinel: go:embed
 			// fails on an absent directory, so a fresh clone has to carry one
 			// file that makes the tree exist before the first build.
-			"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/public/*\n!dist/public/.keep\n*.db\n",
+			"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/routes.json\ndist/public/*\n!dist/public/.keep\n*.db\n",
 	}
 	for path, source := range containerScaffoldFiles(options) {
 		files[path] = source

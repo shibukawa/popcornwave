@@ -160,14 +160,14 @@ func generatePageTree(treeRoot, importBase string, emitter *routetree.Emitter, m
 		ImplicitBindings:      bindings,
 		Messages:              symbols,
 		MessageContextBinding: pwgen.MessageLocaleBinding,
-		Config:              pwgen.PageConfig(treeRoot, importBase),
-		Emitter:             emitter,
-		ComponentSuffix:     pwgen.PageComponentSuffix,
-		DecoderOutput:       pwgen.PageDecoderOutput,
-		RegistryOutput:      pwgen.PageRegistryOutput,
-		PublicURLBase:       generator.DefaultPublicURLBase,
-		DataAttributePrefix: pwgen.AttributePrefix(),
-		ScriptResolver:      resolveComponentScripts,
+		Config:                pwgen.PageConfig(treeRoot, importBase),
+		Emitter:               emitter,
+		ComponentSuffix:       pwgen.PageComponentSuffix,
+		DecoderOutput:         pwgen.PageDecoderOutput,
+		RegistryOutput:        pwgen.PageRegistryOutput,
+		PublicURLBase:         generator.DefaultPublicURLBase,
+		DataAttributePrefix:   pwgen.AttributePrefix(),
+		ScriptResolver:        resolveComponentScripts,
 	})
 }
 

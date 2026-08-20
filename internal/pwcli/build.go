@@ -304,8 +304,8 @@ func rejectDevelopmentImports(ctx context.Context, root, mainPackage string, opt
 		for _, forbidden := range developmentOnlyPackages {
 			if imported == forbidden {
 				// The command is not named: this check runs for pw build and for
-			// pw generate, and the sentence is about the import either way.
-			return fmt.Errorf("%s imports %s, which is development-only and must not ship in an application", mainPackage, forbidden)
+				// pw generate, and the sentence is about the import either way.
+				return fmt.Errorf("%s imports %s, which is development-only and must not ship in an application", mainPackage, forbidden)
 			}
 		}
 	}

@@ -161,6 +161,8 @@ func (s *Server) handleRequest(message incoming) {
 		s.inlayHintRequest(message)
 	case "textDocument/codeAction":
 		s.codeActionRequest(message)
+	case "textDocument/rename":
+		s.renameRequest(message)
 	// Two requests of this server's own, for the surfaces LSP has no method
 	// for. They are namespaced so a client cannot mistake one for a standard
 	// capability, and a client that does not know them never sends one.
@@ -258,6 +260,7 @@ func (s *Server) initialize(raw json.RawMessage) initializeResult {
 			InlayHintProvider:       true,
 			CompletionProvider:      &completionOptions{TriggerCharacters: []string{"<", "{"}},
 			CodeActionProvider:      true,
+			RenameProvider:          true,
 		},
 		ServerInfo: serverInfo{Name: s.options.Name, Version: s.options.Version},
 	}
@@ -894,4 +897,34 @@ func (s *Server) codeActionRequest(message incoming) {
 	// The findings come from the request rather than from a fresh analysis, so
 	// an action is always attached to something the developer is looking at.
 	s.respond(message.ID, codeActionsFor(project, doc, params.Range, params.Context.Diagnostics))
+}
+
+// renameRequest answers with the whole edit set, which is what makes a rename
+// that reaches handwritten Go safe to accept: the client shows it before
+// anything is written.
+func (s *Server) renameRequest(message incoming) {
+	var params renameParams
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		s.respondError(message.ID, codeInvalidParams, "unusable params: "+err.Error())
+		return
+	}
+	symbol, word, _, resolved := s.resolveAt(textDocumentPositionParams{
+		TextDocument: params.TextDocument, Position: params.Position,
+	})
+	if !resolved {
+		// A rename of something this server cannot name would be a rename of
+		// whatever else happens to spell it the same way.
+		s.respondError(message.ID, codeRequestFailed,
+			"there is no declaration named "+word+" to rename")
+		return
+	}
+	project, _, _ := s.project.snapshot()
+	plan := planRename(referenceContext{
+		project: project, graph: s.currentGraph(), open: s.openText(),
+	}, symbol, params.NewName)
+	if len(plan.Refusals) > 0 {
+		s.respondError(message.ID, codeRequestFailed, plan.Summary())
+		return
+	}
+	s.respond(message.ID, WorkspaceEdit{Changes: plan.Changes})
 }

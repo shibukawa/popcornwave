@@ -20,12 +20,15 @@ routes:
   unreachable-route:
     trigger: a pattern that no request can reach, because a mount prefix and the pattern disagree
     severity: warning
+    unimplemented: no concept names the mount prefix this compares against, and a warning built on a mechanism nobody wrote down would fire on paths that are reachable
   unresolved-registration:
     trigger: a data:route-table unresolved entry
     severity: note
+    implemented: PW0203. The site and the analysis's own reason code are the evidence, because the remedy is at that line
   route-table-diverges-across-backends:
     trigger: the data:route-table built for one backend build configuration differs from the one built for another
     severity: error
+    unimplemented: api:cli-generate writes one table, for the backend it generated; comparing two needs it to write one per declared backend, which is a change to what generation produces rather than to what doctor reads
     reason: a handler in a file excluded by a build tag takes its registration with it, so the route is absent rather than broken, and nothing else in the toolchain reports a route that quietly stopped existing
     also_covers: a pattern the decision:transport-source-transform absorption layer cannot express identically, per the api:serve-mux cannot_absorb list, which is a difference in meaning rather than in presence
     scope: only when a project declares a second backend build; a single-backend project never runs it
@@ -34,6 +37,7 @@ pages:
   page-without-route:
     trigger: a .pw.html page inside a generate purpose that no registration renders
     severity: warning
+    unimplemented: data:route-table records a handler's identity and not what it renders, so nothing connects a registration to the template behind it; both this and route-without-page wait on that
     reason: it is generated, compiled, and unreachable, which reads as a missing registration rather than an intentional file
   route-without-page:
     trigger: a registration whose handler renders a page source that does not exist

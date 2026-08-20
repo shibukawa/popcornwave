@@ -7,8 +7,10 @@ public/**/*.zstd
 # pw prepare and pw build write the derived asset tree here. The directory
 # itself is kept, because public.go embeds it and an embed of a missing
 # directory does not compile.
+public/generated/
 dist/cache/
 dist/derived/
 dist/manifest.json
+dist/routes.json
 dist/public/*
 !dist/public/.keep

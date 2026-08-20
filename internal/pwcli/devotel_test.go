@@ -218,7 +218,7 @@ func TestDevTelemetryViewerReceivesAndServesTelemetry(t *testing.T) {
 func TestStartApplicationPointsTheProcessAtTheViewer(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": otelProject,
-		"go.mod":           "module devotelprobe\n\ngo 1.26.0\n",
+		"go.mod":          "module devotelprobe\n\ngo 1.26.0\n",
 		"cmd/app/main.go": `package main
 
 import (

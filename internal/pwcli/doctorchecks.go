@@ -82,8 +82,12 @@ func runChecks(ctx context.Context, context checkContext) ([]doctorFinding, []do
 	run.checkIdentityProvider()
 	run.checkStorage(ctx)
 	run.checkReadiness()
+	routeLimit := run.checkRoutes()
 	sortFindings(run.findings)
 	var limits []doctorLimit
+	if routeLimit != nil {
+		limits = append(limits, *routeLimit)
+	}
 	if len(run.unresolved) > 0 {
 		sortStrings(run.unresolved)
 		limits = append(limits, doctorLimit{

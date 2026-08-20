@@ -176,7 +176,7 @@ func TestTheCapabilitiesNameWhatIsServed(t *testing.T) {
 	capabilities := resultOf(t, messages, 1)["result"].(map[string]any)["capabilities"].(map[string]any)
 	for _, capability := range []string{
 		"hoverProvider", "definitionProvider", "referencesProvider", "inlayHintProvider",
-		"codeActionProvider",
+		"codeActionProvider", "renameProvider",
 	} {
 		if capabilities[capability] != true {
 			t.Errorf("%s is not declared", capability)
@@ -186,9 +186,8 @@ func TestTheCapabilitiesNameWhatIsServed(t *testing.T) {
 		t.Error("completionProvider is not declared")
 	}
 	// Still not served, and still not declared: a client that believes it will
-	// wait for an answer that never comes. Rename is deferred to
-	// requirement:declaration-rename rather than implemented here.
-	for _, capability := range []string{"renameProvider", "documentHighlightProvider"} {
+	// wait for an answer that never comes.
+	for _, capability := range []string{"documentHighlightProvider", "declarationProvider"} {
 		if _, declared := capabilities[capability]; declared {
 			t.Errorf("%s is declared and not served", capability)
 		}

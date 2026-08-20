@@ -223,7 +223,7 @@ func TestDevelopmentServerComesFromTheDevelopmentConfig(t *testing.T) {
 func TestAPIDocFallsBackToTheFrameworkDefaultPath(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": consoleProject,
-		"config.dev.toml":  "[server]\nport = 8080\napi_doc = \"scalar\"\n",
+		"config.dev.toml": "[server]\nport = 8080\napi_doc = \"scalar\"\n",
 	})
 	if url := readDevelopmentServer(root).APIDocURL(); url != "http://localhost:8080/docs" {
 		t.Errorf("APIDocURL = %q, want the default path", url)
@@ -235,7 +235,7 @@ func TestAPIDocFallsBackToTheFrameworkDefaultPath(t *testing.T) {
 func TestAPIDocIsEmptyWhenTheEndpointIsOff(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": consoleProject,
-		"config.dev.toml":  "[server]\nport = 8080\n",
+		"config.dev.toml": "[server]\nport = 8080\n",
 	})
 	if url := readDevelopmentServer(root).APIDocURL(); url != "" {
 		t.Errorf("APIDocURL = %q, want none", url)

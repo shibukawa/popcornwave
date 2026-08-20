@@ -1,9 +1,11 @@
 .devbox/
 /popcornweb
 *_pw_gen.go
+public/generated/
 dist/cache/
 dist/derived/
 dist/manifest.json
+dist/routes.json
 dist/public/*
 !dist/public/.keep
 *.db

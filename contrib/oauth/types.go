@@ -185,4 +185,3 @@ type Client struct {
 	store                authstate.Store[Transaction]
 	transactionValidator func(Transaction) error
 }
-

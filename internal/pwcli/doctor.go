@@ -238,11 +238,6 @@ func diagnose(ctx context.Context, root string, options doctorOptions, environ [
 			Effect:  "the wiring checks did not run",
 		})
 	}
-	report.Limits = append(report.Limits, doctorLimit{
-		Subject: "routes",
-		Reason:  "pw generate does not export a route table yet",
-		Effect:  "route and template checks (PW02xx) did not run",
-	})
 	if !options.Online {
 		report.Limits = append(report.Limits, doctorLimit{
 			Subject: "database",

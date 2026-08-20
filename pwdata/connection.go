@@ -158,4 +158,3 @@ func (c *Connection) migrationState(ctx context.Context, tables []Table) (Migrat
 	}
 	return state, nil
 }
-

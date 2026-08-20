@@ -104,8 +104,8 @@ func TestInitializeDeclaresOnlyWhatTheServerAnswers(t *testing.T) {
 	}
 	// A capability the server does not serve must not be declared: a client
 	// that believes it will wait for an answer that never comes.
-	if _, declared := capabilities["renameProvider"]; declared {
-		t.Fatal("rename is declared and not served")
+	if _, declared := capabilities["documentHighlightProvider"]; declared {
+		t.Fatal("documentHighlight is declared and not served")
 	}
 }
 
@@ -245,7 +245,7 @@ func TestDocumentSymbolOnAnUnopenedDocumentIsAnError(t *testing.T) {
 func TestAnUnservedRequestIsAnsweredRatherThanIgnored(t *testing.T) {
 	messages, _ := session(t,
 		request(1, "initialize", nil),
-		request(2, "textDocument/rename", map[string]any{}),
+		request(2, "textDocument/documentHighlight", map[string]any{}),
 		notify("exit", nil),
 	)
 

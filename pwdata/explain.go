@@ -67,4 +67,3 @@ func explainPrefix(engine string) (string, bool) {
 	prefix, ok := explainPrefixes[engine]
 	return prefix, ok
 }
-

@@ -175,6 +175,25 @@ Generated Go is build output, not source:
 
 They can always be reproduced. Do not edit or commit them.
 
+### The route table
+
+`pw generate` also writes `dist/routes.json`: every pattern your application
+serves, in one file. It holds the routes registered in Go — with the file and
+line each was registered at — and the routes your page trees produce, which is
+both halves of the URL space that
+[the page tree](/tutorial/page-tree/) and handler registration keep in two
+different places.
+
+Nothing reads it at runtime. It exists so tooling does not have to run the
+analysis again: [`pw doctor`](/pw/project/doctor/) checks it for patterns that
+collide, and the editor extension lists it. Like `dist/manifest.json` it is a
+build product, ignored by the scaffolded `.gitignore`, and regenerated on every
+run — a project scaffolded before this existed needs the ignore line added.
+
+A registration whose pattern is not a compile-time constant cannot be read, so
+it is recorded as unresolved rather than dropped, and the tools that read the
+table say so instead of reporting a clean route section they cannot back up.
+
 ### Pointing errors back at the template
 
 Because the generated file is output nobody wrote, an error inside it names a

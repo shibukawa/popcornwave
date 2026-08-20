@@ -61,6 +61,7 @@ type serverCapabilities struct {
 	InlayHintProvider       bool                    `json:"inlayHintProvider"`
 	CompletionProvider      *completionOptions      `json:"completionProvider,omitempty"`
 	CodeActionProvider      bool                    `json:"codeActionProvider"`
+	RenameProvider          bool                    `json:"renameProvider"`
 }
 
 // completionOptions declares what a client should re-ask on. The characters
@@ -133,6 +134,12 @@ type referenceParams struct {
 
 type referenceOptions struct {
 	IncludeDeclaration bool `json:"includeDeclaration"`
+}
+
+type renameParams struct {
+	TextDocument textDocumentIdentifier `json:"textDocument"`
+	Position     Position               `json:"position"`
+	NewName      string                 `json:"newName"`
 }
 
 type codeActionParams struct {
