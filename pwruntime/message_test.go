@@ -79,7 +79,6 @@ func TestRenderRichMessageKeepsHoleBoundaries(t *testing.T) {
 	}
 }
 
-
 // Grouping is per locale, and plural selection reads the value rather than this
 // string, so an untabulated locale still selects the right form.
 func TestFormatIntGroupsPerLocale(t *testing.T) {

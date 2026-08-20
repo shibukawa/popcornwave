@@ -34,13 +34,13 @@ const (
 	// deployment sees a network error somebody else's console recorded.
 	CORSCredentialedOrigin = "PW0417"
 	CORSPlaintextOrigin    = "PW0418"
-	QueryDiagnosticsOn    = "PW0420"
-	BindValuesOn          = "PW0421"
-	VerboseLogLevel       = "PW0422"
-	MemoryDatabase        = "PW0423"
-	LocalPublicRead       = "PW0424"
-	PlaintextLogs         = "PW0426"
-	TelemetryDisabled     = "PW0427"
+	QueryDiagnosticsOn     = "PW0420"
+	BindValuesOn           = "PW0421"
+	VerboseLogLevel        = "PW0422"
+	MemoryDatabase         = "PW0423"
+	LocalPublicRead        = "PW0424"
+	PlaintextLogs          = "PW0426"
+	TelemetryDisabled      = "PW0427"
 	// PW0428 named the single-DSN form of middleware.rdb, which no longer
 	// exists. The identifier is retired rather than reused, so that an
 	// identifier printed by one build never means two different things.

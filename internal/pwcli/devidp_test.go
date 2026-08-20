@@ -78,7 +78,7 @@ func TestLoadProjectConfigRejectsABadIdPPort(t *testing.T) {
 func TestStartDevIdentityProviderInjectsIssuerAndCredentials(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": idpProject,
-		"devidp.toml":      idpRoster,
+		"devidp.toml":     idpRoster,
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {
@@ -123,7 +123,7 @@ func TestStartDevIdentityProviderInjectsIssuerAndCredentials(t *testing.T) {
 func TestDevIdentityProviderKeepsAnExplicitEnvironmentValue(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": idpProject,
-		"devidp.toml":      idpRoster,
+		"devidp.toml":     idpRoster,
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestStartDevIdentityProviderReportsAMissingRoster(t *testing.T) {
 func TestDevIdentityProviderReloadsAnEditedRoster(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"popcornweb.toml": idpProject,
-		"devidp.toml":      idpRoster,
+		"devidp.toml":     idpRoster,
 	})
 	config, err := loadProjectConfig(root)
 	if err != nil {

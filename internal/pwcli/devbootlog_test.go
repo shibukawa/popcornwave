@@ -169,7 +169,7 @@ func TestBootLogEnvironPinsTheFormatAndTheColor(t *testing.T) {
 // developer wanted. An explicit setting outranks it, including off.
 func TestBootLogEnvironLeavesAConfiguredFormatAlone(t *testing.T) {
 	root := writeProject(t, map[string]string{
-		"popcornweb.toml":  "[project]\nname = \"app\"\n",
+		"popcornweb.toml":   "[project]\nname = \"app\"\n",
 		"config.dev.toml":   "[observability]\nboot_log = \"off\"\n",
 		"cmd/app/main.go":   "package main\n\nfunc main() {}\n",
 		"config/.gitignore": "",
