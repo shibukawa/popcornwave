@@ -33,7 +33,7 @@ The extension gains a language server. Everything 0.3.0 did still works with no
   then `popcornweb.pw.path`, and is never downloaded or installed. Nothing
   starts in an untrusted workspace, and the output channel says once what was
   not started and why.
-- The bundled formatter moves to tinybind v0.5.16, which formats the
+- The bundled formatter moves to tinybind v0.5.17, which formats the
   `{val x = f()}` binding v0.3.2 refused.
 
 ## 0.3.0
