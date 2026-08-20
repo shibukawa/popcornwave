@@ -124,7 +124,7 @@ func packageGitignore() string {
 		// a component's extracted style and script are what a consumer links, and
 		// its build regenerates them no more than it regenerates the Go. The
 		// application scaffold carries that line; this one must not gain it.
-		"dist/cache/\ndist/derived/\ndist/manifest.json\n*.db\n"
+		"dist/cache/\ndist/derived/\ndist/manifest.json\ndist/routes.json\n*.db\n"
 }
 
 // packageCheckWorkflow is the staleness guard.

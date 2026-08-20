@@ -4,6 +4,7 @@
 dist/cache/
 dist/derived/
 dist/manifest.json
+dist/routes.json
 dist/public/*
 !dist/public/.keep
 *.db

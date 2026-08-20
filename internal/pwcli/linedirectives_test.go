@@ -127,7 +127,7 @@ SELECT id, name FROM users WHERE id = {id}
 		t.Fatal(err)
 	}
 	options.TemplateLineDirectives = true
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ SELECT id FROM users WHERE id = {id}
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false)
+	changes, err := planDirectory(context.Background(), generator.New(options), directory, allPurposes, nil, nil, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

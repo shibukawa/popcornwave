@@ -93,7 +93,7 @@ func planFixture(t *testing.T, root string, config projectConfig) ([]fileChange,
 	var changes []fileChange
 	for _, directory := range directories {
 		planned, err := planDirectory(context.Background(), runner, directory,
-			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP)
+			directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP, nil)
 		if err != nil {
 			return nil, err
 		}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
+	tbparser "github.com/shibukawa/tinybind-go/parser"
 	"github.com/shibukawa/tinybind-go/routetree"
 	"golang.org/x/mod/modfile"
 )
@@ -62,6 +63,9 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
+	// data:route-table is filled from the analysis each directory's generation
+	// already performs, and written once at the end.
+	collected := newRouteCollector(root)
 	if err := reportSourcesOutsideScope(root, config, stdout); err != nil {
 		return 0, err
 	}
@@ -156,7 +160,7 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 			}
 		}
 		for _, directory := range stage {
-			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP)
+			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP, collected)
 			if err != nil {
 				return 0, err
 			}
@@ -202,6 +206,12 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 		return 0, fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
 	}
 	if err := applyFileChanges(changes); err != nil {
+		return 0, err
+	}
+	// After the writes, and not as one of them: the table is a build product
+	// nothing links, like the asset manifest's JSON copy, so it is neither
+	// compared by --check nor listed as a generated path.
+	if err := writeRouteTable(root, config, collected); err != nil {
 		return 0, err
 	}
 	paths := changePaths(root, changes)
@@ -718,7 +728,7 @@ const disabledTemplatePattern = "*.not-a-generation-source"
 // one directory has one staleness sweep, and so a component and a binder that
 // derive the same base name merge into one file rather than deleting each
 // other.
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, typed []routetree.Action, fastHTTP bool) ([]fileChange, error) {
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, typed []routetree.Action, fastHTTP bool, collected *routeCollector) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
@@ -770,7 +780,8 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	if reason := firstUnparsableSource(directory); reason != nil {
 		return nil, reason
 	}
-	artifacts, err := generateArtifacts(ctx, runner, request)
+	artifacts, routes, err := generateArtifacts(ctx, runner, request)
+	collected.add(directory, routes)
 	if err != nil && !errors.Is(err, generator.ErrNothingToGenerate) {
 		// A page tree route package usually holds no request model at all, so
 		// finding nothing is the ordinary outcome rather than a failure.
@@ -1054,14 +1065,18 @@ func firstUnparsableSource(directory string) error {
 // generator into an error. The developer loop is meant to survive a
 // half-finished edit, and a panic escaping from here would take the loop, the
 // application it supervises, and the services it started down with it.
-func generateArtifacts(ctx context.Context, runner *generator.Generator, request generator.GenerateRequest) (artifacts []generator.Artifact, err error) {
+func generateArtifacts(ctx context.Context, runner *generator.Generator, request generator.GenerateRequest) (artifacts []generator.Artifact, routes *tbparser.Result, err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			err = fmt.Errorf("the generator panicked on this directory, which is a defect rather than "+
 				"something to fix in the sources: %v", recovered)
 		}
 	}()
-	return runner.GenerateArtifacts(ctx, request)
+	// The route half comes back from the run that was happening anyway. It is
+	// the analysis api:cli-generate already performs for the OpenAPI document,
+	// and taking it here is what keeps data:route-table from being a second
+	// one, per rule:static-route-discovery.
+	return runner.GenerateArtifactsWithRoutes(ctx, request)
 }
 
 func documentRegistrationArtifact(packageName string) generator.Artifact {

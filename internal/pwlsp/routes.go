@@ -14,9 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/shibukawa/popcornweb/internal/pwgen"
+	"github.com/shibukawa/popcornweb/internal/pwroutes"
 )
 
 // Route is one discovered route.
@@ -40,20 +42,25 @@ type Route struct {
 // left to be inferred from an absence.
 type RouteReport struct {
 	Routes []Route `json:"routes"`
-	// NotCovered names the routes this answer does not include.
-	NotCovered string `json:"notCovered"`
+	// NotCovered names the routes this answer does not include. It is empty
+	// once data:route-table supplies the registered half.
+	NotCovered string `json:"notCovered,omitempty"`
 }
 
-// routesOf walks every page tree the project declares.
+// routesOf lists what the project serves: the page trees it declares, walked
+// here, and the registrations api:cli-generate wrote into data:route-table.
+//
+// The registered half is read rather than analyzed. Finding it needs the
+// resolved import graph, and running that analysis here would be the second
+// implementation decision:shared-check-catalog refuses; the table is what
+// api:cli-doctor reads for the same reason.
 func routesOf(project *Project) RouteReport {
-	report := RouteReport{
-		Routes: []Route{},
-		NotCovered: "registered routes, which are calls in Go rather than directories; " +
-			"they need the resolved import graph and are not read here",
-	}
+	report := RouteReport{Routes: []Route{}}
 	if project == nil {
+		report.NotCovered = "there is no project, so nothing names the routes"
 		return report
 	}
+	report.Routes = append(report.Routes, registeredRoutes(project, &report)...)
 	for _, source := range project.Sources {
 		if source.Purpose != "generate.pages" {
 			continue
@@ -197,4 +204,49 @@ func projectInfo(project *Project) ProjectInfo {
 		ConsoleURL:       "http://localhost:" + itoaPort(project.ConsolePort),
 		StorybookEnabled: project.StorybookEnabled,
 	}
+}
+
+// registeredRoutes reads the Go-registered half out of data:route-table.
+//
+// A project that has not generated has no table, and that is said rather than
+// shown as an empty list: an editor view that silently covers half the URL
+// space reads as if it covered all of it.
+func registeredRoutes(project *Project, report *RouteReport) []Route {
+	table, err := pwroutes.Load(project.Root)
+	if err != nil {
+		report.NotCovered = "routes registered in Go; run pw generate to write the route table"
+		return nil
+	}
+
+	routes := make([]Route, 0, len(table.Entries))
+	for _, entry := range table.Entries {
+		// The page half is walked here from the source tree, which is current
+		// where the table is only as fresh as the last generation.
+		if entry.Origin != pwroutes.OriginApplication {
+			continue
+		}
+		route := Route{Path: entry.Pattern, Root: "registered"}
+		if entry.Site != nil {
+			route.Page = entry.Site.File
+			route.PageURI = uriOf(filepath.Join(project.Root, filepath.FromSlash(entry.Site.File)))
+		}
+		if entry.Handler != "" {
+			route.Handler = entry.Handler
+		}
+		routes = append(routes, route)
+	}
+	if len(table.Unresolved) > 0 {
+		report.NotCovered = countOf(len(table.Unresolved), "registration") +
+			" whose pattern the analysis could not read, such as one built at run time"
+	}
+	return routes
+}
+
+// countOf words a number of things, because "1 registrations" reads as a defect
+// in the view rather than in the project.
+func countOf(count int, noun string) string {
+	if count == 1 {
+		return "one " + noun
+	}
+	return strconv.Itoa(count) + " " + noun + "s"
 }

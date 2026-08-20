@@ -6,13 +6,12 @@ title: Route and Page Tree View
 The routes a project serves are listed in one view, with the file that answers each one, because decision:dual-router-coexistence means no single directory listing shows them all.
 
 ```yaml
-status: >
-  discovered routes implemented, over pw/routes. Registered routes are not
-  covered and the view says so
-registered_routes_blocked_on:
-  what: api:cli-generate exports no route table, which api:cli-doctor already records as a limit of its own and which is what keeps its PW02xx checks from running
-  why_not_here: the editor would be the first and only consumer of a route table, so building one here would be the second implementation decision:shared-check-catalog and vision:editor-support both refuse
-  who_unblocks_it: whoever exports the table; two readers are waiting for it rather than one
+status: implemented. Discovered routes are walked from the sources, and the registered half is read out of data:route-table
+registered_routes:
+  read_not_analyzed: finding them needs the resolved import graph, so the view reads what api:cli-generate wrote rather than running that analysis a second time; api:cli-doctor reads the same table for the same reason
+  freshness: the table is as fresh as the last generation, while the page tree is walked from the sources on every request, so a page added a moment ago is there and a registration added a moment ago is not
+  absent_table: said in the view rather than shown as an empty list, because a view that silently covers one router reads as if it covered both
+  unresolved: stated as what the view does not cover, per the data:route-table rule that a consumer names its limits rather than reporting a table it cannot back up
 stage: 3 of vision:editor-support
 audience: actor:application-developer
 problem:

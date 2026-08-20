@@ -3,10 +3,11 @@ package pwcheck
 // PW02xx: what the route table says about paths that collide and paths nothing
 // serves.
 //
-// These declare the RouteTable input, which pw generate does not export yet.
-// A runner that cannot build an input skips the checks that need it and reports
-// the gap, so the report says the routes were not examined instead of showing a
-// clean route section it cannot back up.
+// These declare the RouteTable input, which api:cli-generate writes as
+// data:route-table. A runner that cannot build an input skips the checks that
+// need it and reports the gap, so a project that has not generated is told the
+// routes were not examined instead of being shown a clean route section
+// nothing backs up.
 const (
 	DuplicateRoutePattern = "PW0201"
 	FrameworkMountClash   = "PW0202"
