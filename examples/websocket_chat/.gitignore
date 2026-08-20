@@ -1,6 +1,7 @@
 .devbox/
 /websocket_chat
 *_pw_gen.go
+public/generated/
 dist/cache/
 dist/derived/
 dist/manifest.json
