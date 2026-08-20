@@ -165,6 +165,13 @@ What the route table says about paths that collide and paths nothing serves. The
 - **Reads**: merged configuration, route table
 - **Fix**: move the route, or disable the mount with its configuration key
 
+### PW0203: a route registration the analysis could not read a pattern from
+
+- **Severity**: note
+- **Applies to**: every environment
+- **Reads**: route table
+- **Fix**: register a literal method-and-path pattern, per rule:static-route-discovery
+
 ## Storage (PW03xx)
 
 Whether the migration sources are well-formed, and, under `--online`, whether the database still matches them.

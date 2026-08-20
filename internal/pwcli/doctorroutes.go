@@ -49,18 +49,16 @@ func (r *checkRun) checkRoutes() *doctorLimit {
 			describeSites(clash[0:1]))
 	}
 
-	if len(table.Unresolved) == 0 {
-		return nil
+	// An unresolved registration is a finding rather than a limit: the route
+	// runs, and what is missing is that nothing else in the report knows about
+	// it. rule:route-and-template-checks ranks it a note, which is what says so
+	// without claiming the project is broken.
+	for _, unresolved := range table.Unresolved {
+		r.report(pwcheck.UnresolvedRegistration,
+			"the pattern here is not a literal, so no route check covers it",
+			unresolved.Site.File+":"+itoa(unresolved.Site.Line)+" ("+unresolved.Reason+")")
 	}
-	// data:route-table keeps what the analysis could not read so a consumer
-	// states it as a limit rather than reporting a table it cannot back up.
-	return &doctorLimit{
-		Subject: "routes",
-		Reason: countOf(len(table.Unresolved), "registration") +
-			" the analysis could not read a literal pattern from, first at " +
-			table.Unresolved[0].Site.File + ":" + itoa(table.Unresolved[0].Site.Line),
-		Effect: "those paths are absent from the route checks",
-	}
+	return nil
 }
 
 // frameworkMounts is what this environment's configuration turns on.

@@ -164,6 +164,13 @@ sidebar:
 - **読むもの**: マージ済み設定、ルート表
 - **直し方**: move the route, or disable the mount with its configuration key
 
+### PW0203: a route registration the analysis could not read a pattern from
+
+- **深刻度**: note
+- **対象**: すべての環境
+- **読むもの**: ルート表
+- **直し方**: register a literal method-and-path pattern, per rule:static-route-discovery
+
 ## ストレージ (PW03xx)
 
 マイグレーションのソースが妥当かどうか。`--online` ではさらに、データベースがまだそれと一致しているかどうか。

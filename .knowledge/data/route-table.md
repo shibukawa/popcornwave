@@ -28,7 +28,8 @@ framework_mounts:
     what a generation can know
 unresolved:
   content: registration calls the analysis could not resolve to a literal pattern, per rule:static-route-discovery
-  purpose: a consumer states them as limits instead of reporting a clean table it cannot back up
+  purpose: a consumer says so instead of reporting a clean table it cannot back up
+  how: api:cli-doctor ranks it a note rather than folding it into a limit, so the site and the reason reach the reader at the line they would fix; requirement:editor-route-explorer states it as what the view does not cover, having no findings list to put it in
 location: dist/routes.json, beside the data:public-asset-manifest JSON copy and on the same terms — a build product nothing reads at runtime, ignored by the scaffolded .gitignore
 rules:
   - the table is generated, never hand-written, and stale content is drift like any other generated artifact

@@ -88,9 +88,10 @@ func TestAMountCollisionIsFoundForTheEnvironmentBeingDiagnosed(t *testing.T) {
 	}
 }
 
-func TestUnresolvedRegistrationsAreALimitRatherThanAFinding(t *testing.T) {
-	// They are not a defect in the project; they are a gap in what the report
-	// can back up, which is what data:route-table keeps them for.
+func TestAnUnresolvedRegistrationIsANoteRatherThanASilence(t *testing.T) {
+	// The route runs; what is missing is that no other route check covers it,
+	// and the OpenAPI document omits it. A clean report that said nothing here
+	// would be claiming coverage it does not have.
 	root := t.TempDir()
 	if err := pwroutes.Write(root, &pwroutes.Table{
 		Entries: []pwroutes.Entry{{Pattern: "GET /", Origin: pwroutes.OriginApplication}},
@@ -102,13 +103,23 @@ func TestUnresolvedRegistrationsAreALimitRatherThanAFinding(t *testing.T) {
 	}
 	run := routeRun(t, root, nil)
 
-	limit := run.checkRoutes()
-
-	if limit == nil || !strings.Contains(limit.Reason, "handlers/api.go:30") {
-		t.Fatalf("limit = %+v, want the unresolved site", limit)
+	if limit := run.checkRoutes(); limit != nil {
+		t.Fatalf("limit = %+v, want a finding instead", limit)
 	}
-	if len(run.findings) != 0 {
-		t.Fatalf("findings = %v, want none", findingIDs(run.findings))
+
+	if ids := findingIDs(run.findings); len(ids) != 1 || ids[0] != pwcheck.UnresolvedRegistration {
+		t.Fatalf("findings = %v, want PW0203", ids)
+	}
+	if !strings.Contains(run.findings[0].Evidence, "handlers/api.go:30") {
+		t.Fatalf("evidence = %q, want the site a reader can open", run.findings[0].Evidence)
+	}
+	if !strings.Contains(run.findings[0].Evidence, "dynamic_pattern") {
+		t.Fatalf("evidence = %q, want why it could not be read", run.findings[0].Evidence)
+	}
+	// A note rather than an error: the project is not broken, the report is
+	// simply blind to that path.
+	if run.findings[0].Severity != pwcheck.Note {
+		t.Fatalf("severity = %v, want a note", run.findings[0].Severity)
 	}
 }
 
