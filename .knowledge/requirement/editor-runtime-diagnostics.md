@@ -6,7 +6,11 @@ title: Runtime Findings in the Editor
 A failure that only happens when the application runs is reported in the editor at the template position that produced it, so the class of problem static analysis cannot reach is not the one class the developer debugs by reading logs.
 
 ```yaml
-status: the dev-loop source is implemented, opt-in, over the requirement:dev-console loop state; the requirement:browser-report-ingest source is unimplemented
+status: the dev-loop source is implemented, opt-in, over the requirement:dev-console loop state
+browser_source_blocked_on:
+  transport: requirement:dev-console exposes the loop state and nothing else; a browser report becomes an api:logger record, and no endpoint offers those, so the transport this file names does not exist yet
+  what_it_needs: a console endpoint over the reports it has seen, which is a framework surface rather than an editor one
+  position: a report carries a source file and line from the bundle, so placing it needs the requirement:derived-asset-pipeline source map read and resolved; an unmappable one is reported against the project rather than dropped, which is what this file already says
 stage: 3 of vision:editor-support
 sources:
   dev_loop: a template render failure, a query failure, and a panic observed by api:cli-dev

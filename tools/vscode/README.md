@@ -51,6 +51,11 @@ What is resolved is the identifier under the cursor rather than the syntactic
 position it sits in, so a name matching a declaration resolves inside a string
 literal too.
 
+**Rename Symbol** rewrites a declaration, every template reference to it, and
+the handwritten Go that calls what it generated, in one edit set the editor
+shows before applying. A generated file is not edited; `pw generate` writes the
+new name itself. `pw rename` does the same with no editor.
+
 Three more surfaces come from this server's own `pw/*` methods: **Popcorn Web
 Routes** in the Explorer, **Peek Generated Code** on the context menu, and
 **Preview Story**. `popcornweb.runtimeDiagnostics.enabled` additionally reports

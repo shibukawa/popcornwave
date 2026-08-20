@@ -54,7 +54,7 @@ capabilities:
     pw/project: the loaded project's root, name, and console URL, so a client builds a URL without reading data:project-config itself
     pw/declarationFor: the .pw.* declaration behind a generated Go symbol, named by the client because the document it was read from is Go and gopls owns those
   stage_4:
-    - textDocument/rename, delegated to requirement:declaration-rename rather than implemented here, because the edit set reaches handwritten Go and sometimes a route
+    - textDocument/rename, delegated to requirement:declaration-rename rather than implemented here, because the edit set reaches handwritten Go; implemented, and answering with the whole set so a client shows it before anything is written
     - textDocument/codeAction, per requirement:editor-code-actions; implemented for the one finding that has a mechanical repair
   deferred:
     - formatting over LSP, because requirement:editor-formatting already delivers it through decision:formatter-delivery and a third path would be a third answer to the same question

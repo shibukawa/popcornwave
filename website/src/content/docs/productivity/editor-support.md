@@ -248,12 +248,28 @@ not mean.
 Nothing here starts on its own. No save runs `pw generate`, no open starts
 `pw dev`, and an untrusted workspace runs none of it.
 
+### Renaming a declaration
+
+A declaration name decides more than the declaration: the exported Go function
+`pw generate` emits, the handwritten Go that calls it, and every template
+reference to it. **Rename Symbol** on one rewrites all of them at once, and
+your editor shows the whole set first — it reaches files you never opened.
+
+`pw rename <declaration> <new-name>` does the same thing with no editor, and
+previews by default; `--apply` writes it. Either way the generated Go is not
+edited, because `pw generate` writes the new name itself the next time it runs.
+
+A rename onto a name something else already declares is refused, and so is one
+the parser would reject — a component or a statement is PascalCase. Both are
+knowable before anything is written, and a half-renamed project is worse than
+no rename. No URL moves: a page's route comes from its directory, not from the
+declaration inside it.
+
 ## What it does not do yet
 
-There is no completion, no find-references, and no rename. A missing external
-function or a result type a statement cannot satisfy is not reported as you
-type: those need the whole project analyzed, which is what the `pw check` task
-above is for.
+A missing external function or a result type a statement cannot satisfy is not
+reported as you type: those need the whole project analyzed, which is what the
+`pw check` task above is for.
 
 One thing it does report from the project model: a `.pw.*` source no `[generate]`
 purpose compiles, in the same words `pw generate` uses for it — with a quick fix
