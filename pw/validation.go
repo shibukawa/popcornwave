@@ -299,6 +299,9 @@ func validateServerConfig(config ServerConfig) error {
 	if config.MaxRequestBody < 0 {
 		return fmt.Errorf("server.max_request_body must not be negative")
 	}
+	if config.CBORMaxBody < 0 {
+		return fmt.Errorf("server.cbor_max_body must not be negative")
+	}
 	if _, err := compileTrustedProxies(config.TrustedProxies); err != nil {
 		return err
 	}

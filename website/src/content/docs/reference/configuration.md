@@ -82,6 +82,7 @@ environment variable.
 | `idle_timeout` | `"2m"` | keep-alive idle timeout |
 | `shutdown_timeout` | `"10s"` | graceful shutdown timeout |
 | `max_request_body` | `10485760` | maximum request body in bytes |
+| `cbor_max_body` | `0` | maximum [CBOR request body](/guides/backend/cbor/) in bytes; `0` keeps the 1 MiB default |
 | `trusted_proxies` | `[]` | trusted proxy IP or CIDR |
 | `health` | *(empty)* | liveness endpoint path, e.g. `/healthz` |
 | `readiness` | *(empty)* | readiness endpoint path, e.g. `/readyz` |

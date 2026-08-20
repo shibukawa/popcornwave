@@ -91,6 +91,15 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	// from a flag, so every run of every command produces the same bytes and
 	// api:cli-check has something stable to compare against.
 	options.TemplateLineDirectives = config.LineDirectives
+	// requirement:api-cbor-representation, read from the project on the same
+	// terms. The profile is part of the generation fingerprint downstream, so
+	// two machines disagreeing on it show up as drift rather than as two
+	// protocols.
+	options.EnableCBORHTTP = config.CBOR.Enabled
+	options.CBORHTTPProfile = generator.CBORHTTPProfile{
+		RejectFloats:      config.CBOR.RejectFloats,
+		RequireSortedKeys: config.CBOR.SortedKeys,
+	}
 	// The implicit bindings are declared whether or not the project has a
 	// catalog, because a binding no template reads generates byte-identical Go
 	// and making the list conditional would make output differ by whether i18n

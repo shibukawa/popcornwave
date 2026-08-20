@@ -924,6 +924,14 @@ firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
 # that do not exist in the file it reports them against. Take one or the other.
 line_directives = false
 
+# API handlers also speak application/cbor beside JSON: a request carrying it
+# binds from one CBOR map, and a response answers CBOR when Accept names it
+# outright. Settled at generation time; left off, no CBOR code is linked.
+# reject_floats refuses float64 fields for scaled-integer schemas, and
+# sorted_keys emits RFC 8949 bytewise key order for deterministic clients.
+[generate.api.cbor]
+enabled = false
+
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.
 [dev.watch]

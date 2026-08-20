@@ -193,6 +193,21 @@ var generatePurposes = []struct {
 	{key: "generate.firestore", target: func(s *generationScope) *[]string { return &s.Firestore }, optional: true},
 }
 
+// cborGenerateConfig declares application/cbor request and response bodies
+// for every API route at once. It is project-wide on purpose: which media
+// types a service accepts is a property of the service, not of one route, so
+// there is no per-route or per-type spelling. With the block absent the
+// generated output is byte-identical to today's and no CBOR code is linked.
+type cborGenerateConfig struct {
+	Enabled bool
+	// RejectFloats refuses float64 fields at generation and floats arriving
+	// in a request body at decode, for schemas carrying scaled integers.
+	RejectFloats bool
+	// SortedKeys emits map members in RFC 8949 bytewise key order instead of
+	// struct field order, for clients that verify deterministic encoding.
+	SortedKeys bool
+}
+
 // watchConfig widens or trims the pw dev walk. Unlike generation, the walk has a
 // working default, because a rebuild is triggered by any compiled input; only
 // the trimming is worth leaving to the project.
@@ -249,6 +264,13 @@ type projectConfig struct {
 	// holding a template and makes go test -cover report lines that do not
 	// exist in the file the profile names. A project takes one or the other.
 	LineDirectives bool
+	// CBOR is the generate.api.cbor block: whether generated binders and
+	// writers negotiate application/cbor bodies, and which CBOR subset the
+	// codecs are generated for. A project setting rather than a pw generate
+	// flag for the reason LineDirectives is: generation output must not depend
+	// on who ran it, and the profile is hashed into the generation fingerprint
+	// so both ends of the protocol agree on every regeneration.
+	CBOR cborGenerateConfig
 	Watch          watchConfig
 	IdP            idpConfig
 	Otel           otelConfig
@@ -351,6 +373,7 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		"generate.handlers", "generate.templates", "generate.queries", "generate.config", "generate.pages",
 		"generate.dynamo", "generate.firestore",
 		"generate.line_directives",
+		"generate.api.cbor.enabled", "generate.api.cbor.reject_floats", "generate.api.cbor.sorted_keys",
 		"dev.watch.includes", "dev.watch.excludes",
 		"seed.auto",
 		"dev.idp.enabled", "dev.idp.config", "dev.idp.port",
@@ -538,6 +561,24 @@ func loadProjectConfig(root string) (projectConfig, error) {
 		config.LineDirectives, err = value.AsBool()
 		if err != nil {
 			return projectConfig{}, fmt.Errorf("popcornweb.toml: generate.line_directives: %w", err)
+		}
+	}
+	if value, ok := document.Get("generate.api.cbor.enabled"); ok {
+		config.CBOR.Enabled, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: generate.api.cbor.enabled: %w", err)
+		}
+	}
+	if value, ok := document.Get("generate.api.cbor.reject_floats"); ok {
+		config.CBOR.RejectFloats, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: generate.api.cbor.reject_floats: %w", err)
+		}
+	}
+	if value, ok := document.Get("generate.api.cbor.sorted_keys"); ok {
+		config.CBOR.SortedKeys, err = value.AsBool()
+		if err != nil {
+			return projectConfig{}, fmt.Errorf("popcornweb.toml: generate.api.cbor.sorted_keys: %w", err)
 		}
 	}
 	if value, ok := document.Get("dev.console.overlay.enabled"); ok {

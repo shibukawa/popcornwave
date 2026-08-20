@@ -78,6 +78,7 @@ Popcorn Web は次の順に読みます。
 | `idle_timeout` | `"2m"` | keep-alive のアイドルタイムアウト |
 | `shutdown_timeout` | `"10s"` | グレースフルシャットダウンのタイムアウト |
 | `max_request_body` | `10485760` | リクエストボディの上限（バイト） |
+| `cbor_max_body` | `0` | [CBOR リクエストボディ](/ja/guides/backend/cbor/)の上限（バイト）。`0` はデフォルトの 1 MiB |
 | `trusted_proxies` | `[]` | 信頼するプロキシの IP または CIDR |
 | `health` | *(空)* | liveness エンドポイントのパス。例 `/healthz` |
 | `readiness` | *(空)* | readiness エンドポイントのパス。例 `/readyz` |

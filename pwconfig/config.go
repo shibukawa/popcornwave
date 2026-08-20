@@ -49,6 +49,11 @@ type ServerConfig struct {
 	IdleTimeout       time.Duration `default:"2m" summary:"omit" help:"keep-alive idle timeout"`
 	ShutdownTimeout   time.Duration `default:"10s" summary:"omit" help:"graceful shutdown timeout"`
 	MaxRequestBody    int64         `default:"10485760" summary:"omit" help:"maximum request body in bytes"`
+	// CBORMaxBody is separate from MaxRequestBody because a CBOR body is read
+	// whole before decoding, so its cap answers to decode memory rather than
+	// to transfer size. It only matters to a build whose generation enabled
+	// CBOR bodies; every other build has no read this bounds.
+	CBORMaxBody int64 `default:"0" summary:"omit" help:"maximum CBOR request body in bytes; 0 keeps the 1 MiB default"`
 	TrustedProxies    []string      `help:"trusted proxy IP or CIDR"`
 	// Health, Readiness, and OpenAPI are the paths their endpoints serve, and
 	// an unset path serves nothing. They carry no default so that the operator

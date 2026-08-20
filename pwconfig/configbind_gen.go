@@ -35,6 +35,7 @@ func registerServerConfigDefinition0() {
 			"server.idle_timeout",
 			"server.shutdown_timeout",
 			"server.max_request_body",
+			"server.cbor_max_body",
 			"server.trusted_proxies",
 			"server.health",
 			"server.readiness",
@@ -54,6 +55,7 @@ func registerServerConfigDefinition0() {
 			"server.idle_timeout":        "2m",
 			"server.shutdown_timeout":    "10s",
 			"server.max_request_body":    "10485760",
+			"server.cbor_max_body":       "0",
 			"server.api_doc_path":        "/docs",
 			"server.public.enabled":      "true",
 			"server.public.mount":        "/public",
@@ -73,6 +75,7 @@ func registerServerConfigDefinition0() {
 			"server.idle_timeout":        "omit",
 			"server.shutdown_timeout":    "omit",
 			"server.max_request_body":    "omit",
+			"server.cbor_max_body":       "omit",
 		},
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "server", Key: "port", Opt: "port", Env: "PORT", Help: "HTTP listen port"},
@@ -82,6 +85,7 @@ func registerServerConfigDefinition0() {
 			{Prefix: "server", Key: "idle_timeout", Help: "keep-alive idle timeout"},
 			{Prefix: "server", Key: "shutdown_timeout", Help: "graceful shutdown timeout"},
 			{Prefix: "server", Key: "max_request_body", Help: "maximum request body in bytes"},
+			{Prefix: "server", Key: "cbor_max_body", Help: "maximum CBOR request body in bytes; 0 keeps the 1 MiB default"},
 			{Prefix: "server", Key: "trusted_proxies", Help: "trusted proxy IP or CIDR", Kind: cliparser.KindArray},
 			{Prefix: "server", Key: "health", Help: "liveness endpoint path, e.g. /healthz; unset serves none"},
 			{Prefix: "server", Key: "readiness", Help: "readiness endpoint path, e.g. /readyz; unset serves none"},
@@ -102,6 +106,7 @@ func registerServerConfigDefinition0() {
 			{Key: "idle_timeout", Kind: configbind.ScaffoldDuration, Default: "2m", Help: "keep-alive idle timeout"},
 			{Key: "shutdown_timeout", Kind: configbind.ScaffoldDuration, Default: "10s", Help: "graceful shutdown timeout"},
 			{Key: "max_request_body", Kind: configbind.ScaffoldInt, Default: "10485760", Help: "maximum request body in bytes"},
+			{Key: "cbor_max_body", Kind: configbind.ScaffoldInt, Default: "0", Help: "maximum CBOR request body in bytes; 0 keeps the 1 MiB default"},
 			{Key: "trusted_proxies", Kind: configbind.ScaffoldStringSlice, Help: "trusted proxy IP or CIDR"},
 			{Key: "health", Kind: configbind.ScaffoldString, Help: "liveness endpoint path, e.g. /healthz; unset serves none"},
 			{Key: "readiness", Kind: configbind.ScaffoldString, Help: "readiness endpoint path, e.g. /readyz; unset serves none"},
@@ -183,6 +188,15 @@ func applyServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 		p.MaxRequestBody = int64(n)
 	} else {
 		p.MaxRequestBody = 10485760
+	}
+	if v, ok := o.GetString("server.cbor_max_body"); ok {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return fmt.Errorf("configbind: server.cbor_max_body: %w", err)
+		}
+		p.CBORMaxBody = int64(n)
+	} else {
+		p.CBORMaxBody = 0
 	}
 	if v, ok := o.GetMulti("server.trusted_proxies"); ok {
 		p.TrustedProxies = v

@@ -91,6 +91,13 @@ API call share one handler and one model:
 - `application/x-www-form-urlencoded`
 - `multipart/form-data`
 
+A project that enables [`generate.api.cbor`](/guides/backend/cbor/) adds
+`application/cbor` (and any `+cbor` suffix type) as a fourth: the body is one
+CBOR map with text keys filling the same fields a JSON body fills, with
+`server.cbor_max_body` bounding it the way the multipart limit below bounds
+uploads. A `payload:"*"` rest map has no CBOR mapping, and generation reports
+the combination as an error.
+
 ### Multipart files
 
 ```go
