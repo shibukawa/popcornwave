@@ -1,7 +1,6 @@
 package pwruntime
 
 import (
-	"sync"
 	"sync/atomic"
 
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -43,6 +42,21 @@ func RegisteredHTMLDocument() []htmlbind.Wrapper {
 	return append([]htmlbind.Wrapper(nil), *chain...)
 }
 
+// RegisteredHTMLDocumentWith returns the shell chain with wrappers appended
+// after it, built in one allocation. It exists for the page render path: the
+// plain accessor's copy carries no spare capacity, so appending a route's own
+// wrappers to it re-allocated and re-copied on every rendered page. The result
+// is freshly allocated for the same isolation reason as above.
+func RegisteredHTMLDocumentWith(wrappers []htmlbind.Wrapper) []htmlbind.Wrapper {
+	chain := documentState.Load()
+	if chain == nil {
+		return append([]htmlbind.Wrapper(nil), wrappers...)
+	}
+	combined := make([]htmlbind.Wrapper, 0, len(*chain)+len(wrappers))
+	combined = append(combined, *chain...)
+	return append(combined, wrappers...)
+}
+
 // SwapHTMLDocument installs a shell chain and returns what was there.
 //
 // It exists for tests, which install a document and must put back what they
@@ -72,22 +86,26 @@ type HTMLErrorPage func(Problem) HTMLFragment
 // belongs to both builds, and a file naming a runtime does not.
 type HTMLFragment = htmlbind.Fragment
 
-var errorPageState = struct {
-	sync.RWMutex
-	resolve HTMLErrorPage
-}{}
+// The resolver is installed once from generated init and read on every error
+// response, so it is published the way documentState is: an RLock is still an
+// atomic write on a shared cache line, and this read must cost a load.
+var errorPageState atomic.Pointer[HTMLErrorPage]
 
 // RegisterHTMLErrorPage installs the application's error page resolver.
 func RegisterHTMLErrorPage(resolve HTMLErrorPage) {
-	errorPageState.Lock()
-	defer errorPageState.Unlock()
-	errorPageState.resolve = resolve
+	if resolve == nil {
+		errorPageState.Store(nil)
+		return
+	}
+	errorPageState.Store(&resolve)
 }
 
 // RegisteredHTMLErrorPage returns the resolver, or nil where none was
 // registered and a problem therefore takes its document form.
 func RegisteredHTMLErrorPage() HTMLErrorPage {
-	errorPageState.RLock()
-	defer errorPageState.RUnlock()
-	return errorPageState.resolve
+	resolve := errorPageState.Load()
+	if resolve == nil {
+		return nil
+	}
+	return *resolve
 }

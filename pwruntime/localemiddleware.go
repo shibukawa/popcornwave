@@ -16,7 +16,7 @@ import (
 // A project declaring no locale is passed through untouched.
 func LocaleMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(DeclaredLocales()) == 0 {
+		if !localesDeclared() {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -24,11 +24,14 @@ type Option func(*App) error
 // App owns an application's mux, middleware, operational endpoints, and server
 // lifecycle. Configuration is frozen the first time Handler or Serve is called.
 type App struct {
-	mu           sync.Mutex
-	mux          *httpmux.ServeMux
-	middlewares  []Middleware
-	config       ServerConfig
-	renderer     ErrorRenderer
+	mu          sync.Mutex
+	mux         *httpmux.ServeMux
+	middlewares []Middleware
+	config      ServerConfig
+	// renderer is atomic rather than guarded by mu because WriteError reads it
+	// per error response, and an error response should not queue behind
+	// whatever else holds the app mutex.
+	renderer     atomic.Pointer[ErrorRenderer]
 	readyChecks  []ReadyCheck
 	openAPI      []byte
 	closers      []func(context.Context) error
@@ -75,7 +78,7 @@ func WithServerConfig(config ServerConfig) Option {
 
 // WithErrorRenderer installs the HTML error renderer.
 func WithErrorRenderer(renderer ErrorRenderer) Option {
-	return func(a *App) error { a.renderer = renderer; return nil }
+	return func(a *App) error { a.storeRenderer(renderer); return nil }
 }
 
 // WithReadinessCheck adds a critical dependency readiness check.
@@ -151,14 +154,23 @@ func (a *App) SetErrorRenderer(renderer ErrorRenderer) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.assertMutable()
-	a.renderer = renderer
+	a.storeRenderer(renderer)
+}
+
+func (a *App) storeRenderer(renderer ErrorRenderer) {
+	if renderer == nil {
+		a.renderer.Store(nil)
+		return
+	}
+	a.renderer.Store(&renderer)
 }
 
 // WriteError negotiates an error using the renderer configured on the App.
 func (a *App) WriteError(w http.ResponseWriter, r *http.Request, err error) {
-	a.mu.Lock()
-	renderer := a.renderer
-	a.mu.Unlock()
+	var renderer ErrorRenderer
+	if stored := a.renderer.Load(); stored != nil {
+		renderer = *stored
+	}
 	var logger = ReadLogger(nil)
 	if r != nil {
 		logger = ReadLogger(r.Context())

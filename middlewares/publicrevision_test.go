@@ -17,9 +17,7 @@ import (
 func revisionFixture(t *testing.T) fstest.MapFS {
 	t.Helper()
 	t.Cleanup(func() {
-		publicManifestState.Lock()
-		publicManifestState.entries = nil
-		publicManifestState.Unlock()
+		publicManifestState.Store(nil)
 	})
 	RegisterPublicManifest([]AssetEntry{
 		{URL: "app.css", CacheControl: "public, no-cache", Revision: "0123456789abcdef",

@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 //go:generate go run ../internal/runtimegen
@@ -43,10 +44,16 @@ const RuntimeName = "popcornweb-runtime.js"
 // state is the module set this process serves. A runtime with modules of its
 // own publishes them before anything reads a URL; nothing does at init time,
 // which is what makes that ordering ordinary rather than delicate.
+//
+// The resolved set travels through an atomic pointer because the readers are
+// per-request and per-render — every document naming the runtime URL and every
+// framework-asset request pass through here — so the mutex guards only
+// publication and the build of a new snapshot.
 var state struct {
 	sync.Mutex
 	extra       map[string]string
 	extraImport string
+	resolved    atomic.Pointer[setState]
 }
 
 // Publish adds the modules a build serves beyond the core, and the import line
@@ -62,17 +69,18 @@ func Publish(extra map[string]string, extraImport string) {
 	state.Lock()
 	defer state.Unlock()
 	state.extra, state.extraImport = extra, extraImport
-	resolved = nil
+	// The memo is cleared rather than computed once, so a build that publishes
+	// after something read a URL still serves one consistent answer afterwards.
+	state.resolved.Store(nil)
 }
-
-// resolved memoizes the set and its revision. It is cleared by Publish rather
-// than computed once, so a build that publishes after something read a URL
-// still serves one consistent answer afterwards.
-var resolved *setState
 
 type setState struct {
 	scripts  map[string]string
 	revision string
+	// urlPrefix and runtimeURL are finished strings rather than concatenations
+	// per call, because every rendered document asks for the runtime URL.
+	urlPrefix  string
+	runtimeURL string
 }
 
 // Scripts returns the module set this build serves, by file name.
@@ -90,9 +98,12 @@ func Scripts() map[string]string { return current().scripts }
 func Revision() string { return current().revision }
 
 func current() *setState {
+	if resolved := state.resolved.Load(); resolved != nil {
+		return resolved
+	}
 	state.Lock()
 	defer state.Unlock()
-	if resolved != nil {
+	if resolved := state.resolved.Load(); resolved != nil {
 		return resolved
 	}
 	scripts := map[string]string{RuntimeName: minifiedRuntimeSource + state.extraImport}
@@ -113,19 +124,22 @@ func current() *setState {
 		digest.Write([]byte(scripts[name]))
 		digest.Write([]byte{0})
 	}
-	resolved = &setState{scripts: scripts, revision: hex.EncodeToString(digest.Sum(nil))[:16]}
+	resolved := &setState{scripts: scripts, revision: hex.EncodeToString(digest.Sum(nil))[:16]}
+	resolved.urlPrefix = Prefix + resolved.revision + "/"
+	resolved.runtimeURL = resolved.urlPrefix + RuntimeName
+	state.resolved.Store(resolved)
 	return resolved
 }
 
 // ScriptURL is the absolute path of one module in the set. Modules share one
 // revision segment so that imports between them stay ordinary relative
 // specifiers and nothing has to rewrite them.
-func ScriptURL(name string) string { return Prefix + Revision() + "/" + name }
+func ScriptURL(name string) string { return current().urlPrefix + name }
 
 // RuntimeScriptURL is the absolute path of the boundary runtime module. A
 // document template names it through a declared external function rather than
 // as a literal, so the template text survives an upgrade that moves the URL.
-func RuntimeScriptURL() string { return ScriptURL(RuntimeName) }
+func RuntimeScriptURL() string { return current().runtimeURL }
 
 // Lookup answers what a request for path should be served, and whether this
 // build claims it at all.
@@ -138,11 +152,12 @@ func RuntimeScriptURL() string { return ScriptURL(RuntimeName) }
 // A stale revision is therefore not found rather than served from the current
 // set, which is what makes the immutable caching sound.
 func Lookup(path string) (source, contentType string, ok bool) {
-	name, ok := scriptName(path)
+	set := current()
+	name, ok := scriptNameIn(set, path)
 	if !ok {
 		return "", "", false
 	}
-	source, ok = Scripts()[name]
+	source, ok = set.scripts[name]
 	if !ok {
 		return "", "", false
 	}
@@ -173,7 +188,11 @@ func ContentType(name string) string {
 }
 
 func scriptName(path string) (string, bool) {
-	rest, ok := strings.CutPrefix(path, Prefix+Revision()+"/")
+	return scriptNameIn(current(), path)
+}
+
+func scriptNameIn(set *setState, path string) (string, bool) {
+	rest, ok := strings.CutPrefix(path, set.urlPrefix)
 	if !ok || rest == "" || strings.Contains(rest, "/") {
 		return "", false
 	}

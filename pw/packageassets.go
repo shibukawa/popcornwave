@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // packageAssetPrefix is where a component package's embedded browser files are
@@ -36,24 +37,39 @@ type packageAssetCatalog struct {
 	byName map[string]string
 }
 
-// packageAssetState normally builds once after package initialization. The
-// generation also preserves RegisterPackage's existing behavior for programs
-// and tests that register before their first asset lookup at a later point.
-var packageAssetState struct {
-	sync.Mutex
+// packageAssetSnapshot is one built catalog together with the registration
+// generation it was built from, published as a unit so a reader never pairs one
+// with the other's moment.
+type packageAssetSnapshot struct {
 	generation uint64
 	catalog    packageAssetCatalog
 }
 
+// packageAssetState normally builds once after package initialization. The
+// generation also preserves RegisterPackage's existing behavior for programs
+// and tests that register before their first asset lookup at a later point.
+//
+// The current snapshot is read through an atomic pointer rather than under the
+// mutex, because the read side is request-serving: the lock's only job is to
+// keep concurrent rebuilds from doing the walk twice.
+var packageAssetState struct {
+	sync.Mutex
+	snapshot atomic.Pointer[packageAssetSnapshot]
+}
+
 func packageAssets() packageAssetCatalog {
 	generation := packageGeneration.Load()
+	if snapshot := packageAssetState.snapshot.Load(); snapshot != nil && snapshot.generation == generation {
+		return snapshot.catalog
+	}
 	packageAssetState.Lock()
 	defer packageAssetState.Unlock()
-	if packageAssetState.catalog.byKey == nil || packageAssetState.generation != generation {
-		packageAssetState.catalog = buildPackageAssetCatalog()
-		packageAssetState.generation = generation
+	if snapshot := packageAssetState.snapshot.Load(); snapshot != nil && snapshot.generation == generation {
+		return snapshot.catalog
 	}
-	return packageAssetState.catalog
+	snapshot := &packageAssetSnapshot{generation: generation, catalog: buildPackageAssetCatalog()}
+	packageAssetState.snapshot.Store(snapshot)
+	return snapshot.catalog
 }
 
 // buildPackageAssetTable maps the digest path segment plus name to the file.
@@ -155,7 +171,14 @@ func PackageAssetURL(module, name string) (string, bool) {
 // servePackageAsset answers a package asset request and reports whether it
 // handled the request. It runs above serveReservedPath, which closes the
 // namespace below every handler that owns something inside it.
+//
+// The prefix is tested before the catalog is resolved: this runs on every
+// request in the chain, and only a request actually under the prefix should
+// pay for the lookup.
 func servePackageAsset(w http.ResponseWriter, r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, packageAssetPrefix) {
+		return false
+	}
 	return servePackageAssetFrom(packageAssets().byKey, w, r)
 }
 
