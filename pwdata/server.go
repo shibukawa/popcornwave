@@ -3,6 +3,7 @@ package pwdata
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -262,5 +263,7 @@ func errorText(err error) string {
 }
 
 func urlValue(value string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(value, "&", "%26"), " ", "+")
+	// Full query escaping rather than a hand-rolled pair of replacements: an
+	// engine error carrying # or % would otherwise mangle the redirect target.
+	return url.QueryEscape(value)
 }

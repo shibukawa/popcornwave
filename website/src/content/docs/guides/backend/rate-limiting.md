@@ -154,11 +154,17 @@ reason this page can recommend starting on the simpler one.
 
 The framework's own operational endpoints — health, readiness, the OpenAPI
 document and its viewer — and the [public asset
-mount](/guides/frontend/static-assets/) are exempt, and the carve-out is not
-configurable. A readiness probe arrives from the proxy on the same address as
-every anonymous caller and would exhaust that bucket by itself, and one page
-view fetches many assets; counting either turns the limit into an outage on
-the first deploy.
+mount](/guides/frontend/static-assets/) are exempt from the identity buckets,
+and the carve-out is not configurable. A readiness probe arrives from the proxy
+on the same address as every anonymous caller and would exhaust that bucket by
+itself, and one page view fetches many assets; counting either turns the limit
+into an outage on the first deploy.
+
+The `process` ceiling is the one layer the exemption does not reach: it counts
+every arrival, exempt paths included. It is the only defense that sees a flood
+spread across many addresses, and a fixed, discoverable prefix that nothing
+counts would be that flood's way past it — so size `process` with asset traffic
+in the number.
 
 ## When the store fails
 

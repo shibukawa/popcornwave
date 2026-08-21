@@ -198,6 +198,11 @@ func tableRows(ctx context.Context, db *sql.DB, table string) ([]string, error) 
 	return rendered, nil
 }
 
+// literalString renders one scanned value into the generated SQL verbatim.
+// Every string arriving here MUST have come through SQLite's own quote() in
+// the projection above — that pairing is the only thing keeping raw row
+// content out of a script that Replay later executes. A projection column
+// added without the quote() wrapper would break it silently.
 func literalString(value any) string {
 	switch typed := value.(type) {
 	case nil:

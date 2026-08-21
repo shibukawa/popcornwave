@@ -103,10 +103,11 @@ func ProcessRateLimiter(config RateLimitConfig, deps RateLimitDeps) (Middleware,
 	frame := rateLimitFrame{limiter: limiter, deps: deps}
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
-			if frame.exempt(r) {
-				next(r)
-				return
-			}
+			// The exempt paths are deliberately not consulted here. They keep a
+			// page's asset fetches out of the identity buckets, but the ceiling
+			// is the one layer that sees a distributed flood, and a fixed,
+			// discoverable prefix that nothing counts would be that flood's way
+			// past it.
 			if !frame.admit(r, pwratelimit.ProcessKey, limiter.Process()) {
 				return
 			}

@@ -175,24 +175,24 @@ func openRelationalBackend(ctx context.Context, config Config, resources Resourc
 			}
 			return store, nil
 		},
-		Allowlist:   resolveAllowlistStore(resources.DB),
-		Credentials: resolveCredentialStore(resources.DB),
-		Bootstrap:   resolveBootstrapStore(resources.DB),
+		Allowlist:   resolveAllowlistStore(resources.DB, resources.DBDriver),
+		Credentials: resolveCredentialStore(resources.DB, resources.DBDriver),
+		Bootstrap:   resolveBootstrapStore(resources.DB, resources.DBDriver),
 	}, nil
 }
 
-func resolveCredentialStore(db *sql.DB) CredentialStore {
+func resolveCredentialStore(db *sql.DB, dialect string) CredentialStore {
 	if store := installedCredentialStore(); store != nil {
 		return store
 	}
-	return dbStore{db: db}
+	return dbStore{db: db, dialect: dialect}
 }
 
-func resolveBootstrapStore(db *sql.DB) BootstrapStore {
+func resolveBootstrapStore(db *sql.DB, dialect string) BootstrapStore {
 	if store := installedBootstrapStore(); store != nil {
 		return store
 	}
-	return bootstrapStore{db: db}
+	return bootstrapStore{db: db, dialect: dialect}
 }
 
 // schemaTimeout bounds the startup verification a backend performs.

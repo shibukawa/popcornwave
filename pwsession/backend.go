@@ -146,6 +146,10 @@ func CookiePolicy(config sessionconfig.SessionConfig) (session.CookieOptions, er
 		Secure:   config.Cookie.Secure,
 		HTTPOnly: config.Cookie.HTTPOnly,
 		SameSite: sameSite,
+		// The configuration schema defaults both attributes to true, so a false
+		// arriving here was written by the deployment and stands as written.
+		AllowInsecure:  !config.Cookie.Secure,
+		ScriptReadable: !config.Cookie.HTTPOnly,
 	}, nil
 }
 

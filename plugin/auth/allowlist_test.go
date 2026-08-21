@@ -267,7 +267,7 @@ func TestInstalledAllowlistStoreAnswersAdmission(t *testing.T) {
 	identity := testIdentity("https://issuer.example", "subject-1", map[string]string{
 		"email": "known@example.com",
 	})
-	if _, err := admit(context.Background(), config, resolveAllowlistStore(nil), identity); err != nil {
+	if _, err := admit(context.Background(), config, resolveAllowlistStore(nil, "sqlite"), identity); err != nil {
 		t.Fatalf("installed store admitted = %v", err)
 	}
 	if store.calls != 1 {

@@ -50,10 +50,10 @@ func TestPutGetRoundTrip(t *testing.T) {
 	ctx, store, _ := newStore(t)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 
-	if err := store.Put(ctx, "hash", record(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(now)); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.Get(ctx, "hash")
+	got, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestPutGetRoundTrip(t *testing.T) {
 // without an index rather than refused, so a property that is sometimes indexed
 // would be worse than one that never is.
 func TestThePayloadIsStoredUnindexed(t *testing.T) {
-	stored := entity{keyHash: "hash", record: record(time.Now())}.EncodeEntity()
+	stored := entity{keyHash: "00000000000000000000000000000000000000000000000000000000000000a0", record: record(time.Now())}.EncodeEntity()
 	value, held := stored.Get(dataProperty)
 	if !held {
 		t.Fatal("no payload property")
@@ -89,7 +89,7 @@ func TestThePayloadIsStoredUnindexed(t *testing.T) {
 
 func TestGetReportsAMissAsNotFound(t *testing.T) {
 	ctx, store, _ := newStore(t)
-	if _, err := store.Get(ctx, "absent"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000be"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
@@ -102,11 +102,11 @@ func TestGetRefusesAnExpiredRecordBeforeAnythingDeletesIt(t *testing.T) {
 	clock := now
 	ctx, store, _ := newStore(t, func(o *Options) { o.Now = func() time.Time { return clock } })
 
-	if err := store.Put(ctx, "hash", record(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(now)); err != nil {
 		t.Fatal(err)
 	}
 	clock = now.Add(2 * time.Hour)
-	if _, err := store.Get(ctx, "hash"); !errors.Is(err, session.ErrExpired) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0"); !errors.Is(err, session.ErrExpired) {
 		t.Fatalf("got %v, want ErrExpired", err)
 	}
 }
@@ -115,14 +115,14 @@ func TestTouchRenewsTheIdleDeadline(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	ctx, store, _ := newStore(t, func(o *Options) { o.Now = func() time.Time { return now } })
 
-	if err := store.Put(ctx, "hash", record(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(now)); err != nil {
 		t.Fatal(err)
 	}
 	renewed := now.Add(45 * time.Minute)
-	if err := store.Touch(ctx, "hash", now.Add(time.Minute), renewed); err != nil {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", now.Add(time.Minute), renewed); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.Get(ctx, "hash")
+	got, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,11 +143,11 @@ func TestTouchNeverRevivesAnExpiredRecord(t *testing.T) {
 	clock := now
 	ctx, store, _ := newStore(t, func(o *Options) { o.Now = func() time.Time { return clock } })
 
-	if err := store.Put(ctx, "hash", record(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(now)); err != nil {
 		t.Fatal(err)
 	}
 	clock = now.Add(2 * time.Hour)
-	if err := store.Touch(ctx, "hash", clock, clock.Add(time.Hour)); !errors.Is(err, session.ErrNotFound) {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", clock, clock.Add(time.Hour)); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
@@ -155,7 +155,7 @@ func TestTouchNeverRevivesAnExpiredRecord(t *testing.T) {
 func TestTouchOnAMissingRecordDoesNotCreateOne(t *testing.T) {
 	ctx, store, fake := newStore(t)
 	now := time.Now().UTC()
-	if err := store.Touch(ctx, "absent", now, now.Add(time.Hour)); !errors.Is(err, session.ErrNotFound) {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000be", now, now.Add(time.Hour)); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 	if count := fake.Len(DeclaredKind); count != 0 {
@@ -170,7 +170,7 @@ func TestTouchLosingARaceReportsNotFoundInsteadOfRewriting(t *testing.T) {
 	now := time.Now().UTC()
 	ctx, store, fake := newStore(t, func(o *Options) { o.Now = func() time.Time { return now } })
 
-	if err := store.Put(ctx, "hash", record(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(now)); err != nil {
 		t.Fatal(err)
 	}
 	// Between this renewal's read and its write, another request rotates the
@@ -178,15 +178,15 @@ func TestTouchLosingARaceReportsNotFoundInsteadOfRewriting(t *testing.T) {
 	fake.BeforeCommit(func() {
 		rotated := record(now)
 		rotated.Payload = []byte(`{"cart":99}`)
-		if err := store.Put(ctx, "hash", rotated); err != nil {
+		if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", rotated); err != nil {
 			t.Errorf("racing write: %v", err)
 		}
 	})
-	err := store.Touch(ctx, "hash", now.Add(time.Minute), now.Add(45*time.Minute))
+	err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", now.Add(time.Minute), now.Add(45*time.Minute))
 	if !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
-	got, err := store.Get(ctx, "hash")
+	got, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,15 +197,15 @@ func TestTouchLosingARaceReportsNotFoundInsteadOfRewriting(t *testing.T) {
 
 func TestDeleteIsIdempotent(t *testing.T) {
 	ctx, store, _ := newStore(t)
-	if err := store.Put(ctx, "hash", record(time.Now())); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", record(time.Now())); err != nil {
 		t.Fatal(err)
 	}
 	for attempt := range 2 {
-		if err := store.Delete(ctx, "hash"); err != nil {
+		if err := store.Delete(ctx, "00000000000000000000000000000000000000000000000000000000000000a0"); err != nil {
 			t.Fatalf("delete %d: %v", attempt, err)
 		}
 	}
-	if _, err := store.Get(ctx, "hash"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
@@ -217,7 +217,7 @@ func TestPutRefusesARecordOverTheEntityLimit(t *testing.T) {
 	oversized := record(time.Now())
 	oversized.Payload = make([]byte, datastore.MaxEntityBytes+1)
 
-	err := store.Put(ctx, "hash", oversized)
+	err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a0", oversized)
 	if !errors.Is(err, session.ErrCodec) {
 		t.Fatalf("got %v, want ErrCodec", err)
 	}
@@ -253,7 +253,7 @@ func TestAnEmptyKeyIsRefusedWithoutARequest(t *testing.T) {
 // import, rather than panicking.
 func TestWithoutAClientTheStoreIsUnavailable(t *testing.T) {
 	store := NewStore(Options{})
-	_, err := store.Get(context.Background(), "hash")
+	_, err := store.Get(context.Background(), "00000000000000000000000000000000000000000000000000000000000000a0")
 	if !errors.Is(err, session.ErrUnavailable) {
 		t.Fatalf("got %v, want ErrUnavailable", err)
 	}
@@ -265,7 +265,7 @@ func TestWithoutAClientTheStoreIsUnavailable(t *testing.T) {
 func TestABackendFailureIsUnavailable(t *testing.T) {
 	ctx, store, fake := newStore(t)
 	fake.FailNext("PERMISSION_DENIED")
-	if _, err := store.Get(ctx, "hash"); !errors.Is(err, session.ErrUnavailable) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a0"); !errors.Is(err, session.ErrUnavailable) {
 		t.Fatalf("got %v, want ErrUnavailable", err)
 	}
 }
@@ -277,7 +277,7 @@ func TestTheExpiryPropertyIsDeclaredOnTheRecordType(t *testing.T) {
 	if !expires || property != deadAtProperty {
 		t.Fatalf("ExpiryProperty: got %q, %v", property, expires)
 	}
-	stored := entity{keyHash: "hash", record: record(time.Now())}.EncodeEntity()
+	stored := entity{keyHash: "00000000000000000000000000000000000000000000000000000000000000a0", record: record(time.Now())}.EncodeEntity()
 	if _, held := stored.Get(property); !held {
 		t.Errorf("the declared expiry property %q is not written", property)
 	}
@@ -305,14 +305,14 @@ func TestTwoNamespacesDoNotObserveEachOther(t *testing.T) {
 	now := time.Now().UTC()
 	first := record(now)
 	first.Payload = []byte(`{"run":"a"}`)
-	if err := store.Put(contexts["run-a"], "shared", first); err != nil {
+	if err := store.Put(contexts["run-a"], "00000000000000000000000000000000000000000000000000000000000000ab", first); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := store.Get(contexts["run-b"], "shared"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(contexts["run-b"], "00000000000000000000000000000000000000000000000000000000000000ab"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("run-b saw run-a's session: %v", err)
 	}
-	got, err := store.Get(contexts["run-a"], "shared")
+	got, err := store.Get(contexts["run-a"], "00000000000000000000000000000000000000000000000000000000000000ab")
 	if err != nil {
 		t.Fatal(err)
 	}

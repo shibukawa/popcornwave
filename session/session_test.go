@@ -578,7 +578,7 @@ func TestManagerRejectsUnsafeOptions(t *testing.T) {
 		"insecure same-site none": {
 			TTL:    time.Hour,
 			Keys:   keys,
-			Cookie: CookieOptions{SameSite: http.SameSiteNoneMode},
+			Cookie: CookieOptions{SameSite: http.SameSiteNoneMode, AllowInsecure: true},
 		},
 		"invalid cookie name":  {TTL: time.Hour, Keys: keys, Cookie: CookieOptions{Name: "bad name"}},
 		"relative cookie path": {TTL: time.Hour, Keys: keys, Cookie: CookieOptions{Path: "relative"}},

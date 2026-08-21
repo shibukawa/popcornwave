@@ -189,10 +189,10 @@ func TestPutAndGetRoundTrip(t *testing.T) {
 	store, ctx := newTestStore(t, newFakeItems(), Options{Now: func() time.Time { return now }})
 
 	want := sampleRecord(now)
-	if err := store.Put(ctx, "hash-1", want); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", want); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.Get(ctx, "hash-1")
+	got, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestGetRetriesAMissConsistently(t *testing.T) {
 	fake := newFakeItems()
 	store, ctx := newTestStore(t, fake, Options{Now: func() time.Time { return now }})
 
-	if _, err := store.Get(ctx, "absent"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000be"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("missing key = %v, want ErrNotFound", err)
 	}
 	if fake.reads != 2 || fake.consistentReads != 1 {
@@ -223,10 +223,10 @@ func TestGetRetriesAMissConsistently(t *testing.T) {
 	}
 
 	fake.reads, fake.consistentReads = 0, 0
-	if err := store.Put(ctx, "hash-1", sampleRecord(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(now)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get(ctx, "hash-1"); err != nil {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a1"); err != nil {
 		t.Fatal(err)
 	}
 	if fake.reads != 1 || fake.consistentReads != 0 {
@@ -240,7 +240,7 @@ func TestGetWithConsistentReadDoesNotRetry(t *testing.T) {
 	fake := newFakeItems()
 	store, ctx := newTestStore(t, fake, Options{ConsistentRead: true, Now: func() time.Time { return now }})
 
-	if _, err := store.Get(ctx, "absent"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000be"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatal(err)
 	}
 	// With the first read already consistent there is nothing for a retry to
@@ -256,11 +256,11 @@ func TestGetReportsAnExpiredRecord(t *testing.T) {
 	stored := time.Now().UTC()
 	clock := stored
 	store, ctx := newTestStore(t, newFakeItems(), Options{Now: func() time.Time { return clock }})
-	if err := store.Put(ctx, "hash-1", sampleRecord(stored)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(stored)); err != nil {
 		t.Fatal(err)
 	}
 	clock = stored.Add(2 * time.Hour)
-	if _, err := store.Get(ctx, "hash-1"); !errors.Is(err, session.ErrExpired) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a1"); !errors.Is(err, session.ErrExpired) {
 		t.Fatalf("expired record = %v, want ErrExpired", err)
 	}
 }
@@ -269,16 +269,16 @@ func TestTouchRenewsAndRefusesToRevive(t *testing.T) {
 	stored := time.Now().UTC().Truncate(time.Second)
 	clock := stored
 	store, ctx := newTestStore(t, newFakeItems(), Options{Now: func() time.Time { return clock }})
-	if err := store.Put(ctx, "hash-1", sampleRecord(stored)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(stored)); err != nil {
 		t.Fatal(err)
 	}
 
 	clock = stored.Add(5 * time.Minute)
 	renewed := clock.Add(15 * time.Minute)
-	if err := store.Touch(ctx, "hash-1", clock, renewed); err != nil {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", clock, renewed); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.Get(ctx, "hash-1")
+	got, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestTouchRenewsAndRefusesToRevive(t *testing.T) {
 	// Past the renewed idle expiry the condition fails, so the renewal cannot
 	// bring the record back.
 	clock = renewed.Add(time.Minute)
-	if err := store.Touch(ctx, "hash-1", clock, clock.Add(time.Minute)); !errors.Is(err, session.ErrNotFound) {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", clock, clock.Add(time.Minute)); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("renewing a dead record = %v, want ErrNotFound", err)
 	}
 }
@@ -297,10 +297,10 @@ func TestTouchRenewsAndRefusesToRevive(t *testing.T) {
 func TestTouchOnAMissingRecordDoesNotCreateOne(t *testing.T) {
 	now := time.Now().UTC()
 	store, ctx := newTestStore(t, newFakeItems(), Options{Now: func() time.Time { return now }})
-	if err := store.Touch(ctx, "absent", now, now.Add(time.Minute)); !errors.Is(err, session.ErrNotFound) {
+	if err := store.Touch(ctx, "00000000000000000000000000000000000000000000000000000000000000be", now, now.Add(time.Minute)); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("touching an absent key = %v, want ErrNotFound", err)
 	}
-	if _, err := store.Get(ctx, "absent"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000be"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatal("a refused renewal must leave nothing behind")
 	}
 }
@@ -308,22 +308,22 @@ func TestTouchOnAMissingRecordDoesNotCreateOne(t *testing.T) {
 func TestDeleteIsIdempotent(t *testing.T) {
 	now := time.Now().UTC()
 	store, ctx := newTestStore(t, newFakeItems(), Options{Now: func() time.Time { return now }})
-	if err := store.Put(ctx, "hash-1", sampleRecord(now)); err != nil {
+	if err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(now)); err != nil {
 		t.Fatal(err)
 	}
 	for attempt := range 2 {
-		if err := store.Delete(ctx, "hash-1"); err != nil {
+		if err := store.Delete(ctx, "00000000000000000000000000000000000000000000000000000000000000a1"); err != nil {
 			t.Fatalf("delete %d: %v", attempt, err)
 		}
 	}
-	if _, err := store.Get(ctx, "hash-1"); !errors.Is(err, session.ErrNotFound) {
+	if _, err := store.Get(ctx, "00000000000000000000000000000000000000000000000000000000000000a1"); !errors.Is(err, session.ErrNotFound) {
 		t.Fatalf("after delete = %v, want ErrNotFound", err)
 	}
 }
 
 func TestOperationsWithoutAClientNameTheImport(t *testing.T) {
 	store := NewStore(Options{})
-	err := store.Put(context.Background(), "hash-1", sampleRecord(time.Now()))
+	err := store.Put(context.Background(), "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(time.Now()))
 	if !errors.Is(err, session.ErrUnavailable) {
 		t.Fatalf("no client = %v, want ErrUnavailable", err)
 	}
@@ -339,7 +339,7 @@ func TestDriverFailureMapsToUnavailable(t *testing.T) {
 	// A validation failure, because the driver retries a throttle by itself and
 	// a single injected one would never reach the caller.
 	fake.failWith = "ValidationException"
-	err := store.Put(ctx, "hash-1", sampleRecord(now))
+	err := store.Put(ctx, "00000000000000000000000000000000000000000000000000000000000000a1", sampleRecord(now))
 	if !errors.Is(err, session.ErrUnavailable) {
 		t.Fatalf("rejected write = %v, want ErrUnavailable", err)
 	}

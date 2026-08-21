@@ -50,9 +50,9 @@ func setupBearer(ctx context.Context, config Config) (Step, error) {
 		if err := verifyTables(schemaCtx, db, config); err != nil {
 			return nil, err
 		}
-		instance.allowlist = resolveAllowlistStore(db)
+		driver, _ := pwruntime.DBDriver(ctx)
+		instance.allowlist = resolveAllowlistStore(db, driver)
 		if config.JWT.Revocation.enabled() {
-			driver, _ := pwruntime.DBDriver(ctx)
 			instance.revocations = newRevocationStore(db, driver, config.JWT)
 		}
 	}

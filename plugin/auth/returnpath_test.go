@@ -9,6 +9,7 @@ import (
 func TestLocalReturnPathRejectsOffSiteTargets(t *testing.T) {
 	for _, value := range []string{
 		"https://evil.example/", "//evil.example/", "javascript:alert(1)", "/a/../../b", "", "relative",
+		`/\evil.example`, `/\/evil.example`, `/\\evil.example`, "/ok\x00", `/ok\..\admin`,
 	} {
 		if got := localReturnPath(value); got != "" {
 			t.Errorf("localReturnPath(%q) = %q, want empty", value, got)

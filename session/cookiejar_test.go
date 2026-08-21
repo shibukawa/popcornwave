@@ -244,7 +244,7 @@ func TestJarRejectsAnUnsafePolicy(t *testing.T) {
 		"relative path": {Mode: CookiePlain, Cookie: CookieOptions{Name: "pw_prefs", Path: "prefs"}},
 		"insecure same-site none": {
 			Mode:   CookiePlain,
-			Cookie: CookieOptions{Name: "pw_prefs", SameSite: http.SameSiteNoneMode},
+			Cookie: CookieOptions{Name: "pw_prefs", SameSite: http.SameSiteNoneMode, AllowInsecure: true},
 		},
 		"oversized budget": {Mode: CookiePlain, Cookie: CookieOptions{Name: "pw_prefs"}, MaxBytes: 1 << 20},
 		"negative max age": {Mode: CookiePlain, Cookie: CookieOptions{Name: "pw_prefs"}, MaxAge: -time.Second},
