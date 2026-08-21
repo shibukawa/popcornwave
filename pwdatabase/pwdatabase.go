@@ -19,9 +19,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/shibukawa/popcornweb/database"
 	"github.com/shibukawa/popcornweb/pwconfig"
@@ -232,18 +234,67 @@ func SelectSessionDB(ctx context.Context) (context.Context, error) {
 	return pwruntime.SelectDB(ctx, group), nil
 }
 
+// writableGroupMemo caches group resolutions against the configuration they
+// were resolved from. The answer cannot change unless the configuration does,
+// and the configuration itself is the dirty flag: every call compares what
+// this request resolves against the cached copy, which also covers a
+// per-request override and a test's Swap without any registry hook. groups is
+// keyed by configured plus key — the two call sites ask two questions — and
+// the memo is replaced whole, never mutated, so readers take it lock-free.
+type writableGroupMemo struct {
+	rdb    pwconfig.RDBConfig
+	groups map[string]string
+}
+
+var writableGroupState atomic.Pointer[writableGroupMemo]
+
 func writableGroupFor(ctx context.Context, configured, key string) (string, error) {
 	config := pwruntime.ResolveConfig[pwconfig.MiddlewareConfig](ctx).RDB
 	if !config.Enabled {
 		return "", errors.New("popcornweb: middleware.rdb.enabled is false")
 	}
+	trimmed := strings.TrimSpace(configured)
+	lookup := trimmed + "\x00" + key
+	memo := writableGroupState.Load()
+	if memo != nil && sameRDBConfig(memo.rdb, config) {
+		if group, ok := memo.groups[lookup]; ok {
+			return group, nil
+		}
+	} else {
+		memo = nil
+	}
 	connections, err := pwconfig.ResolveConnections(config)
 	if err != nil {
 		return "", fmt.Errorf("popcornweb: %w", err)
 	}
-	group, err := pwconfig.ResolveWritableGroup(config, connections, strings.TrimSpace(configured), key)
+	group, err := pwconfig.ResolveWritableGroup(config, connections, trimmed, key)
 	if err != nil {
 		return "", fmt.Errorf("popcornweb: %w", err)
 	}
+	next := &writableGroupMemo{rdb: config, groups: map[string]string{lookup: group}}
+	// The connection list is cloned because the registered configuration
+	// shares its backing array with every copy handed out: an element edited
+	// in place would otherwise change the cached copy too, and read as
+	// "unchanged".
+	next.rdb.Connections = slices.Clone(config.Connections)
+	if memo != nil {
+		for held, answer := range memo.groups {
+			if held != lookup {
+				next.groups[held] = answer
+			}
+		}
+	}
+	writableGroupState.Store(next)
 	return group, nil
+}
+
+// sameRDBConfig reports whether two resolved configurations would answer the
+// group question identically. Every field is comparable, so this is direct
+// comparison rather than a fingerprint.
+func sameRDBConfig(a, b pwconfig.RDBConfig) bool {
+	return a.Enabled == b.Enabled &&
+		a.DefaultGroup == b.DefaultGroup &&
+		a.WriteGroup == b.WriteGroup &&
+		a.MigrationGroup == b.MigrationGroup &&
+		slices.Equal(a.Connections, b.Connections)
 }

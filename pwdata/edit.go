@@ -33,6 +33,12 @@ func (c *Connection) UpdateRow(ctx context.Context, edit RowEdit) (int64, error)
 	if err != nil {
 		return 0, err
 	}
+	return c.updateRow(ctx, columns, edit)
+}
+
+// updateRow is UpdateRow over a catalog the caller already fetched, so a batch
+// pays one catalog query rather than one per row.
+func (c *Connection) updateRow(ctx context.Context, columns []Column, edit RowEdit) (int64, error) {
 	keys := primaryKey(columns)
 	if len(keys) == 0 {
 		return 0, errNoPrimaryKey
@@ -61,6 +67,11 @@ func (c *Connection) InsertRow(ctx context.Context, edit RowEdit) (int64, error)
 	if err != nil {
 		return 0, err
 	}
+	return c.insertRow(ctx, columns, edit)
+}
+
+// insertRow is InsertRow over a catalog the caller already fetched.
+func (c *Connection) insertRow(ctx context.Context, columns []Column, edit RowEdit) (int64, error) {
 	if err := knownColumns(columns, edit); err != nil {
 		return 0, err
 	}
@@ -91,6 +102,11 @@ func (c *Connection) DeleteRow(ctx context.Context, edit RowEdit) (int64, error)
 	if err != nil {
 		return 0, err
 	}
+	return c.deleteRow(ctx, columns, edit)
+}
+
+// deleteRow is DeleteRow over a catalog the caller already fetched.
+func (c *Connection) deleteRow(ctx context.Context, columns []Column, edit RowEdit) (int64, error) {
 	keys := primaryKey(columns)
 	if len(keys) == 0 {
 		return 0, errNoPrimaryKey

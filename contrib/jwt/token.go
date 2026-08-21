@@ -90,21 +90,23 @@ func Parse(compact string, options ParseOptions) (*Token, error) {
 	jsonOptions := authn.JSONOptions{
 		MaxBytes: options.MaxSegmentBytes, MaxDepth: options.MaxJSONDepth, MaxMembers: options.MaxJSONMembers,
 	}
-	if err := authn.ValidateJSON(headerJSON, jsonOptions); err != nil {
+	// The validating walk hands the members back, so neither segment is
+	// parsed a second time: validate-then-unmarshal was four JSON passes per
+	// token, on every bearer-authenticated request.
+	headerMembers, err := authn.ValidateJSONObject(headerJSON, jsonOptions)
+	if err != nil {
 		return nil, classifyJSONError(err)
 	}
-	if err := authn.ValidateJSON(claimsJSON, jsonOptions); err != nil {
+	claimMembers, err := authn.ValidateJSONObject(claimsJSON, jsonOptions)
+	if err != nil {
 		return nil, classifyJSONError(err)
 	}
-	var header Header
-	if err := json.Unmarshal(headerJSON, &header); err != nil || header.Algorithm == "" {
-		return nil, ErrMalformed
-	}
-	if len(header.Critical) != 0 {
-		return nil, fmt.Errorf("%w: critical headers", ErrUnsupportedAlgorithm)
+	header, err := headerFromMembers(headerMembers)
+	if err != nil {
+		return nil, err
 	}
 	header.Raw = append(json.RawMessage(nil), headerJSON...)
-	claims, err := parseClaims(claimsJSON)
+	claims, err := claimsFromRaw(claimMembers)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +116,40 @@ func Parse(compact string, options ParseOptions) (*Token, error) {
 		// substring rather than reassembled.
 		signingInput: compact[:len(seg0)+1+len(seg1)],
 	}, nil
+}
+
+// headerFromMembers assembles the header from the validated member set, field
+// by field: the fields a struct unmarshal would read are exactly these, and a
+// value of the wrong type is malformed either way.
+func headerFromMembers(members map[string]json.RawMessage) (Header, error) {
+	var header Header
+	if raw, ok := members["alg"]; ok {
+		if json.Unmarshal(raw, &header.Algorithm) != nil {
+			return Header{}, ErrMalformed
+		}
+	}
+	if raw, ok := members["typ"]; ok {
+		if json.Unmarshal(raw, &header.Type) != nil {
+			return Header{}, ErrMalformed
+		}
+	}
+	if raw, ok := members["kid"]; ok {
+		if json.Unmarshal(raw, &header.KeyID) != nil {
+			return Header{}, ErrMalformed
+		}
+	}
+	if raw, ok := members["crit"]; ok {
+		if json.Unmarshal(raw, &header.Critical) != nil {
+			return Header{}, ErrMalformed
+		}
+	}
+	if header.Algorithm == "" {
+		return Header{}, ErrMalformed
+	}
+	if len(header.Critical) != 0 {
+		return Header{}, fmt.Errorf("%w: critical headers", ErrUnsupportedAlgorithm)
+	}
+	return header, nil
 }
 
 func normalizeParseOptions(options ParseOptions) (ParseOptions, error) {

@@ -146,8 +146,12 @@ func CanonicalPathOf(path, raw string) (string, bool) {
 	if raw != "" && (strings.Contains(raw, "%2f") || strings.Contains(raw, "%2F")) {
 		return "", false
 	}
-	segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	for index, segment := range segments {
+	// The path is walked segment by segment rather than split into a slice,
+	// for the reason Match is: this runs on every request a path-scoped policy
+	// sees, so the canonicalisation must not allocate either.
+	remainder := path[1:]
+	for remainder != "" {
+		segment, rest, more := strings.Cut(remainder, "/")
 		if segment == "." || segment == ".." {
 			return "", false
 		}
@@ -158,10 +162,13 @@ func CanonicalPathOf(path, raw string) (string, bool) {
 		// encoded separators get, and for the same reason.
 		//
 		// The last segment is exempt: it is empty for the ordinary directory
-		// form "/admin/", which Match normalizes rather than refusing.
-		if segment == "" && index != len(segments)-1 {
+		// form "/admin/", which Match normalizes rather than refusing — and it
+		// is the one segment the loop never examines, because a trailing
+		// separator leaves nothing behind it to cut.
+		if segment == "" && more {
 			return "", false
 		}
+		remainder = rest
 	}
 	return path, true
 }

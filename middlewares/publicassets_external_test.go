@@ -155,9 +155,7 @@ func TestManifestExternalEntryWithoutItsFileIs500(t *testing.T) {
 	}
 	externalTree(t, nil)
 	t.Cleanup(func() {
-		publicManifestState.Lock()
-		publicManifestState.entries = nil
-		publicManifestState.Unlock()
+		publicManifestState.Store(nil)
 	})
 	RegisterPublicManifest([]AssetEntry{
 		{URL: "gone.mp4", CacheControl: "public, no-cache", Representations: []AssetRepresentation{
@@ -177,9 +175,7 @@ func TestManifestExternalEntryServesFromDisk(t *testing.T) {
 	}
 	externalTree(t, map[string]string{"clip.mp4": "0123456789"})
 	t.Cleanup(func() {
-		publicManifestState.Lock()
-		publicManifestState.entries = nil
-		publicManifestState.Unlock()
+		publicManifestState.Store(nil)
 	})
 	RegisterPublicManifest([]AssetEntry{
 		{URL: "clip.mp4", CacheControl: "public, no-cache", Representations: []AssetRepresentation{

@@ -105,6 +105,12 @@ func (l *Logger) Emit(ctx context.Context, record Record) {
 	if provider == nil {
 		provider = DefaultProvider()
 	}
+	// A provider with no processor drops the record, so that is answered
+	// before the timestamps are stamped and the attributes copied — the
+	// disabled path is the one every un-instrumented deployment runs.
+	if provider.processor == nil {
+		return
+	}
 	if record.Timestamp.IsZero() {
 		record.Timestamp = time.Now()
 	}
@@ -116,7 +122,5 @@ func (l *Logger) Emit(ctx context.Context, record Record) {
 	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
 		data.TraceID, data.SpanID, data.TraceFlags = sc.TraceID(), sc.SpanID(), sc.TraceFlags()
 	}
-	if provider.processor != nil {
-		provider.processor.OnEmit(data)
-	}
+	provider.processor.OnEmit(data)
 }

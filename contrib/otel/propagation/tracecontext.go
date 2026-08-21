@@ -3,7 +3,6 @@ package propagation
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -65,7 +64,8 @@ func Fields(sc trace.SpanContext) (traceparent, tracestate string, ok bool) {
 	if !sc.IsValid() {
 		return "", "", false
 	}
-	return fmt.Sprintf("00-%s-%s-%02x", sc.TraceID(), sc.SpanID(), sc.TraceFlags()), sc.TraceState(), true
+	var built [55]byte
+	return string(sc.AppendTraceParent(built[:0])), sc.TraceState(), true
 }
 
 // TraceContext extracts and injects traceparent and tracestate HTTP fields.

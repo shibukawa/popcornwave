@@ -3,8 +3,8 @@ package pwruntime
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -20,10 +20,10 @@ import (
 // no lock on a path every cached read takes.
 
 type cacheStoreSet struct {
-	fingerprint string
-	stores      map[string]*CacheStore
-	names       []string
-	err         error
+	config CacheConfig
+	stores map[string]*CacheStore
+	names  []string
+	err    error
 }
 
 var cacheStoreState atomic.Pointer[cacheStoreSet]
@@ -56,14 +56,25 @@ func MemoStore(ctx context.Context, name string) (*CacheStore, error) {
 // cacheStores returns the set this configuration describes.
 func cacheStores() *cacheStoreSet {
 	config, _ := RegisteredConfig[CacheConfig]()
-	fingerprint := config.fingerprint()
-	if cached := cacheStoreState.Load(); cached != nil && cached.fingerprint == fingerprint {
+	if cached := cacheStoreState.Load(); cached != nil && sameCacheConfig(cached.config, config) {
 		return cached
 	}
 	set := buildCacheStores(config)
-	set.fingerprint = fingerprint
+	set.config = config
+	// The store list is cloned because the registered configuration shares its
+	// backing array with every copy handed out: a field edited in place would
+	// otherwise change the cached copy too, and read as "unchanged".
+	set.config.Stores = slices.Clone(config.Stores)
 	cacheStoreState.Store(set)
 	return set
+}
+
+// sameCacheConfig decides whether the published configuration is the one the
+// current set was built from. It compares fields directly — every element is
+// comparable — where a deterministic fingerprint string used to be built and
+// thrown away on every MemoStore call just to say "unchanged".
+func sameCacheConfig(a, b CacheConfig) bool {
+	return a.Enabled == b.Enabled && slices.Equal(a.Stores, b.Stores)
 }
 
 func buildCacheStores(config CacheConfig) *cacheStoreSet {
@@ -155,29 +166,4 @@ func validCacheStoreName(name string) error {
 		}
 	}
 	return nil
-}
-
-// fingerprint is what decides whether a published configuration is the one the
-// current set was built from. The struct holds a slice, so it is not
-// comparable, and a deterministic string is the cheapest thing that is.
-func (c CacheConfig) fingerprint() string {
-	var b strings.Builder
-	b.WriteString(strconv.FormatBool(c.Enabled))
-	for _, store := range c.Stores {
-		b.WriteByte('\x00')
-		b.WriteString(store.Name)
-		b.WriteByte('\x00')
-		b.WriteString(store.Backend)
-		b.WriteByte('\x00')
-		b.WriteString(store.Scope)
-		b.WriteByte('\x00')
-		b.WriteString(store.TTL.String())
-		b.WriteByte('\x00')
-		b.WriteString(store.Stale.String())
-		b.WriteByte('\x00')
-		b.WriteString(store.FetchTimeout.String())
-		b.WriteByte('\x00')
-		b.WriteString(strconv.Itoa(store.MaxEntries))
-	}
-	return b.String()
 }

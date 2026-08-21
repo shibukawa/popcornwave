@@ -71,11 +71,18 @@ func ResolveClientAddress(trustedProxies []*net.IPNet) Middleware {
 	var undeclared sync.Once
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
-			if proxies.Empty() && forwardedBy(r) {
-				undeclared.Do(func() {
-					pwruntime.ReadLogger(r).Log(r, pwruntime.LevelWarn,
-						"request carries forwarding headers but no trusted proxy is configured")
-				})
+			if proxies.Empty() {
+				if forwardedBy(r) {
+					undeclared.Do(func() {
+						pwruntime.ReadLogger(r).Log(r, pwruntime.LevelWarn,
+							"request carries forwarding headers but no trusted proxy is configured")
+					})
+				}
+				// With nothing trusted the client is the peer, so the
+				// forwarded chain is not even collected.
+				pwruntime.StoreClientAddress(r, r.RemoteIP().String())
+				next(r)
+				return
 			}
 			pwruntime.StoreClientAddress(r, proxies.ClientAddressOf(
 				r.RemoteIP().String(), forwardedFor(r)))
@@ -90,14 +97,18 @@ func forwardedBy(r *fasthttp.RequestCtx) bool {
 }
 
 // forwardedFor collects every X-Forwarded-For line, because the header
-// legitimately repeats and only reading the first would drop hops.
+// legitimately repeats and only reading the first would drop hops. PeekAll
+// rather than a walk: visiting every header allocated a string per name on
+// every request just to compare it.
 func forwardedFor(r *fasthttp.RequestCtx) []string {
-	var lines []string
-	r.Request.Header.VisitAll(func(name, value []byte) {
-		if string(name) == "X-Forwarded-For" || string(name) == "x-forwarded-for" {
-			lines = append(lines, string(value))
-		}
-	})
+	matched := r.Request.Header.PeekAll("X-Forwarded-For")
+	if len(matched) == 0 {
+		return nil
+	}
+	lines := make([]string, len(matched))
+	for index, value := range matched {
+		lines[index] = string(value)
+	}
 	return lines
 }
 

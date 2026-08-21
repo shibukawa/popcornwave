@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/tinybind-go/generator"
@@ -168,13 +169,11 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 				return 0, err
 			}
 		}
-		for _, directory := range stage {
-			planned, err := planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory), pageArtifacts[directory], pageActions[directory], config.FastHTTP, collected)
-			if err != nil {
-				return 0, err
-			}
-			changes = append(changes, planned...)
+		planned, err := planStage(ctx, runner, root, config, stage, pageArtifacts, pageActions, collected)
+		if err != nil {
+			return 0, err
 		}
+		changes = append(changes, planned...)
 	}
 	// The second transport's page tree reads the derived handlers the stages
 	// above produced, so it is planned after them and against the tree on disk.
@@ -209,7 +208,10 @@ func generateProject(ctx context.Context, check bool, stdout io.Writer, listPath
 	if err != nil {
 		return 0, err
 	}
-	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
+	// Stable, because two directories referencing one image plan the same
+	// derived asset path: equal paths must keep their planned order, so the
+	// applied winner is the same one a serial run chose.
+	sort.SliceStable(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
 	if check && len(changes) > 0 {
 		drift := changePaths(root, changes)
 		return 0, fmt.Errorf("generated files are stale:\n  %s", strings.Join(drift, "\n  "))
@@ -551,19 +553,30 @@ func (p generationPurposes) keeps(kind generator.ArtifactKind) bool {
 }
 
 func packageDirectories(root string, scope generationScope) ([]string, error) {
-	found := map[string]bool{}
+	// The purpose lists overlap — handlers and templates commonly name the
+	// same tree — and only the union of directories matters here, so the
+	// roots are deduplicated and each walked once instead of once per purpose.
+	seen := map[string]bool{}
+	var roots []string
 	for _, sources := range [][]string{
 		scope.Handlers, scope.Templates, scope.Queries, scope.Config, scope.Pages, scope.Dynamo, scope.Firestore,
 	} {
-		err := walkSources(root, sources, func(path string, entry fs.DirEntry) error {
-			if generationInput(entry.Name()) {
-				found[filepath.Dir(path)] = true
+		for _, source := range sources {
+			if !seen[source] {
+				seen[source] = true
+				roots = append(roots, source)
 			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
 		}
+	}
+	found := map[string]bool{}
+	err := walkSources(root, roots, func(path string, entry fs.DirEntry) error {
+		if generationInput(entry.Name()) {
+			found[filepath.Dir(path)] = true
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	out := make([]string, 0, len(found))
 	for directory := range found {
@@ -630,6 +643,17 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 		"popcornweb_bootstrap_pw_gen.go",
 	)
 	var stray []strayReport
+	// The purposes of a directory are the same for every file in it, so they
+	// are computed once per directory rather than once per file of the walk.
+	purposesByDir := map[string]generationPurposes{}
+	purposesOf := func(directory string) generationPurposes {
+		if cached, ok := purposesByDir[directory]; ok {
+			return cached
+		}
+		computed := directoryPurposes(root, config.Generate, directory)
+		purposesByDir[directory] = computed
+		return computed
+	}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -645,7 +669,7 @@ func reportSourcesOutsideScope(root string, config projectConfig, stdout io.Writ
 			return nil
 		}
 		name := entry.Name()
-		purposes := directoryPurposes(root, config.Generate, filepath.Dir(path))
+		purposes := purposesOf(filepath.Dir(path))
 		relative, relErr := filepath.Rel(root, path)
 		if relErr != nil {
 			relative = path
@@ -737,7 +761,92 @@ const disabledTemplatePattern = "*.not-a-generation-source"
 // one directory has one staleness sweep, and so a component and a binder that
 // derive the same base name merge into one file rather than deleting each
 // other.
-func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, typed []routetree.Action, fastHTTP bool, collected *routeCollector) ([]fileChange, error) {
+// planStage plans every directory of one stage.
+//
+// Directories with the config purpose run first, serially: the generator's
+// help backfill writes tags back into authored config sources while it plans,
+// and a handler package importing one could otherwise type-check a file
+// mid-write. The remaining handler directories — where the type checking that
+// dominates a generate run happens — plan concurrently, which the generator's
+// documented contract admits for distinct directories; nothing else in a
+// stage writes, because a stage's changes are applied between stages.
+//
+// Each directory's changes land in a slot of its own and are appended in the
+// stage's order, so what a run produces does not depend on scheduling — two
+// directories referencing one image both plan the derived asset, and the
+// order of those duplicate changes must stay the serial order.
+func planStage(ctx context.Context, runner *generator.Generator, root string, config projectConfig,
+	stage []string, pageArtifacts map[string][]generator.Artifact,
+	pageActions map[string][]routetree.Action, collected *routeCollector,
+) ([]fileChange, error) {
+	plan := func(directory string, set *generator.PackageSet) ([]fileChange, error) {
+		return planDirectory(ctx, runner, directory, directoryPurposes(root, config.Generate, directory),
+			pageArtifacts[directory], pageActions[directory], config.FastHTTP, collected, set)
+	}
+	var serial, concurrent []string
+	for _, directory := range stage {
+		purposes := directoryPurposes(root, config.Generate, directory)
+		if purposes.handlers && !purposes.config {
+			concurrent = append(concurrent, directory)
+		} else {
+			serial = append(serial, directory)
+		}
+	}
+	var changes []fileChange
+	for _, directory := range serial {
+		planned, err := plan(directory, nil)
+		if err != nil {
+			return nil, err
+		}
+		changes = append(changes, planned...)
+	}
+	if len(concurrent) == 0 {
+		return changes, nil
+	}
+	// One load for the whole batch — the dominant cost of a generate run was
+	// each handler directory re-type-checking the framework closure it shares
+	// with every other one. Built after the serial phase on purpose: the
+	// config directories above backfill help tags into sources these packages
+	// import, and a set built earlier would hand the batch types from before
+	// that write. A directory the load could not place is simply absent from
+	// the set and loads alone, with today's diagnostics.
+	set, err := generator.LoadPackages(ctx, concurrent)
+	if err != nil {
+		return nil, err
+	}
+	results := make([][]fileChange, len(concurrent))
+	failures := make([]error, len(concurrent))
+	workers := min(conversionWorkers(), len(concurrent))
+	jobs := make(chan int, len(concurrent))
+	for index := range concurrent {
+		jobs <- index
+	}
+	close(jobs)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for index := range jobs {
+				results[index], failures[index] = plan(concurrent[index], set)
+			}
+		}()
+	}
+	group.Wait()
+	// The first failure in stage order, so a broken tree reports the same
+	// directory however the work was scheduled.
+	for _, err := range failures {
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, planned := range results {
+		changes = append(changes, planned...)
+	}
+	return changes, nil
+}
+
+func planDirectory(ctx context.Context, runner *generator.Generator, directory string, purposes generationPurposes, extra []generator.Artifact, typed []routetree.Action, fastHTTP bool, collected *routeCollector, set *generator.PackageSet) ([]fileChange, error) {
 	goSources, err := hasGoSources(directory)
 	if err != nil {
 		return nil, err
@@ -756,6 +865,7 @@ func planDirectory(ctx context.Context, runner *generator.Generator, directory s
 	}
 	request := generator.GenerateRequest{
 		Dir:                 directory,
+		Packages:            set,
 		OpenAPI:             goSources && purposes.handlers,
 		SQLContextOnlyAPI:   true,
 		HTMLTemplatePattern: disabledTemplatePattern,

@@ -128,11 +128,14 @@ func ResolvedUpdateSettings() (UpdateSettings, bool) {
 // It lives here for the reason the document shell does: generated registration
 // reaches whichever runtime it imports, and two registries would leave one
 // build answering no redraw at all.
+// published carries the registry once anything is in it, so the per-render
+// read is a load rather than a fight over the registration mutex.
 var reloadableState = struct {
 	sync.Mutex
-	registry *UpdateRegistry
-	count    int
-	failure  error
+	registry  *UpdateRegistry
+	count     int
+	failure   error
+	published atomic.Pointer[UpdateRegistry]
 }{registry: &UpdateRegistry{}}
 
 // RegisterReloadable publishes generated components as redraw endpoints.
@@ -157,18 +160,16 @@ func RegisterReloadable(components ...UpdateReloadable) error {
 		}
 		reloadableState.count++
 	}
+	if reloadableState.count > 0 {
+		reloadableState.published.Store(reloadableState.registry)
+	}
 	return nil
 }
 
 // ReloadableRegistry returns the published set, or nil where nothing published
 // one, which is what tells a caller there is no redraw endpoint to serve.
 func ReloadableRegistry() *UpdateRegistry {
-	reloadableState.Lock()
-	defer reloadableState.Unlock()
-	if reloadableState.count == 0 {
-		return nil
-	}
-	return reloadableState.registry
+	return reloadableState.published.Load()
 }
 
 // ReloadableRegistrationFailure reports a registration that failed before main
@@ -187,6 +188,7 @@ func ResetReloadableForTest() (*UpdateRegistry, int, error) {
 	defer reloadableState.Unlock()
 	registry, count, failure := reloadableState.registry, reloadableState.count, reloadableState.failure
 	reloadableState.registry, reloadableState.count, reloadableState.failure = &UpdateRegistry{}, 0, nil
+	reloadableState.published.Store(nil)
 	return registry, count, failure
 }
 
@@ -195,6 +197,11 @@ func RestoreReloadableForTest(registry *UpdateRegistry, count int, failure error
 	reloadableState.Lock()
 	defer reloadableState.Unlock()
 	reloadableState.registry, reloadableState.count, reloadableState.failure = registry, count, failure
+	if count > 0 {
+		reloadableState.published.Store(registry)
+	} else {
+		reloadableState.published.Store(nil)
+	}
 }
 
 // LogUpdateRefusal records a refused update request.

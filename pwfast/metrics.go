@@ -78,7 +78,13 @@ func Metrics(metrics *pwruntime.Metrics) Middleware {
 					attributes = append(attributes, otel.String("http.route", route))
 				}
 				metrics.RequestDuration.Record(r, time.Since(started).Seconds(), attributes...)
-				metrics.ResponseBodySize.Record(r, float64(len(r.Response.Body())), attributes...)
+				// Response.Body on a body stream drains the stream into memory
+				// to answer, so a live subscription would be consumed here and
+				// never reach the client. No record is the truth: the size is
+				// unknown at the moment the handler returned.
+				if !r.Response.IsBodyStream() {
+					metrics.ResponseBodySize.Record(r, float64(len(r.Response.Body())), attributes...)
+				}
 				if length := r.Request.Header.ContentLength(); length > 0 {
 					metrics.RequestBodySize.Record(r, float64(length), attributes...)
 				}

@@ -206,6 +206,18 @@ func (s *CookieStore) Touch(ctx context.Context, keyHash string, lastSeenAt, idl
 	return s.Put(ctx, keyHash, record)
 }
 
+// TouchRecord is Touch with the record already in hand, saving the decode and
+// the AES open Touch's Get would repeat on bytes this same request already
+// opened.
+func (s *CookieStore) TouchRecord(ctx context.Context, keyHash string, record RawRecord, lastSeenAt, idleExpiresAt time.Time) error {
+	if !record.ExpiresAt.IsZero() && idleExpiresAt.After(record.ExpiresAt) {
+		return ErrNotFound
+	}
+	record.LastSeenAt = lastSeenAt
+	record.IdleExpiresAt = idleExpiresAt
+	return s.Put(ctx, keyHash, record)
+}
+
 // Delete expires the record cookie. It is idempotent, and it only reaches the
 // browser that made this request: a copy taken earlier stays valid until its
 // sealed expiry.

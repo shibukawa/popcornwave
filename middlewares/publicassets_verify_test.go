@@ -66,9 +66,7 @@ func TestSVGSandboxOnTheManifestPath(t *testing.T) {
 		t.Skip("the manifest is not consulted in development")
 	}
 	t.Cleanup(func() {
-		publicManifestState.Lock()
-		publicManifestState.entries = nil
-		publicManifestState.Unlock()
+		publicManifestState.Store(nil)
 	})
 	RegisterPublicManifest([]AssetEntry{
 		{URL: "icon.svg", CacheControl: "public, no-cache", Representations: []AssetRepresentation{

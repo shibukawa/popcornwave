@@ -39,16 +39,23 @@ const maxSymbolResults = 256
 // PageWithLayout. An empty query matches everything, which is how a client
 // showing the whole symbol list asks for it.
 func matches(name, query string) bool {
-	if query == "" {
-		return true
-	}
-	if strings.Contains(strings.ToLower(name), strings.ToLower(query)) {
-		return true
-	}
-	return matchesHumps(name, query)
+	return matchesLowered(name, strings.ToLower(query))
 }
 
-func matchesHumps(name, query string) bool {
+// matchesLowered is matches with the query already lowered: one request tests
+// every declaration in the project against the same query, so the caller
+// lowers it once instead of twice per candidate.
+func matchesLowered(name, lowered string) bool {
+	if lowered == "" {
+		return true
+	}
+	if strings.Contains(strings.ToLower(name), lowered) {
+		return true
+	}
+	return matchesHumps(name, lowered)
+}
+
+func matchesHumps(name, lowered string) bool {
 	humps := make([]rune, 0, len(name))
 	for index, letter := range name {
 		if index == 0 || unicode.IsUpper(letter) {
@@ -58,7 +65,7 @@ func matchesHumps(name, query string) bool {
 	if len(humps) == 0 {
 		return false
 	}
-	wanted := []rune(strings.ToLower(query))
+	wanted := []rune(lowered)
 	position := 0
 	for _, hump := range humps {
 		if position < len(wanted) && hump == wanted[position] {
@@ -70,6 +77,7 @@ func matchesHumps(name, query string) bool {
 
 // workspaceSymbols answers one query from the index and the open documents.
 func workspaceSymbols(query string, built index, open []openSymbols) []SymbolInformation {
+	lowered := strings.ToLower(query)
 	fresh := map[string]bool{}
 	for _, document := range open {
 		fresh[document.uri] = true
@@ -77,7 +85,7 @@ func workspaceSymbols(query string, built index, open []openSymbols) []SymbolInf
 
 	found := []SymbolInformation{}
 	for _, declaration := range built.declarations {
-		if fresh[declaration.URI] || !matches(declaration.Name, query) {
+		if fresh[declaration.URI] || !matchesLowered(declaration.Name, lowered) {
 			continue
 		}
 		found = append(found, SymbolInformation{
@@ -89,7 +97,7 @@ func workspaceSymbols(query string, built index, open []openSymbols) []SymbolInf
 	}
 	for _, document := range open {
 		for _, symbol := range document.symbols {
-			if !matches(symbol.Name, query) {
+			if !matchesLowered(symbol.Name, lowered) {
 				continue
 			}
 			found = append(found, SymbolInformation{

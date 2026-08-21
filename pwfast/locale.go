@@ -2,7 +2,7 @@ package pwfast
 
 import (
 	"github.com/shibukawa/popcornweb/pwruntime"
-	"github.com/valyala/fasthttp"
+	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
 // LocaleChoices reports the locales the current page is available in, for a

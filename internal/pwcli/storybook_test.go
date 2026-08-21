@@ -80,7 +80,7 @@ func TestScanFindsEveryGeneratedTemplate(t *testing.T) {
 func TestScanReadsPlannedOutputBeforeItIsOnDisk(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "templates_pw_gen.go")
-	sources := plannedSources{path: []byte(generatedTemplate)}
+	sources := planned([]fileChange{{path: path, source: []byte(generatedTemplate)}})
 	templates, err := scanStorybookTemplates(directory, sources)
 	if err != nil {
 		t.Fatal(err)
@@ -91,10 +91,14 @@ func TestScanReadsPlannedOutputBeforeItIsOnDisk(t *testing.T) {
 }
 
 func TestRegistrationReachesUnexportedTemplatesFromInsideThePackage(t *testing.T) {
-	source := storybookRegistration([]storybookTemplate{
+	generated, err := storybookRegistration([]storybookTemplate{
 		{Package: "templates", Name: "memoRow", Params: "memoRowParams"},
 		{Package: "templates", Name: "BindDocument", Params: "DocumentParams", Document: true},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(generated)
 	if !strings.HasPrefix(source, "//go:build pwdev\n") {
 		t.Error("the registration is not constrained to the development build mode")
 	}
@@ -110,7 +114,11 @@ func TestRegistrationReachesUnexportedTemplatesFromInsideThePackage(t *testing.T
 }
 
 func TestHarnessImportsEveryTemplatePackage(t *testing.T) {
-	source := storybookHarness("memoapp", []string{"handlers", "templates"})
+	generated, err := storybookHarness("memoapp", []string{"handlers", "templates"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(generated)
 	if !strings.HasPrefix(source, "//go:build pwdev\n") {
 		t.Error("the harness is not constrained to the development build mode")
 	}

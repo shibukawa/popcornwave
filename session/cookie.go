@@ -403,8 +403,11 @@ func (k *Keyring) open(binding string, sealed []byte) ([]byte, bool) {
 		return nil, false
 	}
 	nonce, ciphertext := sealed[:nonceBytes], sealed[nonceBytes:]
+	// Converted once rather than once per key: a rotation tries every key in
+	// the ring against the same associated data.
+	associated := []byte(binding)
 	for _, key := range k.keys {
-		if plaintext, err := key.seal.Open(nil, nonce, ciphertext, []byte(binding)); err == nil {
+		if plaintext, err := key.seal.Open(nil, nonce, ciphertext, associated); err == nil {
 			return plaintext, true
 		}
 	}

@@ -1,6 +1,9 @@
 package pwruntime
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // The server functions a page's own scripts may call by name.
 //
@@ -23,10 +26,13 @@ type PageAction struct {
 	Path string
 }
 
-var pageActionState = struct {
+// The table is written from generated init and read on every document render,
+// so readers load a frozen snapshot and only writers take the mutex: each
+// registration replaces the map rather than mutating the one readers hold.
+var pageActionState struct {
 	sync.Mutex
-	byPattern map[string][]PageAction
-}{byPattern: map[string][]PageAction{}}
+	byPattern atomic.Pointer[map[string][]PageAction]
+}
 
 // RegisterPageActions publishes the actions reachable from one route.
 //
@@ -43,7 +49,15 @@ func RegisterPageActions(pattern string, actions ...PageAction) {
 	}
 	pageActionState.Lock()
 	defer pageActionState.Unlock()
-	pageActionState.byPattern[pattern] = actions
+	next := map[string][]PageAction{pattern: actions}
+	if current := pageActionState.byPattern.Load(); current != nil {
+		for key, value := range *current {
+			if key != pattern {
+				next[key] = value
+			}
+		}
+	}
+	pageActionState.byPattern.Store(&next)
 }
 
 // PageActionsFor returns what the route that matched publishes, or nothing.
@@ -55,14 +69,16 @@ func PageActionsFor(pattern string) []PageAction {
 	if pattern == "" {
 		return nil
 	}
-	pageActionState.Lock()
-	defer pageActionState.Unlock()
-	return pageActionState.byPattern[pattern]
+	table := pageActionState.byPattern.Load()
+	if table == nil {
+		return nil
+	}
+	return (*table)[pattern]
 }
 
 // ResetPageActions clears the registry, for a test that publishes its own.
 func ResetPageActions() {
 	pageActionState.Lock()
 	defer pageActionState.Unlock()
-	pageActionState.byPattern = map[string][]PageAction{}
+	pageActionState.byPattern.Store(nil)
 }

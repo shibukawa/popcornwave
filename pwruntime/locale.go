@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Locale identifies one locale the project declared. It is opaque because the
@@ -64,12 +65,19 @@ func NewLocale(tag string, index int) Locale { return Locale{tag: tag, index: in
 // rather than of a request: the segment tables of decision:message-code-shape
 // are generated against exactly this list, so a second set would index tables
 // that were never built for it.
+// localeSnapshot is one registered set, frozen: per-request readers load it
+// through the atomic pointer rather than taking a lock, because an RLock is
+// still an atomic write on a shared cache line and locale resolution runs on
+// every request of an i18n project.
+type localeSnapshot struct {
+	tags          []string
+	index         map[string]int
+	defaultLocale Locale
+}
+
 var localeSet struct {
-	mu         sync.RWMutex
-	tags       []string
-	index      map[string]int
-	defaultTag string
-	registered bool
+	mu       sync.Mutex
+	snapshot atomic.Pointer[localeSnapshot]
 }
 
 // RegisterLocales records the declared locale list. The generated message
@@ -84,12 +92,12 @@ var localeSet struct {
 func RegisterLocales(tags []string, defaultTag string) {
 	localeSet.mu.Lock()
 	defer localeSet.mu.Unlock()
-	if localeSet.registered {
-		if sameTags(localeSet.tags, tags) && localeSet.defaultTag == defaultTag {
+	if current := localeSet.snapshot.Load(); current != nil {
+		if sameTags(current.tags, tags) && current.defaultLocale.tag == defaultTag {
 			return
 		}
 		panic(fmt.Sprintf("pwruntime: locales already registered as %v with default %q; a second set %v with default %q would index message tables built for the first",
-			localeSet.tags, localeSet.defaultTag, tags, defaultTag))
+			current.tags, current.defaultLocale.tag, tags, defaultTag))
 	}
 	if len(tags) == 0 {
 		panic("pwruntime: RegisterLocales needs at least one locale")
@@ -102,13 +110,15 @@ func RegisterLocales(tags []string, defaultTag string) {
 		}
 		index[normalized] = i + 1
 	}
-	if _, ok := index[strings.ToLower(defaultTag)]; !ok {
+	defaultIndex, ok := index[strings.ToLower(defaultTag)]
+	if !ok {
 		panic(fmt.Sprintf("pwruntime: default locale %q is not in the declared set %v", defaultTag, tags))
 	}
-	localeSet.tags = append([]string(nil), tags...)
-	localeSet.index = index
-	localeSet.defaultTag = defaultTag
-	localeSet.registered = true
+	localeSet.snapshot.Store(&localeSnapshot{
+		tags:          append([]string(nil), tags...),
+		index:         index,
+		defaultLocale: Locale{tag: defaultTag, index: defaultIndex},
+	})
 }
 
 func sameTags(a, b []string) bool {
@@ -127,20 +137,26 @@ func sameTags(a, b []string) bool {
 // when no generated message package is linked, which is every project that has
 // not adopted requirement:application-i18n.
 func DeclaredLocales() []string {
-	localeSet.mu.RLock()
-	defer localeSet.mu.RUnlock()
-	return append([]string(nil), localeSet.tags...)
+	snapshot := localeSet.snapshot.Load()
+	if snapshot == nil {
+		return nil
+	}
+	return append([]string(nil), snapshot.tags...)
 }
+
+// localesDeclared answers the emptiness question without the copy
+// DeclaredLocales makes for its callers, because the middleware asks it once
+// per request.
+func localesDeclared() bool { return localeSet.snapshot.Load() != nil }
 
 // DefaultLocale returns the declared default. It reports the zero Locale when no
 // message package is linked.
 func DefaultLocale() Locale {
-	localeSet.mu.RLock()
-	defer localeSet.mu.RUnlock()
-	if !localeSet.registered {
+	snapshot := localeSet.snapshot.Load()
+	if snapshot == nil {
 		return Locale{}
 	}
-	return Locale{tag: localeSet.defaultTag, index: localeSet.index[strings.ToLower(localeSet.defaultTag)]}
+	return snapshot.defaultLocale
 }
 
 // ParseLocale resolves a tag against the declared set by RFC 4647 lookup: an
@@ -152,15 +168,18 @@ func DefaultLocale() Locale {
 // This is the entry point for a locale that did not come from a request — a
 // value read from a user record before sending mail, or from a job payload.
 func ParseLocale(tag string) (Locale, bool) {
-	localeSet.mu.RLock()
-	defer localeSet.mu.RUnlock()
-	if !localeSet.registered {
+	snapshot := localeSet.snapshot.Load()
+	if snapshot == nil {
 		return Locale{}, false
 	}
+	return snapshot.parse(tag)
+}
+
+func (s *localeSnapshot) parse(tag string) (Locale, bool) {
 	candidate := strings.ToLower(strings.TrimSpace(tag))
 	for candidate != "" {
-		if i, ok := localeSet.index[candidate]; ok {
-			return Locale{tag: localeSet.tags[i-1], index: i}, true
+		if i, ok := s.index[candidate]; ok {
+			return Locale{tag: s.tags[i-1], index: i}, true
 		}
 		cut := strings.LastIndexByte(candidate, '-')
 		if cut < 0 {
@@ -279,8 +298,5 @@ func LangSegment(ctx context.Context) string {
 func resetLocalesForTest() {
 	localeSet.mu.Lock()
 	defer localeSet.mu.Unlock()
-	localeSet.tags = nil
-	localeSet.index = nil
-	localeSet.defaultTag = ""
-	localeSet.registered = false
+	localeSet.snapshot.Store(nil)
 }

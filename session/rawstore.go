@@ -52,6 +52,30 @@ type RawStore interface {
 	Delete(ctx context.Context, keyHash string) error
 }
 
+// RawRecordToucher is the optional renewal a backend offers when it can write
+// from a record the caller already holds.
+//
+// A renewal always follows the Get that returned the record, and Touch on
+// several backends starts by loading the record it is about to renew — a
+// network round trip, or a cookie decrypt, that re-answers what the caller
+// just read. A backend whose Touch needs its own read anyway — Firestore's
+// carries the entity version its write precondition depends on — simply does
+// not implement this, and the renewal takes Touch as before.
+//
+// Every rule of Touch applies: never revive a missing or expired record, and
+// never renew past the absolute expiry.
+type RawRecordToucher interface {
+	TouchRecord(ctx context.Context, keyHash string, record RawRecord, lastSeenAt, idleExpiresAt time.Time) error
+}
+
+// RecordToucher is RawRecordToucher with the payload type back, which is what
+// a Manager's renewal can reach. TouchRecord reports false when the fast path
+// was not taken — the backend lacks it, or the payload would not encode — and
+// the caller falls back to Touch, which needs no payload at all.
+type RecordToucher[T any] interface {
+	TouchRecord(ctx context.Context, keyHash string, record Record[T], lastSeenAt, idleExpiresAt time.Time) (bool, error)
+}
+
 // Backend is one opened storage backend together with the responsibilities it
 // brings. A host reads capabilities from this value instead of type-asserting
 // a plugin type, so adding a backend changes no host.
@@ -124,6 +148,29 @@ func (s typedStore[T]) Get(ctx context.Context, keyHash string) (Record[T], erro
 
 func (s typedStore[T]) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error {
 	return s.raw.Touch(ctx, keyHash, lastSeenAt, idleExpiresAt)
+}
+
+func (s typedStore[T]) TouchRecord(ctx context.Context, keyHash string, record Record[T], lastSeenAt, idleExpiresAt time.Time) (bool, error) {
+	toucher, ok := s.raw.(RawRecordToucher)
+	if !ok {
+		return false, nil
+	}
+	payload, err := s.codec.Encode(record.Data)
+	if err != nil {
+		// A payload that will not encode does not fail the renewal: Touch
+		// renews without one.
+		return false, nil
+	}
+	return true, toucher.TouchRecord(ctx, keyHash, RawRecord{
+		Payload:         payload,
+		CreatedAt:       record.CreatedAt,
+		AuthenticatedAt: record.AuthenticatedAt,
+		LastSeenAt:      record.LastSeenAt,
+		ExpiresAt:       record.ExpiresAt,
+		IdleExpiresAt:   record.IdleExpiresAt,
+		Method:          record.Method,
+		Version:         record.Version,
+	}, lastSeenAt, idleExpiresAt)
 }
 
 func (s typedStore[T]) Delete(ctx context.Context, keyHash string) error {

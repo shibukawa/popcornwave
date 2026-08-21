@@ -140,6 +140,9 @@ type rateLimitFrame struct {
 }
 
 func (f rateLimitFrame) exempt(r *http.Request) bool {
+	if !f.limiter.HasExemptPaths() {
+		return false
+	}
 	path, ok := pathpattern.CanonicalPath(r)
 	if !ok {
 		return false

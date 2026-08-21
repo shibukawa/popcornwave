@@ -178,13 +178,19 @@ func serveResolvedAsset(r *fasthttp.RequestCtx, name string, config PublicAssetC
 // headerValues collects every value of a repeating request header, because
 // Accept and Accept-Encoding both legitimately arrive more than once and
 // reading only the first would negotiate against half of what the client said.
+//
+// PeekAll rather than VisitAll: the walk allocated a string per header on the
+// request just to compare names, twice per asset request, and static assets
+// are the highest-volume route most deployments have.
 func headerValues(r *fasthttp.RequestCtx, name string) []string {
-	var values []string
-	r.Request.Header.VisitAll(func(key, value []byte) {
-		if strings.EqualFold(string(key), name) {
-			values = append(values, string(value))
-		}
-	})
+	matched := r.Request.Header.PeekAll(name)
+	if len(matched) == 0 {
+		return nil
+	}
+	values := make([]string, len(matched))
+	for index, value := range matched {
+		values[index] = string(value)
+	}
 	return values
 }
 

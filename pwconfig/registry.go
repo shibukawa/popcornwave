@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/shibukawa/popcornweb/internal/pwenv"
 	"github.com/shibukawa/popcornweb/pwruntime"
@@ -31,6 +32,23 @@ var configState = struct {
 		Vendor:   "popcornweb",
 		FileName: "config.toml",
 	},
+}
+
+// configEntries is the entry table published for the serving path. Every
+// pw.Config and pwfast.Config read passes through the lookup this feeds, so
+// the read is a load on a frozen map rather than an RLock — which is still an
+// atomic write on a shared cache line — while registration replaces the map
+// under the mutex.
+var configEntries atomic.Pointer[map[reflect.Type]configEntry]
+
+// publishEntriesLocked mirrors the entry table into the published snapshot.
+// The caller holds configState.
+func publishEntriesLocked() {
+	published := make(map[reflect.Type]configEntry, len(configState.entries))
+	for typ, entry := range configState.entries {
+		published[typ] = entry
+	}
+	configEntries.Store(&published)
 }
 
 // Hooks are what a runtime layers on top of the load without this package
@@ -82,6 +100,7 @@ func Register[T any](prefix string) {
 		return
 	}
 	configState.entries[typ] = configEntry{prefix: prefix, ptr: configbind.Bind[T](prefix)}
+	publishEntriesLocked()
 }
 
 // SetLoadOptions customizes configbind loading before Parse.
@@ -222,9 +241,11 @@ func boundConfig[T any]() *T {
 // constraint.
 func init() {
 	pwruntime.PublishConfigLookup(func(target reflect.Type) (any, bool) {
-		configState.RLock()
-		defer configState.RUnlock()
-		entry, ok := configState.entries[target]
+		entries := configEntries.Load()
+		if entries == nil {
+			return nil, false
+		}
+		entry, ok := (*entries)[target]
 		if !ok {
 			return nil, false
 		}
@@ -406,13 +427,15 @@ func Swap[T any](value T) (*T, func()) {
 	previous, existed := configState.entries[typ]
 	installed := &value
 	configState.entries[typ] = configEntry{prefix: previous.prefix, ptr: installed}
+	publishEntriesLocked()
 	return installed, func() {
 		configState.Lock()
 		defer configState.Unlock()
 		if existed {
 			configState.entries[typ] = previous
-			return
+		} else {
+			delete(configState.entries, typ)
 		}
-		delete(configState.entries, typ)
+		publishEntriesLocked()
 	}
 }

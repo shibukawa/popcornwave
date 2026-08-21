@@ -187,6 +187,39 @@ func (s *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpir
 	return nil
 }
 
+// TouchRecord is Touch with the record already in hand, saving the GET Touch
+// opens with: a renewal follows the read that produced record, so that round
+// trip re-answered what the caller just read. The same SET XX keeps the
+// no-revival guarantee — a key that expired in between refuses the write.
+func (s *Store) TouchRecord(ctx context.Context, keyHash string, record session.RawRecord, lastSeenAt, idleExpiresAt time.Time) error {
+	if !s.ready() || ctx == nil {
+		return fmt.Errorf("%w: store", session.ErrInvalidOptions)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !validKeyHash(keyHash) {
+		return session.ErrInvalidKey
+	}
+	if idleExpiresAt.After(record.ExpiresAt) {
+		return session.ErrNotFound
+	}
+	record.LastSeenAt = lastSeenAt
+	record.IdleExpiresAt = idleExpiresAt
+	encoded, ttl, err := s.encode(record)
+	if err != nil {
+		return err
+	}
+	renewed, err := s.client.SetXX(ctx, s.prefix+keyHash, encoded, ttl).Result()
+	if err != nil {
+		return unavailable(ctx)
+	}
+	if !renewed {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
 // Delete is idempotent.
 func (s *Store) Delete(ctx context.Context, keyHash string) error {
 	if !s.ready() || ctx == nil {

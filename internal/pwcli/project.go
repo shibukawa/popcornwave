@@ -270,15 +270,15 @@ type projectConfig struct {
 	// flag for the reason LineDirectives is: generation output must not depend
 	// on who ran it, and the profile is hashed into the generation fingerprint
 	// so both ends of the protocol agree on every regeneration.
-	CBOR cborGenerateConfig
-	Watch          watchConfig
-	IdP            idpConfig
-	Otel           otelConfig
-	Logs           devLogsConfig
-	Console        consoleConfig
-	Migration      migrationConfig
-	Seed           seedConfig
-	Tailwind       tailwindConfig
+	CBOR      cborGenerateConfig
+	Watch     watchConfig
+	IdP       idpConfig
+	Otel      otelConfig
+	Logs      devLogsConfig
+	Console   consoleConfig
+	Migration migrationConfig
+	Seed      seedConfig
+	Tailwind  tailwindConfig
 	// Assets is the build-time conversion set. Every field defaults to off, so
 	// a project that declares nothing embeds a copy of its authored tree and
 	// serves exactly what it served before any of this existed.

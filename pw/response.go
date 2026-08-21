@@ -310,9 +310,10 @@ func WriteHTML(w http.ResponseWriter, r *http.Request, leaf HTMLFragment) {
 // the document: that one stays the framework's, exactly as it is for a handler
 // calling WriteHTML.
 func WriteHTMLPage(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
-	// registeredHTMLDocument allocates per call, so appending to it cannot reach
-	// a slice another request is rendering through.
-	WriteHTMLChain(w, r, append(registeredHTMLDocument(), wrappers...), leaf, options...)
+	// The combined chain is allocated per call, so appending cannot reach a
+	// slice another request is rendering through; the sized variant builds it
+	// in one allocation rather than a copy followed by a regrowing append.
+	WriteHTMLChain(w, r, pwruntime.RegisteredHTMLDocumentWith(wrappers), leaf, options...)
 }
 
 // WriteHTMLChain renders generated wrappers around one leaf without committing
@@ -696,10 +697,12 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 	//
 	// The key is resolved once, and only for a response something will follow.
 	// A page that ends here computes no digest at all.
-	var digestKey []byte
+	var digester *pwruntime.LiveDigester
 	var held []string
 	if liveEnabled(config) && live {
-		digestKey = liveDigestKey(config)
+		// One HMAC state serves every boundary of this response rather than
+		// one per digest.
+		digester = pwruntime.NewLiveDigester(liveDigestKey(config))
 	}
 	for content, err := range htmlbind.RenderChainAsync(ctx, writer, wrappers, leaf, renderOptions(ctx, config, false, options)...) {
 		if err != nil {
@@ -737,7 +740,7 @@ func streamHTMLChain(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrap
 			break
 		}
 		render.boundarySettled(content.BoundaryID, len(content.HTML))
-		if digest := liveDigest(digestKey, content.HTML); digest != "" {
+		if digest := digester.Digest(content.HTML); digest != "" {
 			held = append(held, content.BoundaryID+":"+digest)
 		}
 		if err := writeBoundaryCompletion(writer, content); err != nil {

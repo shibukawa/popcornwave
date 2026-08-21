@@ -181,8 +181,20 @@ func (s *Server) editRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	table := r.PathValue("name")
+	if len(batch.Edits)+len(batch.Inserts)+len(batch.Deletes) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// The catalog is fetched once for the whole batch: every row operation
+	// needs the same column list, and asking per row made a fifty-row save
+	// cost a hundred catalog round trips.
+	columns, err := connection.Columns(r.Context(), table)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	for _, edit := range batch.Edits {
-		if _, err := connection.UpdateRow(r.Context(), RowEdit{
+		if _, err := connection.updateRow(r.Context(), columns, RowEdit{
 			Table: table, Key: edit.Key, Values: edit.Values,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -190,13 +202,13 @@ func (s *Server) editRows(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	for _, insert := range batch.Inserts {
-		if _, err := connection.InsertRow(r.Context(), RowEdit{Table: table, Values: insert.Values}); err != nil {
+		if _, err := connection.insertRow(r.Context(), columns, RowEdit{Table: table, Values: insert.Values}); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 	for _, remove := range batch.Deletes {
-		if _, err := connection.DeleteRow(r.Context(), RowEdit{Table: table, Key: remove.Key}); err != nil {
+		if _, err := connection.deleteRow(r.Context(), columns, RowEdit{Table: table, Key: remove.Key}); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

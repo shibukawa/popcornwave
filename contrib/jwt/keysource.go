@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shibukawa/popcornweb/contrib/internal/authn"
@@ -100,6 +101,12 @@ type RemoteKeySet struct {
 	issuer  string
 	options KeySourceOptions
 
+	// snapshot carries the cached set for the warm path. Every bearer
+	// verification resolves a key, so the fresh-cache answer is a load rather
+	// than a turn on the refresh mutex; the fields below, guarded by mu,
+	// remain the source of truth and republish it on every change.
+	snapshot atomic.Pointer[keysSnapshot]
+
 	mu          sync.Mutex
 	keySetURI   string
 	keys        *JWKS
@@ -108,6 +115,22 @@ type RemoteKeySet struct {
 	// refreshing marks one in-flight background refresh, so a TTL expiry
 	// triggers a single fetch rather than one per concurrent verification.
 	refreshing bool
+}
+
+// keysSnapshot pairs the cached keys with the moment they were fetched, so a
+// reader never pairs one with the other's moment.
+type keysSnapshot struct {
+	keys      *JWKS
+	fetchedAt time.Time
+}
+
+// publish mirrors the mutable cache into the snapshot. The caller holds mu.
+func (set *RemoteKeySet) publish() {
+	if set.keys == nil {
+		set.snapshot.Store(nil)
+		return
+	}
+	set.snapshot.Store(&keysSnapshot{keys: set.keys, fetchedAt: set.fetchedAt})
 }
 
 // NewRemoteKeySet validates the options and returns a key set that has not yet
@@ -193,6 +216,12 @@ func (set *RemoteKeySet) ResolverFor(ctx context.Context) KeyResolver {
 // current returns a usable key set, blocking on the network only when there is
 // none at all.
 func (set *RemoteKeySet) current(ctx context.Context) (*JWKS, error) {
+	// A fresh cache answers off the snapshot alone; anything past its TTL
+	// falls into the locked path below, which re-reads under the mutex.
+	if snapshot := set.snapshot.Load(); snapshot != nil &&
+		set.options.Clock().Sub(snapshot.fetchedAt) < set.options.CacheTTL {
+		return snapshot.keys, nil
+	}
 	set.mu.Lock()
 	defer set.mu.Unlock()
 	now := set.options.Clock()
@@ -221,6 +250,7 @@ func (set *RemoteKeySet) current(ctx context.Context) (*JWKS, error) {
 			return set.keys, nil
 		}
 		set.keys = nil
+		set.publish()
 	}
 	// With nothing cached the caller has to wait. Holding the mutex across the
 	// fetch is deliberate here: it is what makes concurrent cold starts one
@@ -245,6 +275,7 @@ func (set *RemoteKeySet) refreshInBackground(uri string) {
 	if err == nil {
 		set.keys = keys
 		set.fetchedAt = set.options.Clock()
+		set.publish()
 	}
 	set.mu.Unlock()
 }
@@ -282,6 +313,7 @@ func (set *RemoteKeySet) fetchLocked(ctx context.Context, now time.Time) error {
 	}
 	set.keys = keys
 	set.fetchedAt = now
+	set.publish()
 	return nil
 }
 

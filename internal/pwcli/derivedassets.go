@@ -3,6 +3,7 @@ package pwcli
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,7 +12,9 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/andybalholm/brotli"
 	"github.com/klauspost/compress/gzip"
@@ -69,6 +72,9 @@ const (
 type sidecarCoding struct {
 	token  string
 	suffix string
+	// params names the encoder level so a cached sidecar misses when the level
+	// changes, the same reason the image cache digests its encoder parameters.
+	params string
 	encode func([]byte) ([]byte, error)
 }
 
@@ -82,11 +88,11 @@ func derivedSidecarCodings() ([]sidecarCoding, error) {
 		return nil, fmt.Errorf("public assets: create zstd encoder: %w", err)
 	}
 	return []sidecarCoding{
-		{token: "br", suffix: ".br", encode: encodeBrotli},
-		{token: "zstd", suffix: ".zstd", encode: func(source []byte) ([]byte, error) {
+		{token: "br", suffix: ".br", params: strconv.Itoa(brotli.BestCompression), encode: encodeBrotli},
+		{token: "zstd", suffix: ".zstd", params: zstd.SpeedBestCompression.String(), encode: func(source []byte) ([]byte, error) {
 			return zstdEncoder.EncodeAll(source, nil), nil
 		}},
-		{token: "gzip", suffix: ".gz", encode: encodeGzip},
+		{token: "gzip", suffix: ".gz", params: strconv.Itoa(gzip.BestCompression), encode: encodeGzip},
 	}, nil
 }
 
@@ -258,6 +264,19 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 	}
 
 	rewrites := publicURLRewrites(converted)
+	// Built only when the first retention question arrives: a walk with nothing
+	// converted and no script inputs never pays for reading the project.
+	var retention *retentionScanner
+	retentionScan := func() (*retentionScanner, error) {
+		if retention == nil {
+			built, err := newRetentionScanner(root, assets)
+			if err != nil {
+				return nil, err
+			}
+			retention = built
+		}
+		return retention, nil
+	}
 	err = filepath.WalkDir(authored, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -286,20 +305,22 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 			return nil
 		}
 		if replacement, ok := converted[slashed]; ok {
-			retain, reason, err := sourceMustBeRetained(root, slashed, assets)
+			scan, err := retentionScan()
 			if err != nil {
 				return err
 			}
+			retain, reason := scan.mustBeRetained(slashed)
 			report.converted = append(report.converted, slashed+" -> "+replacement)
 			if !retain {
 				return nil
 			}
 			report.retained = append(report.retained, slashed+" ("+reason+")")
 		} else if scriptBuildInput(slashed, assets) {
-			retain, reason, err := sourceMustBeRetained(root, slashed, assets)
+			scan, err := retentionScan()
 			if err != nil {
 				return err
 			}
+			retain, reason := scan.mustBeRetained(slashed)
 			if !retain {
 				report.unserved = append(report.unserved, slashed+" (TypeScript is a build input)")
 				return nil
@@ -350,7 +371,7 @@ func buildDerivedAssetsWithEncoder(root string, assets assetsConfig, encodeVaria
 		}
 		report.skipped = append(report.skipped, variants...)
 	}
-	if err := writeDerivedSidecars(output); err != nil {
+	if err := writeDerivedSidecars(output, filepath.Join(root, filepath.FromSlash(conversionCacheDir))); err != nil {
 		return report, err
 	}
 	immutable := map[string]bool{}
@@ -534,14 +555,29 @@ func publicURLRewrites(converted map[string]string) map[string]string {
 	return rewrites
 }
 
-// sourceMustBeRetained decides whether dropping an authored file would break a
+// retentionScanner decides whether dropping an authored file would break a
 // reference the build cannot rewrite. Keeping a converted source costs bytes;
 // dropping one that a script or a meta tag still names costs a broken page, so
 // the scan errs toward keeping it and says so.
-func sourceMustBeRetained(root, relative string, assets assetsConfig) (bool, string, error) {
-	needle := relative
-	sites := rewrittenReferenceSites(root, assets)
-	var found string
+//
+// The sources are read once and every asset is answered from that one pass.
+// Retention used to walk and re-read the whole project per asset, which made
+// the question O(assets × project files) of disk I/O on every rebuild.
+type retentionScanner struct {
+	sites   []referenceSite
+	sources []scannedSource
+}
+
+// scannedSource is one file a reference could hide in, held in memory for the
+// duration of the build.
+type scannedSource struct {
+	name       string
+	content    string
+	isTemplate bool
+}
+
+func newRetentionScanner(root string, assets assetsConfig) (*retentionScanner, error) {
+	scanner := &retentionScanner{sites: rewrittenReferenceSites(root, assets)}
 	err := filepath.WalkDir(root, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -553,7 +589,7 @@ func sourceMustBeRetained(root, relative string, assets assetsConfig) (bool, str
 			}
 			return nil
 		}
-		if found != "" || !scannableSource(entry.Name()) {
+		if !scannableSource(entry.Name()) {
 			return nil
 		}
 		// This build's own output is not evidence about what a developer wrote.
@@ -568,29 +604,37 @@ func sourceMustBeRetained(root, relative string, assets assetsConfig) (bool, str
 		if err != nil {
 			return nil
 		}
-		if !strings.Contains(string(content), needle) {
-			return nil
-		}
-		if strings.HasSuffix(entry.Name(), ".pw.html") &&
-			ownedReferenceCount(string(content), needle, sites) >= strings.Count(string(content), needle) {
-			return nil
-		}
-		// A rewritten reference no longer names the source, so an occurrence
-		// that survived generation is one this build could not reach.
 		relativeName, relErr := filepath.Rel(root, name)
 		if relErr != nil {
 			relativeName = name
 		}
-		found = filepath.ToSlash(relativeName)
+		scanner.sources = append(scanner.sources, scannedSource{
+			name:       filepath.ToSlash(relativeName),
+			content:    string(content),
+			isTemplate: strings.HasSuffix(entry.Name(), ".pw.html"),
+		})
 		return nil
 	})
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-	if found == "" {
-		return false, "", nil
+	return scanner, nil
+}
+
+func (s *retentionScanner) mustBeRetained(relative string) (bool, string) {
+	for _, source := range s.sources {
+		if !strings.Contains(source.content, relative) {
+			continue
+		}
+		if source.isTemplate &&
+			ownedReferenceCount(source.content, relative, s.sites) >= strings.Count(source.content, relative) {
+			continue
+		}
+		// A rewritten reference no longer names the source, so an occurrence
+		// that survived generation is one this build could not reach.
+		return true, "still named by " + source.name
 	}
-	return true, "still named by " + found, nil
+	return false, ""
 }
 
 // referenceSite is one element and attribute a conversion rewrites.
@@ -774,20 +818,23 @@ func losslessLabel(lossless bool) string {
 	return "lossy"
 }
 
+// sidecarCacheDir keeps compression outcomes across runs, beside the image
+// variants under the conversion cache. The served tree is rebuilt from nothing
+// every time, and brotli at this level runs at a few megabytes a second, so an
+// unchanged asset must not pay for it twice.
+const sidecarCacheDir = "sidecars"
+
 // writeDerivedSidecars compresses the finished bytes. Compressing before a
 // conversion would compress bytes nobody serves, which is why this runs last.
-// writeDerivedSidecars compresses the finished bytes once per coding.
 //
 // A coding whose result is no smaller than its source is skipped rather than
 // written: a sidecar that saves nothing costs a file in the embed and a
 // representation in the manifest for no reason, and the negotiation falls
-// through to the next coding on its own.
-func writeDerivedSidecars(output string) error {
-	codings, err := derivedSidecarCodings()
-	if err != nil {
-		return err
-	}
-	return filepath.WalkDir(output, func(name string, entry fs.DirEntry, walkErr error) error {
+// through to the next coding on its own. The skip is cached too — as an empty
+// entry — because declining a file costs the same encode as compressing it.
+func writeDerivedSidecars(output, cacheRoot string) error {
+	var files []string
+	err := filepath.WalkDir(output, func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {
 			return walkErr
 		}
@@ -797,24 +844,99 @@ func writeDerivedSidecars(output string) error {
 		if !publicAssetCompressible(name) {
 			return nil
 		}
-		source, err := os.ReadFile(name)
-		if err != nil {
-			return err
-		}
-		for _, coding := range codings {
-			encoded, encodeErr := coding.encode(source)
-			if encodeErr != nil {
-				return fmt.Errorf("public assets: encode %s as %s: %w", name, coding.token, encodeErr)
-			}
-			if len(encoded) >= len(source) {
-				continue
-			}
-			if writeErr := writeScaffoldFile(name+coding.suffix, encoded); writeErr != nil {
-				return writeErr
-			}
-		}
+		files = append(files, name)
 		return nil
 	})
+	if err != nil || len(files) == 0 {
+		return err
+	}
+
+	// The files are independent, so they run on the conversion workers. The
+	// channel holds them all before any worker starts: a worker that stops on
+	// an error must not leave the send side blocked.
+	workers := min(conversionWorkers(), len(files))
+	jobs := make(chan string, len(files))
+	for _, name := range files {
+		jobs <- name
+	}
+	close(jobs)
+	errs := make(chan error, workers)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			// Each worker holds its own encoders: the zstd encoder hands out a
+			// single internal state, so a shared one would serialize the pool.
+			codings, err := derivedSidecarCodings()
+			if err != nil {
+				errs <- err
+				return
+			}
+			for name := range jobs {
+				if err := writeSidecarsFor(name, cacheRoot, codings); err != nil {
+					errs <- err
+					return
+				}
+			}
+		}()
+	}
+	group.Wait()
+	close(errs)
+	return <-errs
+}
+
+// writeSidecarsFor writes every winning coding of one file, answering from the
+// sidecar cache when the same bytes were already encoded at the same level.
+func writeSidecarsFor(name, cacheRoot string, codings []sidecarCoding) error {
+	source, err := os.ReadFile(name)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(source)
+	key := hex.EncodeToString(digest[:])[:32]
+	for _, coding := range codings {
+		cachePath := ""
+		if cacheRoot != "" {
+			cachePath = filepath.Join(cacheRoot, sidecarCacheDir,
+				coding.token+"-"+coding.params, key+coding.suffix)
+			if cached, readErr := os.ReadFile(cachePath); readErr == nil {
+				// An encoded result is never empty, so an empty entry is a
+				// cached decline rather than a miss.
+				if len(cached) == 0 {
+					continue
+				}
+				if writeErr := writeScaffoldFile(name+coding.suffix, cached); writeErr != nil {
+					return writeErr
+				}
+				continue
+			}
+		}
+		encoded, encodeErr := coding.encode(source)
+		if encodeErr != nil {
+			return fmt.Errorf("public assets: encode %s as %s: %w", name, coding.token, encodeErr)
+		}
+		declined := len(encoded) >= len(source)
+		if cachePath != "" {
+			if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err == nil {
+				// A cache that cannot be written is a slow build and nothing
+				// worse, so the write is best effort and its failure is not
+				// the build's.
+				payload := encoded
+				if declined {
+					payload = nil
+				}
+				_ = writeScaffoldFile(cachePath, payload)
+			}
+		}
+		if declined {
+			continue
+		}
+		if writeErr := writeScaffoldFile(name+coding.suffix, encoded); writeErr != nil {
+			return writeErr
+		}
+	}
+	return nil
 }
 
 // collectDerivedAssets reads the finished tree once and produces one manifest

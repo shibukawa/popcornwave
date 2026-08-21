@@ -188,8 +188,8 @@ func LocaleChoices(r *http.Request) []LocaleChoice {
 // and each transport's entry supplies its own path, query, and resolved locale.
 // Duplicating it per transport is how the two would drift.
 func LocaleChoicesFor(path, rawQuery string, current Locale, mode LocaleMode) []LocaleChoice {
-	tags := DeclaredLocales()
-	if len(tags) == 0 {
+	snapshot := localeSet.snapshot.Load()
+	if snapshot == nil {
 		return nil
 	}
 	stripped := path
@@ -198,12 +198,11 @@ func LocaleChoicesFor(path, rawQuery string, current Locale, mode LocaleMode) []
 			stripped = rest
 		}
 	}
-	choices := make([]LocaleChoice, 0, len(tags))
-	for _, tag := range tags {
-		locale, ok := ParseLocale(tag)
-		if !ok {
-			continue
-		}
+	choices := make([]LocaleChoice, 0, len(snapshot.tags))
+	for i, tag := range snapshot.tags {
+		// A declared tag resolves to itself, so the locale is built at its
+		// position rather than parsed back out of the set it came from.
+		locale := Locale{tag: tag, index: i + 1}
 		choice := LocaleChoice{
 			Locale:  locale,
 			Label:   localeLabel(tag),
@@ -222,59 +221,56 @@ func LocaleChoicesFor(path, rawQuery string, current Locale, mode LocaleMode) []
 
 // negotiateAcceptLanguage picks the best declared locale for an Accept-Language
 // header. It reports absence rather than the default, so the caller decides.
+//
+// The winner is the first entry, in header order, of those with the highest
+// quality that resolves against the declared set — the answer collecting,
+// sorting, and scanning would give, found in one pass with no slice and no
+// sort. The pass keeps both hard caps: a hostile "a,a,a,..." header carries
+// ~500k ranges under Go's 1 MiB header limit, and thirty-two well-formed
+// ranges is far past what any real client sends, while bounding the parts
+// examined stops an all-invalid header from scanning the whole megabyte.
 func negotiateAcceptLanguage(header string) (Locale, bool) {
-	type candidate struct {
-		tag     string
-		quality float64
-		order   int
-	}
-	var candidates []candidate
-	// The header is scanned one range at a time with two hard caps rather than
-	// split whole and sorted: a hostile "a,a,a,..." header carries ~500k ranges
-	// under Go's 1 MiB header limit, and splitting it into a slice and running a
-	// reflection sort over it is an unauthenticated amplification. Thirty-two
-	// well-formed ranges is far past what any real client sends, and bounding
-	// the parts examined stops an all-invalid header from scanning the whole megabyte.
 	const maxRanges = 32
 	const maxPartsExamined = 256
+	var best Locale
+	bestQuality := 0.0
+	found := false
+	ranges := 0
 	remainder := header
-	for order := 0; remainder != "" && order < maxPartsExamined && len(candidates) < maxRanges; order++ {
+	for examined := 0; remainder != "" && examined < maxPartsExamined && ranges < maxRanges; examined++ {
 		var part string
 		part, remainder, _ = strings.Cut(remainder, ",")
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		tag, quality := part, 1.0
-		if semicolon := strings.IndexByte(part, ';'); semicolon >= 0 {
-			tag = strings.TrimSpace(part[:semicolon])
-			for _, parameter := range strings.Split(part[semicolon+1:], ";") {
-				parameter = strings.TrimSpace(parameter)
-				if value, ok := strings.CutPrefix(parameter, "q="); ok {
+		tag := strings.TrimSpace(part)
+		quality := 1.0
+		if semicolon := strings.IndexByte(tag, ';'); semicolon >= 0 {
+			parameters := tag[semicolon+1:]
+			tag = strings.TrimSpace(tag[:semicolon])
+			for parameter := range splitAccept(parameters, ';') {
+				if value, ok := strings.CutPrefix(strings.TrimSpace(parameter), "q="); ok {
 					if parsed, err := strconv.ParseFloat(value, 64); err == nil {
 						quality = parsed
 					}
 				}
 			}
 		}
-		if quality <= 0 || tag == "" {
+		if tag == "" || quality <= 0 {
 			continue
 		}
-		candidates = append(candidates, candidate{tag: tag, quality: quality, order: order})
+		ranges++
+		// An earlier entry wins a quality tie, so only a strictly better
+		// quality displaces the held answer.
+		if quality <= bestQuality {
+			continue
+		}
+		var locale Locale
+		if tag == "*" {
+			locale = DefaultLocale()
+		} else if parsed, ok := ParseLocale(tag); ok {
+			locale = parsed
+		} else {
+			continue
+		}
+		best, bestQuality, found = locale, quality, true
 	}
-	sort.SliceStable(candidates, func(i, j int) bool {
-		if candidates[i].quality != candidates[j].quality {
-			return candidates[i].quality > candidates[j].quality
-		}
-		return candidates[i].order < candidates[j].order
-	})
-	for _, c := range candidates {
-		if c.tag == "*" {
-			return DefaultLocale(), true
-		}
-		if locale, ok := ParseLocale(c.tag); ok {
-			return locale, true
-		}
-	}
-	return Locale{}, false
+	return best, found
 }

@@ -55,30 +55,23 @@ func (r RateLimit) Validate() error {
 
 // ApplyProblemHeaders writes response metadata before a problem response is
 // committed. Invalid optional metadata is returned to the caller and omitted.
+//
+// It writes straight onto the caller's header rather than through the detached
+// map ProblemHeaders builds: this runs on every error response, and the common
+// problem carries zero or one header.
 func ApplyProblemHeaders(header http.Header, problem Problem) error {
-	fields, err := ProblemHeaders(problem)
-	for name, values := range fields {
-		header[name] = append([]string(nil), values...)
-	}
-	return err
-}
-
-// ProblemHeaders returns a detached set of response metadata for either HTTP
-// transport runtime.
-func ProblemHeaders(problem Problem) (http.Header, error) {
-	header := make(http.Header)
 	if problem.Status == http.StatusTooManyRequests {
 		header.Set("Cache-Control", "no-store")
 	}
 	if problem.RateLimit == nil {
-		return header, nil
+		return nil
 	}
 	if problem.Status != http.StatusTooManyRequests {
-		return header, fmt.Errorf("pwruntime: rate limit metadata requires HTTP 429")
+		return fmt.Errorf("pwruntime: rate limit metadata requires HTTP 429")
 	}
 	rate := *problem.RateLimit
 	if err := rate.Validate(); err != nil {
-		return header, err
+		return err
 	}
 	header.Set("X-RateLimit-Limit", strconv.FormatUint(rate.Limit, 10))
 	header.Set("X-RateLimit-Remaining", strconv.FormatUint(rate.Remaining, 10))
@@ -92,7 +85,15 @@ func ProblemHeaders(problem Problem) (http.Header, error) {
 		}
 		header.Set("Retry-After", strconv.FormatInt(int64(seconds), 10))
 	}
-	return header, nil
+	return nil
+}
+
+// ProblemHeaders returns a detached set of response metadata for either HTTP
+// transport runtime.
+func ProblemHeaders(problem Problem) (http.Header, error) {
+	header := make(http.Header)
+	err := ApplyProblemHeaders(header, problem)
+	return header, err
 }
 
 // FieldError describes a single field-level validation failure. It is the
@@ -119,7 +120,15 @@ func (p Problem) Unwrap() error { return p.Cause }
 // NewProblem builds one from a status, a title, and whatever the caller passed:
 // nothing, another problem to carry through, an error to wrap, or a message.
 func NewProblem(status int, title string, value any) Problem {
-	p := Problem{Status: status, Title: title, Code: strings.ReplaceAll(strings.ToLower(title), " ", "_")}
+	return newCodedProblem(status, title, strings.ReplaceAll(strings.ToLower(title), " ", "_"), value)
+}
+
+// newCodedProblem is NewProblem with the code stated, for the fixed
+// constructors whose titles are compile-time constants: deriving "bad_request"
+// from "Bad Request" on every construction was two string allocations for an
+// answer known when this file was written.
+func newCodedProblem(status int, title, code string, value any) Problem {
+	p := Problem{Status: status, Title: title, Code: code}
 	switch value := value.(type) {
 	case nil:
 		p.Message = title
@@ -150,25 +159,27 @@ func FirstValue(values []any) any {
 }
 
 func BadRequest(values ...any) Problem {
-	return NewProblem(http.StatusBadRequest, "Bad Request", FirstValue(values))
+	return newCodedProblem(http.StatusBadRequest, "Bad Request", "bad_request", FirstValue(values))
 }
 func Unauthorized(values ...any) Problem {
-	return NewProblem(http.StatusUnauthorized, "Unauthorized", FirstValue(values))
+	return newCodedProblem(http.StatusUnauthorized, "Unauthorized", "unauthorized", FirstValue(values))
 }
 func Forbidden(values ...any) Problem {
-	return NewProblem(http.StatusForbidden, "Forbidden", FirstValue(values))
+	return newCodedProblem(http.StatusForbidden, "Forbidden", "forbidden", FirstValue(values))
 }
 func NotFound(values ...any) Problem {
-	return NewProblem(http.StatusNotFound, "Not Found", FirstValue(values))
+	return newCodedProblem(http.StatusNotFound, "Not Found", "not_found", FirstValue(values))
 }
 func Conflict(values ...any) Problem {
-	return NewProblem(http.StatusConflict, "Conflict", FirstValue(values))
+	return newCodedProblem(http.StatusConflict, "Conflict", "conflict", FirstValue(values))
 }
 func PayloadTooLarge(values ...any) Problem {
-	return NewProblem(http.StatusRequestEntityTooLarge, "Payload Too Large", FirstValue(values))
+	return newCodedProblem(http.StatusRequestEntityTooLarge, "Payload Too Large", "payload_too_large", FirstValue(values))
 }
 func TooManyRequests(values ...any) Problem {
-	p := NewProblem(http.StatusTooManyRequests, "Too Many Requests", FirstValue(values))
+	p := newCodedProblem(http.StatusTooManyRequests, "Too Many Requests", "rate_limit_exceeded", FirstValue(values))
+	// Forced after construction so a passed-through Problem carries it too:
+	// this constructor answers with its own code whatever it was handed.
 	p.Code = "rate_limit_exceeded"
 	return p
 }
@@ -181,10 +192,11 @@ func RateLimited(rate RateLimit, values ...any) Problem {
 	return p
 }
 func ServiceUnavailable(values ...any) Problem {
-	return NewProblem(http.StatusServiceUnavailable, "Service Unavailable", FirstValue(values))
+	return newCodedProblem(http.StatusServiceUnavailable, "Service Unavailable", "service_unavailable", FirstValue(values))
 }
 func InternalServerError(values ...any) Problem {
-	p := NewProblem(http.StatusInternalServerError, "Internal Server Error", FirstValue(values))
+	p := newCodedProblem(http.StatusInternalServerError, "Internal Server Error", "internal", FirstValue(values))
+	// Forced after construction so a passed-through Problem carries it too.
 	p.Code = "internal"
 	return p
 }

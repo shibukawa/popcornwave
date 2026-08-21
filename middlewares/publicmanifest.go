@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 )
 
 // AssetRepresentation is one stored form of one public asset: a media type, an
@@ -66,10 +66,11 @@ type AssetEntry struct {
 // an unchanged asset costs a 304 and no body.
 const defaultCacheControl = "public, no-cache"
 
-var publicManifestState = struct {
-	sync.RWMutex
-	entries map[string]AssetEntry
-}{}
+// The table is written once from a generated init and read on every static
+// asset request — twice for a revisioned URL — so it travels through an atomic
+// pointer rather than under a lock: an RLock is still an atomic write on a
+// shared cache line.
+var publicManifestState atomic.Pointer[map[string]AssetEntry]
 
 // RegisterPublicManifest installs the build-produced description of the served
 // tree. A generated project file calls it during package initialization, beside
@@ -84,9 +85,7 @@ func RegisterPublicManifest(entries []AssetEntry) {
 		// clear rather than an early return is what lets a caller that
 		// installed a manifest put the process back, which only a test does:
 		// an application registers one table, once, from a generated init.
-		publicManifestState.Lock()
-		defer publicManifestState.Unlock()
-		publicManifestState.entries = nil
+		publicManifestState.Store(nil)
 		return
 	}
 	indexed := make(map[string]AssetEntry, len(entries))
@@ -99,25 +98,20 @@ func RegisterPublicManifest(entries []AssetEntry) {
 		})
 		indexed[entry.URL] = entry
 	}
-	publicManifestState.Lock()
-	defer publicManifestState.Unlock()
-	publicManifestState.entries = indexed
+	publicManifestState.Store(&indexed)
 }
 
 func manifestEntry(name string) (AssetEntry, bool) {
-	publicManifestState.RLock()
-	defer publicManifestState.RUnlock()
-	if publicManifestState.entries == nil {
+	entries := publicManifestState.Load()
+	if entries == nil {
 		return AssetEntry{}, false
 	}
-	entry, ok := publicManifestState.entries[name]
+	entry, ok := (*entries)[name]
 	return entry, ok
 }
 
 func manifestRegistered() bool {
-	publicManifestState.RLock()
-	defer publicManifestState.RUnlock()
-	return publicManifestState.entries != nil
+	return publicManifestState.Load() != nil
 }
 
 // selectRepresentation applies media-type negotiation and then content-coding

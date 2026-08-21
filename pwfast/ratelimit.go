@@ -128,6 +128,9 @@ type rateLimitFrame struct {
 // a parameter would be read as an ambiguous path and the request treated as
 // unexemptable.
 func (f rateLimitFrame) exempt(r *fasthttp.RequestCtx) bool {
+	if !f.limiter.HasExemptPaths() {
+		return false
+	}
 	path, ok := pathpattern.CanonicalPathOf(string(r.Path()), rawPath(r))
 	if !ok {
 		// An ambiguous path is counted rather than exempted. The limiter must

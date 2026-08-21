@@ -61,18 +61,27 @@ func WriteStream[T any](w http.ResponseWriter, r *http.Request, fn func(*Stream[
 // both.
 func SetStreamErrorHandler(fn func(error)) { tinybind.SetStreamErrorHandler(fn) }
 
+// supportedStreamAccept parses the header through the same allocation-free
+// iterator negotiateResponseCoding uses, because this runs per streamed
+// request and the split-then-lower version allocated three times to say yes.
 func supportedStreamAccept(r *http.Request) bool {
 	if r == nil {
 		return true
 	}
-	accept := strings.TrimSpace(strings.ToLower(r.Header.Get("Accept")))
+	accept := strings.TrimSpace(r.Header.Get("Accept"))
 	if accept == "" || accept == "*/*" {
 		return true
 	}
-	for _, item := range strings.Split(accept, ",") {
-		media := strings.TrimSpace(strings.SplitN(item, ";", 2)[0])
-		switch media {
-		case "*/*", "text/event-stream", "application/x-ndjson", "application/ndjson", "application/json", "application/jsonl":
+	for item := range splitSeq(accept, ',') {
+		media, _, _ := strings.Cut(item, ";")
+		media = strings.TrimSpace(media)
+		switch {
+		case media == "*/*",
+			strings.EqualFold(media, "text/event-stream"),
+			strings.EqualFold(media, "application/x-ndjson"),
+			strings.EqualFold(media, "application/ndjson"),
+			strings.EqualFold(media, "application/json"),
+			strings.EqualFold(media, "application/jsonl"):
 			return true
 		}
 	}

@@ -27,6 +27,14 @@ type state struct {
 	// value, so a request that carries no session state allocates neither.
 	values  []any
 	present []bool
+	// wire caches each record-placed slot's encoded payload, before any
+	// expiry stamp, indexed like values. collect re-encodes only the slots
+	// whose entry is nil: without it, one Slot.Set re-marshalled every
+	// present slot in the bucket, and a handler writing two slots marshalled
+	// the first one twice. A loaded slot's cached bytes also mean the bytes
+	// written back are the bytes that were read, rather than a re-encoding
+	// of the decoded value.
+	wire [][]byte
 	// detached carries the values of a WithValue state, which has no manager
 	// and therefore no frozen slot order to index.
 	detached map[reflect.Type]any
@@ -60,9 +68,13 @@ func (s *state) setSlotValue(entry *slot, value any) {
 	if s.values == nil {
 		s.values = make([]any, len(s.manager.slots))
 		s.present = make([]bool, len(s.manager.slots))
+		s.wire = make([][]byte, len(s.manager.slots))
 	}
 	s.values[entry.index] = value
 	s.present[entry.index] = true
+	// The cached encoding described the previous value; the next collect
+	// re-encodes this one.
+	s.wire[entry.index] = nil
 }
 
 func (s *state) clearSlotValue(entry *slot) {
@@ -71,6 +83,23 @@ func (s *state) clearSlotValue(entry *slot) {
 	}
 	s.values[entry.index] = nil
 	s.present[entry.index] = false
+	s.wire[entry.index] = nil
+}
+
+// setSlotWire records the payload the current value is known to encode to —
+// the bytes it was loaded from, or the bytes the last collect produced.
+func (s *state) setSlotWire(entry *slot, encoded []byte) {
+	if s.wire == nil {
+		return
+	}
+	s.wire[entry.index] = encoded
+}
+
+func (s *state) slotWire(entry *slot) []byte {
+	if s.wire == nil {
+		return nil
+	}
+	return s.wire[entry.index]
 }
 
 // cookie returns the value of one request cookie. An empty value reads as
@@ -329,13 +358,20 @@ func (s *state) collect(where bucket) (slotMap, error) {
 		if !ok {
 			continue
 		}
-		encoded, err := entry.encode(held)
-		if err != nil {
-			return nil, fmt.Errorf("slot %q: %w", entry.key, err)
+		encoded := s.slotWire(entry)
+		if encoded == nil {
+			fresh, err := entry.encode(held)
+			if err != nil {
+				return nil, fmt.Errorf("slot %q: %w", entry.key, err)
+			}
+			encoded = fresh
+			s.setSlotWire(entry, fresh)
 		}
 		if entry.expiry > 0 {
 			// A slot may die before the session that carries it, so it carries
-			// its own deadline inside the record.
+			// its own deadline inside the record. The stamp is applied per
+			// collect, over the cached payload, so the deadline keeps sliding
+			// exactly as it did when the slot was re-encoded each time.
 			encoded = stampSlot(now.Add(entry.expiry), encoded)
 		}
 		values[entry.key] = encoded
@@ -475,16 +511,25 @@ func (s *state) load() error {
 		return ErrNotFound
 	}
 
-	values := slotMap{}
+	// The common session holds one record, whose map is then read directly; a
+	// merged copy is built only when both placements answered.
+	var values slotMap
 	if anonOK {
 		s.record = anon
-		for key, encoded := range anon.Data {
-			values[key] = encoded
-		}
+		values = anon.Data
 	}
 	if serverOK {
 		s.record = server
 		_, s.promoted = server.Data[promotedMarker]
+		values = server.Data
+	}
+	if anonOK && serverOK {
+		values = make(slotMap, len(anon.Data)+len(server.Data))
+		for key, encoded := range anon.Data {
+			values[key] = encoded
+		}
+		// A value found on the server wins over a record cookie the browser
+		// may still be presenting.
 		for key, encoded := range server.Data {
 			values[key] = encoded
 		}
@@ -513,6 +558,10 @@ func (s *state) load() error {
 			continue
 		}
 		s.setSlotValue(entry, value)
+		// The bytes just decoded are the slot's encoding; a later flush of
+		// another slot in the bucket writes them back rather than
+		// re-marshalling the value.
+		s.setSlotWire(entry, encoded)
 	}
 	return nil
 }
@@ -602,11 +651,25 @@ func (s *state) renew(store Store[slotMap], ctx context.Context, hash string, re
 		// expiry there is nothing to clamp against.
 		idleExpiresAt = record.ExpiresAt
 	}
-	if err := store.Touch(ctx, hash, now, idleExpiresAt); err != nil {
+	if err := touchStore(store, ctx, hash, record, now, idleExpiresAt); err != nil {
 		return record, false
 	}
 	record.LastSeenAt = now
 	record.IdleExpiresAt = idleExpiresAt
 	s.manager.writeCookie(s.carrier, s.token, s.manager.deadlineOf(record))
 	return record, true
+}
+
+// touchStore renews through TouchRecord where the store offers it — the
+// renewal follows the Get that produced record, so a backend that can write
+// from it skips re-reading what this request just read — and through Touch
+// otherwise.
+func touchStore[T any](store Store[T], ctx context.Context, hash string, record Record[T], lastSeenAt, idleExpiresAt time.Time) error {
+	if toucher, ok := store.(RecordToucher[T]); ok {
+		handled, err := toucher.TouchRecord(ctx, hash, record, lastSeenAt, idleExpiresAt)
+		if handled {
+			return err
+		}
+	}
+	return store.Touch(ctx, hash, lastSeenAt, idleExpiresAt)
 }

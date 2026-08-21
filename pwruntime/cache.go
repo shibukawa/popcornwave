@@ -110,7 +110,7 @@ type CacheStore struct {
 	scoped  bool
 	timeout time.Duration
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	entries map[string]cacheEntry
 	// order approximates insertion age. Eviction pops from the front by moving
 	// head, and a key already removed keeps its slot and is skipped.
@@ -190,16 +190,25 @@ func (s *CacheStore) key(ctx context.Context, k CacheKey) (string, bool) {
 func (s *CacheStore) scopePrefix(scope string) string { return cachekeybind.KeyString(scope) }
 
 func (s *CacheStore) get(key string) (cacheEntry, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// The overwhelmingly common answer is a pure read — a hit, or a plain
+	// miss — so concurrent readers of one store share a read lock and only an
+	// entry past its stale deadline pays for the write lock that removes it.
+	s.mu.RLock()
 	entry, ok := s.entries[key]
+	s.mu.RUnlock()
 	if !ok {
 		return cacheEntry{}, false
 	}
 	// The stale deadline is the last moment this entry may answer at all. Past
 	// it the entry is gone, whether or not a revalidation ever ran.
 	if !s.now().Before(entry.stale) {
-		s.removeLocked(key)
+		s.mu.Lock()
+		// Re-read under the write lock: another goroutine may have removed or
+		// replaced the entry between the two acquisitions.
+		if current, still := s.entries[key]; still && !s.now().Before(current.stale) {
+			s.removeLocked(key)
+		}
+		s.mu.Unlock()
 		return cacheEntry{}, false
 	}
 	return entry, true

@@ -14,9 +14,7 @@ import (
 func manifestFixture(t *testing.T) fstest.MapFS {
 	t.Helper()
 	t.Cleanup(func() {
-		publicManifestState.Lock()
-		publicManifestState.entries = nil
-		publicManifestState.Unlock()
+		publicManifestState.Store(nil)
 	})
 	RegisterPublicManifest([]AssetEntry{
 		{URL: "img/logo.webp", Representations: []AssetRepresentation{

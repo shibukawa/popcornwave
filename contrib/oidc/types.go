@@ -96,6 +96,10 @@ type Provider struct {
 	fetchedAt                   time.Time
 	cacheExpiresAt              time.Time
 	staleExpiresAt              time.Time
+	// refreshing marks one in-flight background refresh, so a TTL expiry
+	// inside the stale window triggers a single fetch rather than one per
+	// concurrent verification. Guarded by mu.
+	refreshing bool
 }
 
 type providerOptions struct {
