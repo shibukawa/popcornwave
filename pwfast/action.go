@@ -46,8 +46,11 @@ func DispatchAction(r *fasthttp.RequestCtx, handler func(*fasthttp.RequestCtx)) 
 	headers := r.Response.Header.Len()
 	handler(r)
 	// fasthttp starts a response at 200, so a status still reading 200 is one
-	// the handler did not set rather than one it chose.
+	// the handler did not set rather than one it chose. A body stream counts as
+	// a body without being read: Response.Body would drain the stream to
+	// answer, which for a live subscription means consuming it entirely.
 	if r.Response.StatusCode() != fasthttp.StatusOK ||
+		r.Response.IsBodyStream() ||
 		len(r.Response.Body()) > 0 ||
 		r.Response.Header.Len() != headers {
 		return
