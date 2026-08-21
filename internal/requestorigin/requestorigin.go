@@ -73,6 +73,12 @@ func (p Proxies) Empty() bool { return len(p.networks) == 0 }
 // Trusts reports whether an address, with or without a port, falls inside the
 // set. An unparseable address is never trusted.
 func (p Proxies) Trusts(address string) bool {
+	// The empty set — every deployment with no proxy in front — answers
+	// before the address is parsed: this runs on every request, and parsing
+	// costs two allocations to reach an answer already known.
+	if len(p.networks) == 0 {
+		return false
+	}
 	ip := parseAddress(address)
 	if ip == nil {
 		return false
@@ -266,10 +272,21 @@ func parseAddress(address string) net.IP {
 
 // remoteHost strips a port and IPv6 brackets, leaving the address alone when
 // it carries neither.
+//
+// It splits by hand rather than through net.SplitHostPort, which allocates an
+// AddrError to say a bare address has no port — and a bare address is the
+// common case on every direct listener, once per request.
 func remoteHost(address string) string {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		host = address
+	if strings.HasPrefix(address, "[") {
+		if end := strings.IndexByte(address, ']'); end >= 0 {
+			return address[1:end]
+		}
 	}
-	return strings.Trim(host, "[]")
+	if colon := strings.LastIndexByte(address, ':'); colon >= 0 &&
+		strings.IndexByte(address, ':') == colon {
+		// Exactly one colon is host:port; more than one is a bare IPv6
+		// address, which keeps its colons.
+		return address[:colon]
+	}
+	return strings.Trim(address, "[]")
 }

@@ -24,12 +24,19 @@ func LifecycleHeaders(lifecycle Lifecycle) (func(http.Handler) http.Handler, err
 	if err != nil {
 		return nil, err
 	}
+	// Flattened once: the set is fixed at construction, and ranging the map
+	// and its value slices per request paid iteration for a known answer.
+	type headerLine struct{ name, value string }
+	var lines []headerLine
+	for name, values := range headers {
+		for _, value := range values {
+			lines = append(lines, headerLine{name: name, value: value})
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for name, values := range headers {
-				for _, value := range values {
-					w.Header().Add(name, value)
-				}
+			for _, line := range lines {
+				w.Header().Add(line.name, line.value)
 			}
 			next.ServeHTTP(w, r)
 		})

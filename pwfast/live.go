@@ -116,6 +116,9 @@ func runLiveStream(w *bufio.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 	if err != nil || w.Flush() != nil {
 		return
 	}
+	// One HMAC state serves every delivery of this stream rather than one per
+	// digest.
+	digester := pwruntime.NewLiveDigester(digestKey)
 	reason := pwruntime.LiveCloseDone
 	boundaries := map[string]struct{}{}
 	signalBytes := 0
@@ -171,7 +174,7 @@ func runLiveStream(w *bufio.Writer, wrappers []HTMLWrapper, leaf HTMLFragment,
 			}
 			boundaries[content.BoundaryID] = struct{}{}
 		}
-		digest := pwruntime.LiveDigest(digestKey, content.HTML)
+		digest := digester.Digest(content.HTML)
 		if digest != "" && onScreen[content.BoundaryID] == digest {
 			// This region is already showing these bytes. The watchdog still
 			// counts it: the source produced a value, so the stream is not idle.

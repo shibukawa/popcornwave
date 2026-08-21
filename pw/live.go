@@ -155,6 +155,9 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 	// a client name thirty-two boundaries and have the response close before it
 	// delivered any of them.
 	digestKey := liveDigestKey(config)
+	// One HMAC state serves every delivery of this stream rather than one per
+	// digest.
+	digester := pwruntime.NewLiveDigester(digestKey)
 	onScreen := parseLiveManifest(r.Header.Get(LiveManifestHeader), digestKey, liveManifestEntries(config))
 	// The head is known before the first delivery, so it rides the opening
 	// record rather than arriving after the markup that needs it. A chain whose
@@ -293,7 +296,7 @@ func serveLive(w http.ResponseWriter, r *http.Request, wrappers []HTMLWrapper, l
 			}
 			boundaries[content.BoundaryID] = struct{}{}
 		}
-		digest := liveDigest(digestKey, content.HTML)
+		digest := digester.Digest(content.HTML)
 		if digest != "" && onScreen[content.BoundaryID] == digest {
 			// This region is already showing these bytes. The client would
 			// discard the record on arrival, so the only thing sending it buys

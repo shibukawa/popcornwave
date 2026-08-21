@@ -83,6 +83,23 @@ func (s SpanContext) TraceFlags() byte   { return s.traceFlags }
 func (s SpanContext) TraceState() string { return s.traceState }
 func (s SpanContext) IsRemote() bool     { return s.remote }
 
+// AppendTraceParent appends the W3C traceparent field value for s to dst.
+//
+// It exists for the injection path, which runs on every outbound request of a
+// traced client: rendering through the string accessors allocated a hex string
+// per identifier before the field was even assembled.
+func (s SpanContext) AppendTraceParent(dst []byte) []byte {
+	var encoded [32]byte
+	dst = append(dst, '0', '0', '-')
+	hex.Encode(encoded[:], s.traceID[:])
+	dst = append(dst, encoded[:]...)
+	dst = append(dst, '-')
+	hex.Encode(encoded[:16], s.spanID[:])
+	dst = append(dst, encoded[:16]...)
+	const digits = "0123456789abcdef"
+	return append(dst, '-', digits[s.traceFlags>>4], digits[s.traceFlags&0xf])
+}
+
 type contextKey struct{}
 type contextValue struct {
 	spanContext SpanContext

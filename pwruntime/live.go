@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"hash"
 	"io"
 	"math/big"
 	"strconv"
@@ -194,12 +195,38 @@ func AdmitLive(key string, maximum int) (func(), bool) {
 // stale rendering, and ninety-six bits is far past where that becomes the
 // system's most likely failure.
 func LiveDigest(key, html []byte) string {
+	return NewLiveDigester(key).Digest(html)
+}
+
+// LiveDigester is LiveDigest with the HMAC state built once and reset between
+// records. A stream digests every boundary it sends, and each hmac.New
+// allocates two SHA-256 states plus the key pads, so the loop that owns a
+// response builds one of these instead. It is single-goroutine, like that
+// loop.
+type LiveDigester struct {
+	mac hash.Hash
+	sum [sha256.Size]byte
+}
+
+// NewLiveDigester returns a digester over key, or nil for a nil key — the
+// same "suppression off" answer LiveDigest gives, which Digest keeps by
+// answering the empty string on a nil receiver.
+func NewLiveDigester(key []byte) *LiveDigester {
 	if key == nil {
+		return nil
+	}
+	return &LiveDigester{mac: hmac.New(sha256.New, key)}
+}
+
+// Digest is the validator of one delivery, from the reused state.
+func (d *LiveDigester) Digest(html []byte) string {
+	if d == nil {
 		return ""
 	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write(html)
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil)[:12])
+	d.mac.Reset()
+	d.mac.Write(html)
+	sum := d.mac.Sum(d.sum[:0])
+	return base64.RawURLEncoding.EncodeToString(sum[:12])
 }
 
 // LiveDigestKey keys the delivery validators, or reports nil where suppression

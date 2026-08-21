@@ -477,8 +477,12 @@ func bucketOf(bounds []float64, value float64) int {
 //
 // The set is sorted by key so that two callers passing the same attributes in
 // different orders reach one series. One short string is built per recording;
-// that is the cost of an attribute set that is not known until the call, and it
-// is the place to look first if a hot path ever needs to be cheaper.
+// that is the cost of an attribute set that is not known until the call.
+//
+// The ordering is an insertion sort over indices in a stack array rather than
+// sort.Slice, which allocates a reflect-built swapper per call — and this runs
+// several times per request through the HTTP metrics frames. The builder is
+// grown to the exact size, so the one allocation left is the key itself.
 func attributeKey(attributes []otel.Attribute) string {
 	switch len(attributes) {
 	case 0:
@@ -486,16 +490,30 @@ func attributeKey(attributes []otel.Attribute) string {
 	case 1:
 		return attributes[0].Key + "\x00" + attributeValue(attributes[0])
 	}
-	ordered := make([]int, len(attributes))
-	for index := range attributes {
-		ordered[index] = index
+	const stackSize = 16
+	var indexStack [stackSize]int
+	var valueStack [stackSize]string
+	ordered, values := indexStack[:len(attributes)], valueStack[:len(attributes)]
+	if len(attributes) > stackSize {
+		ordered, values = make([]int, len(attributes)), make([]string, len(attributes))
 	}
-	sort.Slice(ordered, func(a, b int) bool { return attributes[ordered[a]].Key < attributes[ordered[b]].Key })
+	size := 0
+	for index, attribute := range attributes {
+		values[index] = attributeValue(attribute)
+		size += len(attribute.Key) + len(values[index]) + 2
+		position := index
+		for position > 0 && attributes[ordered[position-1]].Key > attribute.Key {
+			ordered[position] = ordered[position-1]
+			position--
+		}
+		ordered[position] = index
+	}
 	var builder strings.Builder
+	builder.Grow(size)
 	for _, index := range ordered {
 		builder.WriteString(attributes[index].Key)
 		builder.WriteByte(0)
-		builder.WriteString(attributeValue(attributes[index]))
+		builder.WriteString(values[index])
 		builder.WriteByte(0)
 	}
 	return builder.String()

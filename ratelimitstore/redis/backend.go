@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -116,9 +117,15 @@ func (c *Counter) Increment(ctx context.Context, key string, window time.Duratio
 		return 0, errors.New("ratelimit.redis: window must be positive")
 	}
 	// The window's own start instant names the bucket, so a key rolls over on
-	// its own and a stale one expires without anyone sweeping it.
+	// its own and a stale one expires without anyone sweeping it. Built by
+	// append rather than through fmt: this runs on every rate-limited request.
 	bucket := time.Now().Truncate(window).UnixMilli()
-	full := fmt.Sprintf("%s%s:%d", c.prefix, key, bucket)
+	built := make([]byte, 0, len(c.prefix)+len(key)+21)
+	built = append(built, c.prefix...)
+	built = append(built, key...)
+	built = append(built, ':')
+	built = strconv.AppendInt(built, bucket, 10)
+	full := string(built)
 	pipeline := c.client.Pipeline()
 	incremented := pipeline.Incr(ctx, full)
 	// A margin over the window so a counter outlives the requests reading it

@@ -73,6 +73,11 @@ func (l *Limiter) Exempt(path string) bool {
 	return pathpattern.MatchAny(l.exemptPaths, path)
 }
 
+// HasExemptPaths reports whether Exempt can ever answer true, so a transport
+// can skip canonicalising a path the limiter would not consult. Most limiter
+// configurations carve nothing out, and this runs on every request.
+func (l *Limiter) HasExemptPaths() bool { return len(l.exemptPaths) > 0 }
+
 // Identity resolves the bucket key and the count that governs it.
 //
 // One bucket, two counts: the population differs, since an authenticated caller

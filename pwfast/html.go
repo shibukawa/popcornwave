@@ -1,7 +1,9 @@
 package pwfast
 
 import (
+	"bytes"
 	"strings"
+	"sync"
 
 	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/tinybind-go/htmlbind"
@@ -25,7 +27,7 @@ func WriteHTML(r *fasthttp.RequestCtx, leaf HTMLFragment) {
 // code calls: that code knows the ancestor layouts of a route and must not name
 // the document, which stays the framework's.
 func WriteHTMLPage(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFragment, options ...HTMLOption) {
-	WriteHTMLChain(r, append(pwruntime.RegisteredHTMLDocument(), wrappers...), leaf, options...)
+	WriteHTMLChain(r, pwruntime.RegisteredHTMLDocumentWith(wrappers), leaf, options...)
 }
 
 // WriteHTMLChain renders generated wrappers around one leaf.
@@ -49,8 +51,9 @@ func WriteHTMLChain(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFra
 	if ServeLive(r, wrappers, leaf, options...) {
 		return
 	}
-	var body []byte
-	buffer := bytesWriter{buf: &body}
+	body := getRenderBuffer()
+	defer putRenderBuffer(body)
+	buffer := bytesWriter{buf: body}
 	if err := htmlbind.RenderChain(&buffer, wrappers, leaf, options...); err != nil {
 		WriteProblem(r, err)
 		return
@@ -59,14 +62,15 @@ func WriteHTMLChain(r *fasthttp.RequestCtx, wrappers []HTMLWrapper, leaf HTMLFra
 	writeChainCachePolicy(r, wrappers, leaf)
 	r.Response.Header.SetContentType(htmlContentType)
 	r.SetStatusCode(fasthttp.StatusOK)
-	_, _ = r.Write(body)
+	_, _ = r.Write(*body)
 }
 
 // WriteHTMLFragment renders one fragment with no document around it, for a
 // response that replaces a region of a page the client already has.
 func WriteHTMLFragment(r *fasthttp.RequestCtx, fragment HTMLFragment) {
-	var body []byte
-	buffer := bytesWriter{buf: &body}
+	body := getRenderBuffer()
+	defer putRenderBuffer(body)
+	buffer := bytesWriter{buf: body}
 	if err := htmlbind.Render(&buffer, fragment); err != nil {
 		WriteProblem(r, err)
 		return
@@ -82,7 +86,29 @@ func WriteHTMLFragment(r *fasthttp.RequestCtx, fragment HTMLFragment) {
 	}
 	r.Response.Header.SetContentType(htmlContentType)
 	r.SetStatusCode(fasthttp.StatusOK)
-	_, _ = r.Write(body)
+	_, _ = r.Write(*body)
+}
+
+// renderBuffers recycles the slices a buffered render accumulates into, so a
+// page render regrows no buffer from nothing. Returning the bytes is safe
+// because r.Write copies them into the response body. An outlier beyond the
+// cap is dropped rather than kept alive for the life of the pool, matching
+// the other transport's body pool.
+var renderBuffers = sync.Pool{New: func() any { buffer := make([]byte, 0, 4096); return &buffer }}
+
+const maxPooledRenderBytes = 1 << 20
+
+func getRenderBuffer() *[]byte {
+	buffer := renderBuffers.Get().(*[]byte)
+	*buffer = (*buffer)[:0]
+	return buffer
+}
+
+func putRenderBuffer(buffer *[]byte) {
+	if cap(*buffer) > maxPooledRenderBytes {
+		return
+	}
+	renderBuffers.Put(buffer)
 }
 
 // bytesWriter collects a render before anything is committed.
@@ -143,21 +169,25 @@ func varyOnDeclaredAxes(r *fasthttp.RequestCtx, axes []string) {
 
 // addVaryHeader adds one axis unless it is already covered. A Vary of * subsumes
 // every axis there could be, so nothing is added beside it.
+//
+// The existing lines come from PeekAll rather than a header walk: this runs
+// once per declared axis of every rendered page, and visiting every response
+// header — with a string per name and a split per Vary line — paid a full walk
+// for each axis.
 func addVaryHeader(r *fasthttp.RequestCtx, value string) {
-	present := false
-	r.Response.Header.VisitAll(func(name, line []byte) {
-		if present || !strings.EqualFold(string(name), "Vary") {
-			return
-		}
-		for _, existing := range strings.Split(string(line), ",") {
-			existing = strings.TrimSpace(existing)
-			if existing == "*" || strings.EqualFold(existing, value) {
-				present = true
+	for _, line := range r.Response.Header.PeekAll("Vary") {
+		for len(line) > 0 {
+			var entry []byte
+			if comma := bytes.IndexByte(line, ','); comma >= 0 {
+				entry, line = line[:comma], line[comma+1:]
+			} else {
+				entry, line = line, nil
+			}
+			entry = bytes.TrimSpace(entry)
+			if string(entry) == "*" || strings.EqualFold(string(entry), value) {
 				return
 			}
 		}
-	})
-	if !present {
-		r.Response.Header.Add("Vary", value)
 	}
+	r.Response.Header.Add("Vary", value)
 }

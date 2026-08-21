@@ -65,12 +65,14 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 		runtimeCookie.Name = pwruntime.CSRFCookieName
 	}
 	secrets := &csrfSecret{cookie: runtimeCookie, sameSite: sameSite, ttl: ttl}
+	if !config.Enabled {
+		// Decided here rather than per request: a project with CSRF off gets
+		// the chain unchanged instead of a frame that answers the same way on
+		// every request.
+		return func(next http.Handler) http.Handler { return next }, nil
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !config.Enabled {
-				next.ServeHTTP(w, r)
-				return
-			}
 			if safeMethod(r.Method) {
 				// Only an HTML response needs a token to render an unsafe form.
 				// API reads and asset requests stay session-free.

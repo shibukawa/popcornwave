@@ -22,6 +22,23 @@ func Metrics(metrics *pwruntime.Metrics) Middleware {
 	if metrics == nil || metrics.RequestDuration == nil {
 		return func(next http.Handler) http.Handler { return next }
 	}
+	// The concurrency attributes have tiny cardinality — a handful of methods
+	// against two schemes — and are identical for every request of one pair,
+	// so they are built once here and looked up rather than allocated twice
+	// per request. The map is never written again, so the lookup needs no lock.
+	type methodScheme struct{ method, scheme string }
+	activeFor := map[methodScheme][]otel.Attribute{}
+	for _, method := range []string{
+		http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut,
+		http.MethodPatch, http.MethodDelete, http.MethodOptions,
+	} {
+		for _, scheme := range []string{"http", "https"} {
+			activeFor[methodScheme{method, scheme}] = []otel.Attribute{
+				otel.String("http.request.method", method),
+				otel.String("url.scheme", scheme),
+			}
+		}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
@@ -29,9 +46,12 @@ func Metrics(metrics *pwruntime.Metrics) Middleware {
 			// Concurrency is counted around the whole chain, so a request still
 			// running is still counted; the decrement is deferred rather than
 			// written after the call because a panic must not leak a count.
-			active := []otel.Attribute{
-				otel.String("http.request.method", r.Method),
-				otel.String("url.scheme", scheme),
+			active, known := activeFor[methodScheme{r.Method, scheme}]
+			if !known {
+				active = []otel.Attribute{
+					otel.String("http.request.method", r.Method),
+					otel.String("url.scheme", scheme),
+				}
 			}
 			metrics.ActiveRequests.Add(r.Context(), 1, active...)
 			rw, ok := w.(*ResponseTracker)
