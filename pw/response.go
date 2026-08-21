@@ -125,6 +125,13 @@ func sanitizedProblem(p Problem) Problem {
 	if p.Status < 500 {
 		return p
 	}
+	// Title is reset too, matching the net/http ErrorHandler: a hand-built 5xx
+	// carrying a sensitive custom title (an internal hostname, a DSN) must not
+	// survive to the client's error page any more than Message does.
+	p.Title = http.StatusText(p.Status)
+	if p.Title == "" {
+		p.Title = "Internal Server Error"
+	}
 	p.Message = "internal error"
 	p.Code = "internal"
 	p.Fields = nil

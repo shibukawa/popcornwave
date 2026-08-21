@@ -770,8 +770,11 @@ func TestLiveDigestIsAbsentWithoutAKey(t *testing.T) {
 // one deployment still compares. Without one the process key stands in, and the
 // suppression narrows to a reconnect that returns to the same process.
 func TestLiveDigestKeyPrefersTheConfiguredOne(t *testing.T) {
-	configured := liveDigestKey(HTMLConfig{Update: HTMLUpdateConfig{ValidatorKey: "shared"}})
-	if string(configured) != "shared" {
+	// A key with enough material is used verbatim. This one is not valid base64
+	// (the '!' is outside every alphabet), so it is measured as its raw bytes.
+	const longKey = "a-very-long-live-digest-validator-key!"
+	configured := liveDigestKey(HTMLConfig{Update: HTMLUpdateConfig{ValidatorKey: longKey}})
+	if string(configured) != longKey {
 		t.Errorf("key = %q, want the configured one", configured)
 	}
 	first := liveDigestKey(HTMLConfig{})
@@ -782,8 +785,15 @@ func TestLiveDigestKeyPrefersTheConfiguredOne(t *testing.T) {
 	if string(first) != string(second) {
 		t.Error("the fallback key differs between calls in one process")
 	}
-	if string(first) == "shared" {
+	if string(first) == longKey {
 		t.Error("the fallback key is the configured one")
+	}
+	// A configured key too short to key anything is treated as absent and falls
+	// back to the random per-process key rather than keying digests weakly, the
+	// same floor validateUpdateConfig enforces at startup.
+	short := liveDigestKey(HTMLConfig{Update: HTMLUpdateConfig{ValidatorKey: "shared"}})
+	if string(short) != string(first) {
+		t.Errorf("a short key was used instead of the process fallback: %q", short)
 	}
 }
 

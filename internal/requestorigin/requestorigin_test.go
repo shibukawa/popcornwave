@@ -79,6 +79,27 @@ func TestMatchesAcceptsADeclaredOrigin(t *testing.T) {
 	}
 }
 
+func TestMatchesFoldsHostCase(t *testing.T) {
+	// Host is case-insensitive, so a configured origin with an uppercase host
+	// must still match a browser's always-lowercase Origin rather than silently
+	// locking the partner out.
+	trusted := Set("https://Partner.Example")
+	if !trusted["https://partner.example"] {
+		t.Fatalf("configured host was not lowercased: %v", trusted)
+	}
+	if !Matches(request(false, "Origin", "https://partner.example"), trusted) {
+		t.Fatal("a lowercase browser Origin did not match an uppercase configured origin")
+	}
+	// A mixed-case Origin (however unusual) also folds to the same decision.
+	if !Matches(request(false, "Origin", "https://Partner.Example"), trusted) {
+		t.Fatal("a mixed-case Origin was not folded to the trusted one")
+	}
+	// Folding cannot make an undeclared origin match one that is declared.
+	if Matches(request(false, "Origin", "https://attacker.example"), trusted) {
+		t.Fatal("case folding admitted an undeclared origin")
+	}
+}
+
 func TestSetNormalizesAndDropsUnusable(t *testing.T) {
 	trusted := Set("https://app.example/login?x=1", " https://spaced.example ", "app.example", "", "https://")
 	if !trusted["https://app.example"] {

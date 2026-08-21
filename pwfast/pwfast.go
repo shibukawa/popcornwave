@@ -147,6 +147,10 @@ func WriteProblem(r *fasthttp.RequestCtx, err error) {
 		problem.Title = http.StatusText(problem.Status)
 	}
 	if problem.Status >= 500 {
+		problem.Title = http.StatusText(problem.Status)
+		if problem.Title == "" {
+			problem.Title = "Internal Server Error"
+		}
 		problem.Message = "internal error"
 		problem.Code = "internal"
 		problem.Fields = nil

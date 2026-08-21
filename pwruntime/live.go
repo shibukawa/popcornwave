@@ -206,11 +206,35 @@ func LiveDigest(key, html []byte) string {
 // has to be off. A configured validator key is used where there is one, and a
 // per-process key otherwise, so suppression works in a single-instance
 // deployment that configured nothing.
+//
+// A configured key carrying fewer than 32 bytes of material is treated as if it
+// were absent and the random per-process key is used instead. The digest keeps
+// a proxy or log observer from enumerating a low-entropy live region by its
+// digest, and a guessable key is no key at all — so a short one must not key it,
+// even on the Live-without-Update path where the startup floor does not run.
 func LiveDigestKey(configured string) []byte {
-	if configured != "" {
+	if DigestKeyMaterial(configured) >= 32 {
 		return []byte(configured)
 	}
 	return processDigestKey()
+}
+
+// DigestKeyMaterial measures the key material a configured validator key
+// carries: a base64 value counts as its decoded length, anything else as its
+// raw bytes. It is the one measure both the startup floor and LiveDigestKey use,
+// so the two cannot drift on what counts as long enough.
+func DigestKeyMaterial(configured string) int {
+	if configured == "" {
+		return 0
+	}
+	for _, encoding := range []*base64.Encoding{
+		base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding,
+	} {
+		if decoded, err := encoding.DecodeString(configured); err == nil {
+			return len(decoded)
+		}
+	}
+	return len(configured)
 }
 
 // processDigestKey is this process's fallback key. A nil result turns

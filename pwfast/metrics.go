@@ -50,11 +50,12 @@ func Metrics(metrics *pwruntime.Metrics) Middleware {
 	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 		return func(r *fasthttp.RequestCtx) {
 			started := time.Now()
-			scheme := string(r.URI().Scheme())
-			if scheme == "" {
-				scheme = "http"
-			}
-			method := string(r.Method())
+			// Both labels are bounded before they reach an instrument: the method
+			// is folded onto the semconv verb set and the scheme onto {http,https},
+			// so a client cannot mint unbounded metric series with arbitrary method
+			// tokens or a crafted scheme.
+			scheme := pwruntime.NormalizeScheme(string(r.URI().Scheme()))
+			method := pwruntime.NormalizeHTTPMethod(string(r.Method()))
 			active := []otel.Attribute{
 				otel.String("http.request.method", method),
 				otel.String("url.scheme", scheme),

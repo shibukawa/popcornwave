@@ -37,6 +37,13 @@ func registeredHTMLErrorPage() HTMLErrorPage { return pwruntime.RegisteredHTMLEr
 // The status went out with the shell, so this changes only what a reader sees.
 // The failure reaches an operator through Logger, never through the status line.
 func writeDocumentEscalation(w io.Writer, problem Problem) error {
+	// The application error page is handed the sanitized, environment-bounded
+	// problem, never the raw internal cause — the same reduction writeHTMLProblem
+	// applies. Without it a triggerable boundary failure (a driver error, an
+	// internal hostname, a panic message) would be swapped into the already
+	// committed document and returned to the client. builtinErrorPage carries
+	// Status and Title only, so the fallback branch is unaffected either way.
+	problem = publicProblem(sanitizedProblem(problem))
 	var body bytes.Buffer
 	if resolve := registeredHTMLErrorPage(); resolve != nil {
 		fragment := resolve(problem)

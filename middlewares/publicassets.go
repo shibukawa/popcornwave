@@ -143,7 +143,7 @@ func PublicAssets(config PublicAssetConfig, embedded fs.FS) (Middleware, error) 
 				return
 			}
 			if !publicDevelopment {
-				w.Header().Set("Vary", "Accept-Encoding")
+				appendVary(w.Header(), "Accept-Encoding")
 			}
 			representation, rank, acceptable := selectPublicRepresentation(r, resolved.asset)
 			if !acceptable {
@@ -182,7 +182,7 @@ func servePublicManifest(w http.ResponseWriter, r *http.Request, name string, em
 		return
 	}
 	header := w.Header()
-	header.Set("Vary", varyForEntry(entry))
+	appendVary(header, strings.Split(varyForEntry(entry), ",")...)
 	representation, acceptable := selectRepresentation(entry, r.Header.Values("Accept"), r.Header.Values("Accept-Encoding"))
 	if !acceptable {
 		http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
@@ -290,6 +290,46 @@ func reportMissingExternal(ctx context.Context, name string) {
 	}
 	pwruntime.ReadLogger(ctx).Error("external public asset named by the manifest is not readable",
 		pwruntime.String("asset", name), pwruntime.String("root", externalPublicRoot))
+}
+
+// appendVary folds each token into one Vary header without discarding what an
+// outer layer already set. The CORS frame adds Vary: Origin, and a plain Set
+// here would clobber it — a shared cache would then key a per-origin response
+// without Origin and serve it to another origin. Existing tokens are kept, each
+// token appears once, and a Vary of * subsumes everything so it stands alone.
+func appendVary(header http.Header, tokens ...string) {
+	seen := make(map[string]bool)
+	var combined []string
+	add := func(token string) bool {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			return false
+		}
+		if token == "*" {
+			header.Set("Vary", "*")
+			return true
+		}
+		if key := strings.ToLower(token); !seen[key] {
+			seen[key] = true
+			combined = append(combined, token)
+		}
+		return false
+	}
+	for _, line := range header.Values("Vary") {
+		for _, existing := range strings.Split(line, ",") {
+			if add(existing) {
+				return
+			}
+		}
+	}
+	for _, token := range tokens {
+		if add(token) {
+			return
+		}
+	}
+	if len(combined) > 0 {
+		header.Set("Vary", strings.Join(combined, ", "))
+	}
 }
 
 // varyForEntry names only the headers that can actually change the answer, so a
@@ -653,6 +693,18 @@ func (r *resolvedPublicAsset) Asset() publicAsset { return r.asset }
 
 // ContentType is the media type this asset is sent as.
 func (r *resolvedPublicAsset) ContentType() string { return r.contentType }
+
+// Mismatch is the reason this file must not be served — its bytes contradict
+// its extension — and empty when it is servable. A second transport reads it to
+// apply the same refusal the net/http path does rather than serving a
+// mislabelled file.
+func (r *resolvedPublicAsset) Mismatch() string { return r.mismatch }
+
+// ReportPublicMismatch logs a content/extension mismatch once per asset, so a
+// second transport reports it the same way the net/http path does.
+func ReportPublicMismatch(ctx context.Context, name, reason string) {
+	reportPublicMismatch(ctx, name, reason)
+}
 
 // ETag is the validator for one coding rank, or for the identity
 // representation when rank is negative.
