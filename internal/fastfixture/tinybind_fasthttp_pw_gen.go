@@ -23,8 +23,9 @@ func decodeGreetingBytes(data []byte) (Greeting, error) {
 		var out Greeting
 		return out, nil
 	}
-	p := jsonbind.NewParser(data)
-	out, err := decodeGreetingJSON(p)
+	var p jsonbind.Parser
+	p.Reset(data)
+	out, err := decodeGreetingJSON(&p)
 	if err != nil {
 		return out, err
 	}
@@ -67,36 +68,71 @@ func bindGreeting(r *fasthttp.RequestCtx) (Greeting, error) {
 	var out Greeting
 	var presentName bool
 	queryVals := httpbind.Queries(r)
-	var jsonBody *jsonbind.Object
-	var formBody map[string]string
-	var bodyRead bool
-	readBody := func() error {
-		if bodyRead {
-			return nil
-		}
-		bodyRead = true
-		var err error
-		jsonBody, formBody, _, err = httpbind.ReadBody(r, true, false)
-		return err
-	}
+	needName := true
 	if qv, ok := httpbind.QueryLookup(queryVals, "name"); ok {
+		needName = false
 		presentName = true
 		out.Name = qv
-	} else {
-		if err := readBody(); err != nil {
-			return out, err
-		}
-		if raw, ok := jsonBody.Get("name"); ok {
-			presentName = true
-			v, err := jsonbind.DecodeJSONString(raw)
+	}
+	if needName {
+		if httpbind.IsJSONRequest(r) {
+			data, err := httpbind.ReadJSONBody(r)
 			if err != nil {
-				return out, jsonbind.FieldError("name", "invalid string", err)
+				return out, err
 			}
-			out.Name = v
-		} else if formBody != nil {
-			if fv, ok := formBody["name"]; ok {
-				presentName = true
-				out.Name = fv
+			if !jsonbind.IsBlank(data) {
+				var bodyParser jsonbind.Parser
+				bodyParser.Reset(data)
+				p := &bodyParser
+				null, err := p.ObjectStart()
+				if err != nil {
+					return out, httpbind.JSONBodyError(err)
+				}
+				if null {
+					return out, httpbind.JSONBodyNotObject()
+				}
+				for n := 0; ; n++ {
+					key, ok, err := p.ObjectKey(n)
+					if err != nil {
+						return out, httpbind.JSONBodyError(err)
+					}
+					if !ok {
+						break
+					}
+					switch string(key) {
+					case "name":
+						if !needName {
+							if err := p.SkipValue(); err != nil {
+								return out, httpbind.JSONBodyError(err)
+							}
+							continue
+						}
+						presentName = true
+						v, err := p.String()
+						if err != nil {
+							return out, jsonbind.FieldError("name", "invalid string", err)
+						}
+						out.Name = v
+					default:
+						if err := p.SkipValue(); err != nil {
+							return out, httpbind.JSONBodyError(err)
+						}
+					}
+				}
+				if err := p.End(); err != nil {
+					return out, httpbind.JSONBodyError(err)
+				}
+			}
+		} else {
+			formBody, _, err := httpbind.ReadFormBody(r, true, false)
+			if err != nil {
+				return out, err
+			}
+			if needName && formBody != nil {
+				if fv, ok := formBody["name"]; ok {
+					presentName = true
+					out.Name = fv
+				}
 			}
 		}
 	}

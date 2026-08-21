@@ -14,6 +14,7 @@ func init() {
 	httpbind.RegisterBind[renameRequest](bindrenameRequest)
 	httpbind.RegisterWrite[renameResponse](writerenameResponse)
 	jsonbind.RegisterEncode[Profile](encodeProfile)
+	jsonbind.RegisterAppend[Profile](appendProfileJSON)
 	jsonbind.RegisterDecode[actionProfileInput](decodeactionProfileInputBytes)
 }
 
@@ -22,8 +23,9 @@ func decoderenameRequestBytes(data []byte) (renameRequest, error) {
 		var out renameRequest
 		return out, nil
 	}
-	p := jsonbind.NewParser(data)
-	out, err := decoderenameRequestJSON(p)
+	var p jsonbind.Parser
+	p.Reset(data)
+	out, err := decoderenameRequestJSON(&p)
 	if err != nil {
 		return out, err
 	}
@@ -66,36 +68,71 @@ func bindrenameRequest(r *http.Request) (renameRequest, error) {
 	var out renameRequest
 	var presentName bool
 	queryVals := httpbind.Queries(r)
-	var jsonBody *jsonbind.Object
-	var formBody map[string]string
-	var bodyRead bool
-	readBody := func() error {
-		if bodyRead {
-			return nil
-		}
-		bodyRead = true
-		var err error
-		jsonBody, formBody, _, err = httpbind.ReadBody(r, true, false)
-		return err
-	}
+	needName := true
 	if qv, ok := httpbind.QueryLookup(queryVals, "name"); ok {
+		needName = false
 		presentName = true
 		out.Name = qv
-	} else {
-		if err := readBody(); err != nil {
-			return out, err
-		}
-		if raw, ok := jsonBody.Get("name"); ok {
-			presentName = true
-			v, err := jsonbind.DecodeJSONString(raw)
+	}
+	if needName {
+		if httpbind.IsJSONRequest(r) {
+			data, err := httpbind.ReadJSONBody(r)
 			if err != nil {
-				return out, jsonbind.FieldError("name", "invalid string", err)
+				return out, err
 			}
-			out.Name = v
-		} else if formBody != nil {
-			if fv, ok := formBody["name"]; ok {
-				presentName = true
-				out.Name = fv
+			if !jsonbind.IsBlank(data) {
+				var bodyParser jsonbind.Parser
+				bodyParser.Reset(data)
+				p := &bodyParser
+				null, err := p.ObjectStart()
+				if err != nil {
+					return out, httpbind.JSONBodyError(err)
+				}
+				if null {
+					return out, httpbind.JSONBodyNotObject()
+				}
+				for n := 0; ; n++ {
+					key, ok, err := p.ObjectKey(n)
+					if err != nil {
+						return out, httpbind.JSONBodyError(err)
+					}
+					if !ok {
+						break
+					}
+					switch string(key) {
+					case "name":
+						if !needName {
+							if err := p.SkipValue(); err != nil {
+								return out, httpbind.JSONBodyError(err)
+							}
+							continue
+						}
+						presentName = true
+						v, err := p.String()
+						if err != nil {
+							return out, jsonbind.FieldError("name", "invalid string", err)
+						}
+						out.Name = v
+					default:
+						if err := p.SkipValue(); err != nil {
+							return out, httpbind.JSONBodyError(err)
+						}
+					}
+				}
+				if err := p.End(); err != nil {
+					return out, httpbind.JSONBodyError(err)
+				}
+			}
+		} else {
+			formBody, _, err := httpbind.ReadFormBody(r, true, false)
+			if err != nil {
+				return out, err
+			}
+			if needName && formBody != nil {
+				if fv, ok := formBody["name"]; ok {
+					presentName = true
+					out.Name = fv
+				}
 			}
 		}
 	}
@@ -157,8 +194,9 @@ func decodeactionProfileInputBytes(data []byte) (actionProfileInput, error) {
 		var out actionProfileInput
 		return out, nil
 	}
-	p := jsonbind.NewParser(data)
-	out, err := decodeactionProfileInputJSON(p)
+	var p jsonbind.Parser
+	p.Reset(data)
+	out, err := decodeactionProfileInputJSON(&p)
 	if err != nil {
 		return out, err
 	}
