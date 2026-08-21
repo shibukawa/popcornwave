@@ -103,7 +103,11 @@ func TestUnsupportedParameterTypesAreListedButNotRunnable(t *testing.T) {
 	if odd.supported() {
 		t.Errorf("oddParams = %+v, want it reported as unsupported", odd)
 	}
-	source := queryRegistration([]declaredQuery{odd})
+	generated, err := queryRegistration([]declaredQuery{odd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(generated)
 	if !strings.Contains(source, "ErrUnsupportedParams") {
 		t.Errorf("registration should report why it cannot run:\n%s", source)
 	}
@@ -113,7 +117,11 @@ func TestUnsupportedParameterTypesAreListedButNotRunnable(t *testing.T) {
 }
 
 func TestRegistrationConvertsEachArgumentAndNamesIt(t *testing.T) {
-	source := queryRegistration([]declaredQuery{scanQueries(t)["searchExample"]})
+	generated, err := queryRegistration([]declaredQuery{scanQueries(t)["searchExample"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(generated)
 	if !strings.HasPrefix(source, "//go:build pwdev\n") {
 		t.Error("the registration is not constrained to the development build mode")
 	}

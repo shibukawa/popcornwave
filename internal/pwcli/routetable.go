@@ -3,6 +3,7 @@ package pwcli
 import (
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/shibukawa/popcornweb/internal/pwgen"
 	"github.com/shibukawa/popcornweb/internal/pwroutes"
@@ -18,6 +19,9 @@ import (
 // that is not producing a table, which is every call that is not a whole-project
 // generation.
 type routeCollector struct {
+	// mu admits the concurrent adds a parallel stage produces. The order of
+	// arrival does not reach the output: table() sorts.
+	mu      sync.Mutex
 	root    string
 	entries []pwroutes.Entry
 	// unresolved holds the registration calls the analysis could not read a
@@ -37,6 +41,8 @@ func (c *routeCollector) add(directory string, result *parser.Result) {
 		return
 	}
 	_ = directory
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, route := range result.Routes {
 		site := c.siteOf(route.Site.File, route.Site.Line, route.Site.Column)
 		// A package reached through more than one purpose is analyzed more
@@ -75,6 +81,8 @@ func (c *routeCollector) addPage(pattern, page string) {
 	if c == nil {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.entries = append(c.entries, pwroutes.Entry{
 		Pattern: pattern,
 		Origin:  pwroutes.OriginPage,
@@ -89,6 +97,8 @@ func (c *routeCollector) addMount(pattern, enabledBy string) {
 	if c == nil {
 		return
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.entries = append(c.entries, pwroutes.Entry{
 		Pattern: pattern, Origin: pwroutes.OriginFramework, EnabledBy: enabledBy,
 	})
