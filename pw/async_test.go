@@ -458,6 +458,35 @@ func TestBufferedUnrecoveredBoundaryRendersTheErrorPage(t *testing.T) {
 	}
 }
 
+// A streamed unrecovered boundary must hand the application error page the
+// sanitized problem, never the raw internal cause. The buffered and fasthttp
+// paths already reduce it; this holds the streaming path to the same rule. The
+// default scaffolded page renders Message, so a page that renders Message here
+// must not surface the driver or Go error text.
+func TestStreamedErrorPageNeverLeaksTheCause(t *testing.T) {
+	builder := htmlbind.Builder[Problem]{}
+	RegisterHTMLErrorPage(func(p Problem) HTMLFragment {
+		return htmlbind.Bind(&htmlbind.Plan[Problem]{Ops: []htmlbind.Op[Problem]{
+			builder.Static("<section id=app-error>"),
+			builder.Text(func(p Problem) string { return p.Message }),
+			builder.Static("</section>"),
+		}}, p)
+	})
+	t.Cleanup(func() { RegisterHTMLErrorPage(nil) })
+
+	recorder := httptest.NewRecorder()
+	WriteHTML(recorder, browserRequest("/"),
+		noRecoverPage(asyncPageParams{Body: Failed[string](errors.New("secret-hostname db failure"))}))
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, "<section id=app-error>") {
+		t.Fatalf("application error page was not used: %q", body)
+	}
+	if strings.Contains(body, "secret-hostname db failure") {
+		t.Fatalf("the raw internal cause reached the streamed error page: %q", body)
+	}
+}
+
 // TestRegisteredErrorPageReplacesTheBuiltin checks the hook an application uses
 // to supply its own generated error template.
 func TestRegisteredErrorPageReplacesTheBuiltin(t *testing.T) {

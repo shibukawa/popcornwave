@@ -229,7 +229,18 @@ func negotiateAcceptLanguage(header string) (Locale, bool) {
 		order   int
 	}
 	var candidates []candidate
-	for index, part := range strings.Split(header, ",") {
+	// The header is scanned one range at a time with two hard caps rather than
+	// split whole and sorted: a hostile "a,a,a,..." header carries ~500k ranges
+	// under Go's 1 MiB header limit, and splitting it into a slice and running a
+	// reflection sort over it is an unauthenticated amplification. Thirty-two
+	// well-formed ranges is far past what any real client sends, and bounding
+	// the parts examined stops an all-invalid header from scanning the whole megabyte.
+	const maxRanges = 32
+	const maxPartsExamined = 256
+	remainder := header
+	for order := 0; remainder != "" && order < maxPartsExamined && len(candidates) < maxRanges; order++ {
+		var part string
+		part, remainder, _ = strings.Cut(remainder, ",")
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
@@ -249,7 +260,7 @@ func negotiateAcceptLanguage(header string) (Locale, bool) {
 		if quality <= 0 || tag == "" {
 			continue
 		}
-		candidates = append(candidates, candidate{tag: tag, quality: quality, order: index})
+		candidates = append(candidates, candidate{tag: tag, quality: quality, order: order})
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
 		if candidates[i].quality != candidates[j].quality {

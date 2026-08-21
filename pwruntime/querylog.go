@@ -434,7 +434,17 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 		attrs = append(attrs, Int64("rows_affected", affected))
 	}
 	if callErr != nil {
-		attrs = append(attrs, String("outcome", "error"), String("error", callErr.Error()))
+		attrs = append(attrs, String("outcome", "error"))
+		if config.BindValues {
+			attrs = append(attrs, String("error", callErr.Error()))
+		} else {
+			// A driver error message embeds the offending value — PostgreSQL's
+			// "Key (email)=(user@example.com) already exists" — which is the
+			// request data BindValues is documented to keep out of the log. With
+			// it off, log the classification only, the same the span and metrics
+			// paths already use.
+			attrs = append(attrs, String("error.type", ErrorType(callErr)))
+		}
 	} else {
 		attrs = append(attrs, String("outcome", "ok"))
 	}
@@ -455,8 +465,10 @@ func (executor *instrumentedExecutor) record(ctx context.Context, operation, que
 		if config.Explain {
 			plan, planErr := executor.explain(ctx, query, args)
 			switch {
-			case planErr != nil:
+			case planErr != nil && config.BindValues:
 				attrs = append(attrs, String("explain_error", planErr.Error()))
+			case planErr != nil:
+				attrs = append(attrs, String("explain_error.type", ErrorType(planErr)))
 			case plan != "":
 				attrs = append(attrs, String("explain", plan))
 			}

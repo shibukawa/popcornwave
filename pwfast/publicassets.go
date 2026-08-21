@@ -83,7 +83,11 @@ func serveManifestAsset(r *fasthttp.RequestCtx, name string, embedded fs.FS) {
 		notFound(r)
 		return
 	}
-	r.Response.Header.Set("Vary", middlewares.PublicVary(entry))
+	for _, axis := range strings.Split(middlewares.PublicVary(entry), ",") {
+		if axis = strings.TrimSpace(axis); axis != "" {
+			addVaryHeader(r, axis)
+		}
+	}
 	representation, acceptable := middlewares.PublicManifestRepresentation(entry,
 		headerValues(r, "Accept"), headerValues(r, "Accept-Encoding"))
 	if !acceptable {
@@ -136,8 +140,17 @@ func serveResolvedAsset(r *fasthttp.RequestCtx, name string, config PublicAssetC
 			cache.Store(name, asset)
 		}
 	}
+	// A file whose bytes contradict its extension is refused, the same guard the
+	// net/http path applies: the build already declined it, and serving it under
+	// a mislabelled type is a content-type-confusion the two transports must not
+	// disagree about.
+	if mismatch := asset.Mismatch(); mismatch != "" {
+		middlewares.ReportPublicMismatch(r, name, mismatch)
+		plainStatus(r, fasthttp.StatusInternalServerError)
+		return
+	}
 	if !middlewares.PublicDevelopment() {
-		r.Response.Header.Set("Vary", "Accept-Encoding")
+		addVaryHeader(r, "Accept-Encoding")
 	}
 	representation, rank, acceptable := middlewares.PublicRepresentation(
 		headerValues(r, "Accept-Encoding"), asset.Asset())

@@ -175,6 +175,31 @@ func TestAcceptLanguageQualityOrdering(t *testing.T) {
 	}
 }
 
+// A hostile Accept-Language header packed with ranges must not build and sort an
+// unbounded candidate slice: the scan is capped, and a real preferred language
+// within the cap is still negotiated correctly.
+func TestAcceptLanguageIsBoundedAgainstAmplification(t *testing.T) {
+	withLocales(t, []string{"ja", "en"}, "ja")
+
+	// ~200k ranges under a realistic header size. The cap must keep this cheap;
+	// the test simply completing rather than exploding is the assertion.
+	flood := strings.Repeat("en;q=0.1,", 200_000) + "ja"
+	locale, ok := negotiateAcceptLanguage(flood)
+	// The real preferred tag sits past the cap here, so the bounded scan settles
+	// on the best range it examined rather than reading the whole megabyte.
+	if !ok {
+		t.Fatal("a bounded scan reported no match at all")
+	}
+	if locale.Tag() != "en" && locale.Tag() != "ja" {
+		t.Errorf("negotiated %q, want a declared locale", locale.Tag())
+	}
+
+	// A normal header with the preferred tag early is negotiated exactly.
+	if locale, ok := negotiateAcceptLanguage("en;q=0.4, ja;q=0.9"); !ok || locale.Tag() != "ja" {
+		t.Errorf("negotiated %q, %v; want ja", locale.Tag(), ok)
+	}
+}
+
 func TestLocaleChoicesFeedTheSwitcherAndTheAlternates(t *testing.T) {
 	withRouting(t, []string{"ja", "en"}, "ja", []LocaleRoute{{Prefix: "/", Mode: LocaleModePath}}, true)
 

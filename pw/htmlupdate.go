@@ -2,7 +2,6 @@ package pw
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -237,24 +236,10 @@ func validateUpdateConfig(config HTMLConfig) error {
 	if config.Update.ValidatorKey == "" {
 		return ErrUpdateKeyMissing
 	}
-	if validatorKeyLength(config.Update.ValidatorKey) < 32 {
+	if pwruntime.DigestKeyMaterial(config.Update.ValidatorKey) < 32 {
 		return ErrUpdateKeyTooShort
 	}
 	return updateOptions(config).Validate()
-}
-
-// validatorKeyLength measures the key material a configured value carries. The
-// help text admits base64 or raw, so a value that decodes is measured decoded
-// and anything else is measured as the bytes it is.
-func validatorKeyLength(value string) int {
-	for _, encoding := range []*base64.Encoding{
-		base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding,
-	} {
-		if decoded, err := encoding.DecodeString(value); err == nil {
-			return len(decoded)
-		}
-	}
-	return len(value)
 }
 
 // observeUpdateFailure records a refused update request.

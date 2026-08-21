@@ -219,7 +219,14 @@ func (p Proxies) Matches(r *http.Request, trusted map[string]bool) bool {
 // send, and treating that as same-origin would accept exactly the requests this
 // check exists to refuse.
 func MatchesOrigin(self, origin, referer string, trusted map[string]bool) bool {
+	// Host is case-insensitive, so both sides are lowercased before comparing.
+	// A configured trusted origin with any uppercase host would otherwise never
+	// match a browser's always-lowercase Origin and silently lock a legitimate
+	// partner out. An origin carries no path, so lowercasing the whole string
+	// only folds the scheme and host, both case-insensitive.
+	self = strings.ToLower(self)
 	if origin != "" && origin != "null" {
+		origin = strings.ToLower(origin)
 		return origin == self || trusted[origin]
 	}
 	if referer == "" {
@@ -229,7 +236,7 @@ func MatchesOrigin(self, origin, referer string, trusted map[string]bool) bool {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return false
 	}
-	from := parsed.Scheme + "://" + parsed.Host
+	from := strings.ToLower(parsed.Scheme + "://" + parsed.Host)
 	return from == self || trusted[from]
 }
 
@@ -254,7 +261,10 @@ func Set(origins ...string) map[string]bool {
 		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			continue
 		}
-		trusted[parsed.Scheme+"://"+parsed.Host] = true
+		// Lowercased so a config host with any uppercase still matches a
+		// browser's lowercase Origin; MatchesOrigin lowercases the request side
+		// to meet it.
+		trusted[strings.ToLower(parsed.Scheme+"://"+parsed.Host)] = true
 	}
 	return trusted
 }
