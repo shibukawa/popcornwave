@@ -319,16 +319,30 @@ func stopCommand(command *exec.Cmd, exited <-chan error) {
 	if command == nil || command.Process == nil {
 		return
 	}
-	// Wait has already returned, so the process is gone and its exit has been
-	// reported to whoever was listening. Waiting for it again would wait for a
-	// send nobody is going to make.
-	if command.ProcessState != nil {
-		return
-	}
-	_ = signalProcessGroup(command, os.Interrupt)
 	if exited == nil {
+		// No waiter goroutine exists, so nothing writes ProcessState
+		// concurrently and the field answers "already gone" safely.
+		if command.ProcessState != nil {
+			return
+		}
+		_ = signalProcessGroup(command, os.Interrupt)
 		time.Sleep(stopGrace)
 		_ = signalProcessGroup(command, os.Kill)
+		return
+	}
+	// With a channel the "already gone" answer is read off it rather than off
+	// ProcessState, because that field is written by the Wait goroutine and
+	// reading it here would race the write. The channel is drained without
+	// blocking: a process stopped once already had its exit consumed, and the
+	// loop stops the application twice — once on rebuild, once on the way out.
+	select {
+	case <-exited:
+		return
+	default:
+	}
+	if signalProcessGroup(command, os.Interrupt) != nil {
+		// The group is already gone and its exit was reaped by an earlier
+		// stop; there is nothing left to wait for.
 		return
 	}
 	select {
@@ -339,7 +353,13 @@ func stopCommand(command *exec.Cmd, exited <-chan error) {
 	case <-time.After(stopGrace):
 	}
 	_ = signalProcessGroup(command, os.Kill)
-	<-exited
+	select {
+	case <-exited:
+	case <-time.After(stopGrace):
+		// Bounded rather than open-ended: the exit may already have been
+		// consumed between the drain above and the interrupt, and a wait for
+		// a second send would be a wait forever.
+	}
 }
 
 func startDevboxServices(ctx context.Context, root string, stdout, stderr io.Writer) func() {
@@ -415,6 +435,11 @@ func watchSnapshot(root string, config projectConfig, tailwindStopped bool) (wat
 }
 
 func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchState, error) {
+	// The walk runs twice a second for the life of pw dev, so everything a
+	// per-file test needs is computed here once: the walk hands back paths
+	// joined under the cleaned root, which is what lets the loop compare and
+	// look up without a Join, Rel, or Clean per file.
+	root = filepath.Clean(root)
 	state := watchState{}
 	included := make(map[string]bool, len(extra))
 	for _, path := range extra {
@@ -426,6 +451,9 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 	for _, entry := range excludes {
 		skipped[filepath.Clean(filepath.Join(root, filepath.FromSlash(entry)))] = true
 	}
+	distPath := filepath.Join(root, "dist")
+	publicRoot := filepath.Join(root, "public")
+	publicPrefix := publicRoot + string(filepath.Separator)
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -437,7 +465,7 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 			}
 			// dist holds what this loop produces, so watching it would make
 			// every rebuild trigger the next one.
-			if path == filepath.Join(root, "dist") || skipped[filepath.Clean(path)] {
+			if path == distPath || skipped[path] {
 				return filepath.SkipDir
 			}
 			return nil
@@ -445,7 +473,7 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 		name := entry.Name()
 		// An authored asset is a build input now: editing one rebuilds the
 		// served tree, and editing one a conversion reads also regenerates.
-		if pathWithin(filepath.Join(root, "public"), path) {
+		if strings.HasPrefix(path, publicPrefix) {
 			info, err := entry.Info()
 			if err != nil {
 				return err
@@ -453,7 +481,7 @@ func snapshotWatchFiles(root string, excludes []string, extra ...string) (watchS
 			state[path] = fileState{size: info.Size(), modTime: info.ModTime()}
 			return nil
 		}
-		if !included[filepath.Clean(path)] && name != "popcornweb.toml" && !pwenv.IsFileName(name) &&
+		if !included[path] && name != "popcornweb.toml" && !pwenv.IsFileName(name) &&
 			!strings.HasSuffix(name, ".go") &&
 			!strings.HasSuffix(name, ".pw.html") && !strings.HasSuffix(name, ".pw.sql") {
 			return nil

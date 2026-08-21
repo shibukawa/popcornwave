@@ -1,6 +1,7 @@
 package pwlsp
 
 import (
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -65,9 +66,12 @@ func (s lineStarts) positionOf(source string, offset int) Position {
 	if offset > len(source) {
 		offset = len(source)
 	}
-	line := 0
-	for line+1 < len(s) && s[line+1] <= offset {
-		line++
+	// The last line whose start is at or before the offset, found by the
+	// binary search the sorted starts exist for — a reference scan converts
+	// one position per match, and the walk made that matches × lines.
+	line := sort.SearchInts(s, offset+1) - 1
+	if line < 0 {
+		line = 0
 	}
 	return Position{Line: line, Character: utf16Len(source[s[line]:offset])}
 }

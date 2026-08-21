@@ -73,6 +73,14 @@ type Server struct {
 	// loaded marks that loading was attempted, so the parse-only mode is
 	// entered once rather than retried on every document.
 	loaded bool
+	// graphCache memoizes the merged graph currentGraph builds, with graphBase
+	// naming the indexed graph it merged from. Hover, completion, and inlay
+	// hints each rebuilt the merge per request — references and rename twice —
+	// and between keystrokes nothing it depends on changes. Both are guarded
+	// by mutex: the cache drops when a document changes, opens, or closes, and
+	// is abandoned when the indexed graph is replaced.
+	graphBase  *TypeGraph
+	graphCache *TypeGraph
 	// configDiagnosticURI is the configuration file a load error was reported
 	// against, kept so the finding is cleared when the next load succeeds.
 	configDiagnosticURI string
@@ -301,6 +309,7 @@ func (s *Server) closeDocument(uri string) {
 	s.mutex.Lock()
 	_, open := s.documents[uri]
 	delete(s.documents, uri)
+	s.graphCache = nil
 	s.mutex.Unlock()
 	if !open {
 		return
@@ -318,6 +327,7 @@ func (s *Server) setText(doc *document, text string, version int) {
 	doc.starts = newLineStarts(text)
 	doc.found = analyze(fileNameOf(doc.uri), doc.kind, text, doc.starts)
 	diagnostics := doc.found.diagnostics
+	s.graphCache = nil
 	s.mutex.Unlock()
 	s.publish(doc.uri, &version, append(diagnostics, s.projectDiagnostics(doc)...))
 }
@@ -645,12 +655,12 @@ func (s *Server) currentGraph() *TypeGraph {
 	}
 
 	s.mutex.Lock()
-	open := make(map[string]*document, len(s.documents))
-	for uri, doc := range s.documents {
-		open[uri] = doc
+	defer s.mutex.Unlock()
+	if s.graphCache != nil && s.graphBase == built.graph {
+		return s.graphCache
 	}
-	s.mutex.Unlock()
-	if len(open) == 0 {
+	if len(s.documents) == 0 {
+		s.graphBase, s.graphCache = built.graph, built.graph
 		return built.graph
 	}
 
@@ -659,20 +669,18 @@ func (s *Server) currentGraph() *TypeGraph {
 	// answer about a file that was closed since.
 	merged := newTypeGraph()
 	for uri, file := range built.graph.byFile {
-		if _, replaced := open[uri]; !replaced {
+		if _, replaced := s.documents[uri]; !replaced {
 			merged.add(uri, file)
 		}
 	}
-	for uri, doc := range open {
+	for uri, doc := range s.documents {
 		path := filePathOf(doc.uri)
 		if path == doc.uri {
 			continue
 		}
-		s.mutex.Lock()
-		file := symbolsOf(project, path, uri, doc.kind, doc.text, doc.found, doc.starts)
-		s.mutex.Unlock()
-		merged.add(uri, file)
+		merged.add(uri, symbolsOf(project, path, uri, doc.kind, doc.text, doc.found, doc.starts))
 	}
+	s.graphBase, s.graphCache = built.graph, merged
 	return merged
 }
 

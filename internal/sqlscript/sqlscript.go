@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Executor is the subset of *sql.DB and *sql.Tx used to run a script.
@@ -38,23 +39,53 @@ func summarize(statement string) string {
 	return collapsed[:limit] + "..."
 }
 
+// Trigger-prefix states: a statement opens a trigger when its bare words read
+// CREATE (TEMP|TEMPORARY|OR|REPLACE|IF|NOT|EXISTS)* TRIGGER, judged one word
+// at a time as each word completes — a migration snapshot carries one INSERT
+// per seeded row, so the split runs over megabytes and must stay linear.
+const (
+	triggerStatementStart = iota
+	triggerAfterCreate
+	triggerIneligible
+)
+
 // Split divides a SQL script into individual statements. Semicolons inside
 // string literals, quoted identifiers, comments, and CREATE TRIGGER bodies do
 // not terminate a statement.
 func Split(script string) []string {
 	var statements []string
 	var current strings.Builder
-	runes := []rune(script)
 	// lastWord tracks the most recent bare word so a CREATE TRIGGER body can be
 	// terminated at END, matching how the sqlite shell decides completeness.
 	var lastWord strings.Builder
 	previousWord := ""
 	isTrigger := false
+	triggerState := triggerStatementStart
 
 	flushWord := func() {
-		if lastWord.Len() > 0 {
-			previousWord = strings.ToUpper(lastWord.String())
-			lastWord.Reset()
+		if lastWord.Len() == 0 {
+			return
+		}
+		previousWord = strings.ToUpper(lastWord.String())
+		lastWord.Reset()
+		if isTrigger {
+			return
+		}
+		switch triggerState {
+		case triggerStatementStart:
+			if previousWord == "CREATE" {
+				triggerState = triggerAfterCreate
+			} else {
+				triggerState = triggerIneligible
+			}
+		case triggerAfterCreate:
+			switch previousWord {
+			case "TEMP", "TEMPORARY", "OR", "REPLACE", "IF", "NOT", "EXISTS":
+			case "TRIGGER":
+				isTrigger = true
+			default:
+				triggerState = triggerIneligible
+			}
 		}
 	}
 	endStatement := func() {
@@ -65,80 +96,90 @@ func Split(script string) []string {
 		current.Reset()
 		previousWord = ""
 		isTrigger = false
+		triggerState = triggerStatementStart
 	}
 
-	for index := 0; index < len(runes); index++ {
-		char := runes[index]
+	// Every byte the splitter branches on is ASCII, and UTF-8 continuation
+	// bytes cannot collide with any of them, so the walk is byte-indexed and
+	// only a non-ASCII lead byte pays for a rune decode.
+	for index := 0; index < len(script); index++ {
+		char := script[index]
 		switch {
-		case char == '-' && index+1 < len(runes) && runes[index+1] == '-':
+		case char == '-' && index+1 < len(script) && script[index+1] == '-':
 			flushWord()
-			for index < len(runes) && runes[index] != '\n' {
-				current.WriteRune(runes[index])
+			for index < len(script) && script[index] != '\n' {
+				current.WriteByte(script[index])
 				index++
 			}
-			if index < len(runes) {
-				current.WriteRune('\n')
+			if index < len(script) {
+				current.WriteByte('\n')
 			}
-		case char == '/' && index+1 < len(runes) && runes[index+1] == '*':
+		case char == '/' && index+1 < len(script) && script[index+1] == '*':
 			flushWord()
 			current.WriteString("/*")
 			index += 2
-			for index < len(runes) {
-				if runes[index] == '*' && index+1 < len(runes) && runes[index+1] == '/' {
+			for index < len(script) {
+				if script[index] == '*' && index+1 < len(script) && script[index+1] == '/' {
 					current.WriteString("*/")
 					index++
 					break
 				}
-				current.WriteRune(runes[index])
+				current.WriteByte(script[index])
 				index++
 			}
 		case char == '\'' || char == '"' || char == '`':
 			flushWord()
 			quote := char
-			current.WriteRune(char)
+			current.WriteByte(char)
 			index++
-			for index < len(runes) {
-				if runes[index] == quote {
+			for index < len(script) {
+				if script[index] == quote {
 					// A doubled quote is an escaped quote, not a terminator.
-					if index+1 < len(runes) && runes[index+1] == quote {
-						current.WriteRune(quote)
-						current.WriteRune(quote)
+					if index+1 < len(script) && script[index+1] == quote {
+						current.WriteByte(quote)
+						current.WriteByte(quote)
 						index += 2
 						continue
 					}
-					current.WriteRune(quote)
+					current.WriteByte(quote)
 					break
 				}
-				current.WriteRune(runes[index])
+				current.WriteByte(script[index])
 				index++
 			}
 		case char == '[':
 			flushWord()
-			current.WriteRune(char)
+			current.WriteByte(char)
 			index++
-			for index < len(runes) {
-				current.WriteRune(runes[index])
-				if runes[index] == ']' {
+			for index < len(script) {
+				current.WriteByte(script[index])
+				if script[index] == ']' {
 					break
 				}
 				index++
 			}
 		case char == ';':
 			flushWord()
-			current.WriteRune(char)
+			current.WriteByte(char)
 			if !isTrigger || previousWord == "END" {
 				endStatement()
 			}
-		default:
-			if isWordRune(char) {
-				lastWord.WriteRune(char)
+		case char >= utf8.RuneSelf:
+			decoded, size := utf8.DecodeRuneInString(script[index:])
+			if isWordRune(decoded) {
+				lastWord.WriteRune(decoded)
 			} else {
 				flushWord()
 			}
-			current.WriteRune(char)
-			if !isTrigger && startsTrigger(current.String()) {
-				isTrigger = true
+			current.WriteString(script[index : index+size])
+			index += size - 1
+		default:
+			if isWordByte(char) {
+				lastWord.WriteByte(char)
+			} else {
+				flushWord()
 			}
+			current.WriteByte(char)
 		}
 	}
 	flushWord()
@@ -146,26 +187,13 @@ func Split(script string) []string {
 	return statements
 }
 
-func isWordRune(char rune) bool {
-	return char == '_' || unicode.IsLetter(char) || unicode.IsDigit(char)
+func isWordByte(char byte) bool {
+	return char == '_' ||
+		('a' <= char && char <= 'z') ||
+		('A' <= char && char <= 'Z') ||
+		('0' <= char && char <= '9')
 }
 
-// startsTrigger reports whether the accumulated statement opens a trigger, whose
-// body contains semicolons that must not split it.
-func startsTrigger(statement string) bool {
-	fields := strings.Fields(strings.ToUpper(statement))
-	if len(fields) < 2 || fields[0] != "CREATE" {
-		return false
-	}
-	for _, field := range fields[1:] {
-		switch field {
-		case "TEMP", "TEMPORARY", "OR", "REPLACE", "IF", "NOT", "EXISTS":
-			continue
-		case "TRIGGER":
-			return true
-		default:
-			return false
-		}
-	}
-	return false
+func isWordRune(char rune) bool {
+	return char == '_' || unicode.IsLetter(char) || unicode.IsDigit(char)
 }

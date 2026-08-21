@@ -92,15 +92,33 @@ type TypeGraph struct {
 	// byFile records what each file declares and what it imports, which is
 	// what decides the names visible in it.
 	byFile map[string]fileSymbols
+	// byName indexes each package's declarations by name, keeping the first of
+	// a repeated name — the one the ordered scan found. Resolve runs once per
+	// binding of a document, so the lookup must not walk the package.
+	byName map[string]map[string]Symbol
 }
 
 func newTypeGraph() *TypeGraph {
-	return &TypeGraph{byPackage: map[string][]Symbol{}, byFile: map[string]fileSymbols{}}
+	return &TypeGraph{
+		byPackage: map[string][]Symbol{},
+		byFile:    map[string]fileSymbols{},
+		byName:    map[string]map[string]Symbol{},
+	}
 }
 
 func (g *TypeGraph) add(uri string, file fileSymbols) {
 	g.byFile[uri] = file
 	g.byPackage[file.pkg] = append(g.byPackage[file.pkg], file.symbols...)
+	names := g.byName[file.pkg]
+	if names == nil {
+		names = map[string]Symbol{}
+		g.byName[file.pkg] = names
+	}
+	for _, symbol := range file.symbols {
+		if _, exists := names[symbol.Name]; !exists {
+			names[symbol.Name] = symbol
+		}
+	}
 }
 
 // Visible returns the declarations a file can name: its own package's, and the
@@ -141,16 +159,34 @@ func (g *TypeGraph) Resolve(uri, name string) (Symbol, bool) {
 		return Symbol{}, false
 	}
 	file, known := g.byFile[uri]
-	if known {
-		for _, symbol := range g.byPackage[file.pkg] {
-			if symbol.Name == name {
-				return symbol, true
-			}
-		}
+	if !known {
+		return Symbol{}, false
 	}
-	for _, symbol := range g.Visible(uri) {
-		if symbol.Name == name {
+	if symbol, ok := g.byName[file.pkg][name]; ok {
+		return symbol, true
+	}
+	for _, path := range file.imports {
+		imported := path
+		if index := strings.LastIndex(path, "/"); index >= 0 {
+			imported = path[index+1:]
+		}
+		if imported == file.pkg {
+			continue
+		}
+		symbol, ok := g.byName[imported][name]
+		if !ok {
+			continue
+		}
+		if symbol.Exported {
 			return symbol, true
+		}
+		// The first declaration under this name is unexported, so the ordered
+		// walk this lookup replaces would have kept scanning the package for
+		// an exported twin.
+		for _, candidate := range g.byPackage[imported] {
+			if candidate.Name == name && candidate.Exported {
+				return candidate, true
+			}
 		}
 	}
 	return Symbol{}, false

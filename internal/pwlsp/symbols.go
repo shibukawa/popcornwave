@@ -175,12 +175,27 @@ func nameRange(line, column int, source string, starts lineStarts) Range {
 // results. The name is found forward from the declaration, as a whole word.
 func declaredNameRange(line, column int, name, source string, starts lineStarts) Range {
 	from := starts.offsetOf(source, line, column)
-	for _, at := range wholeWordRanges(source[from:], newLineStarts(source[from:]), name) {
-		_ = at
-		// The ranges above are relative to the slice, so the offset is
-		// recomputed against the whole document.
-		index := starts.offsetOf(source[from:], at.Start.Line+1, at.Start.Character+1)
-		return starts.rangeAt(source, from+index)
+	// One forward scan to the first whole-word occurrence, against the
+	// document's own line table. The previous version collected every match in
+	// the rest of the document — with a fresh line table per declaration — to
+	// use only the first, and converted it back through a table built for the
+	// slice rather than the document, which was only right for a name on the
+	// declaration's own line.
+	for offset := from; name != ""; {
+		index := strings.Index(source[offset:], name)
+		if index < 0 {
+			break
+		}
+		start := offset + index
+		end := start + len(name)
+		offset = end
+		if start > from && isWordByte(source[start-1]) {
+			continue
+		}
+		if end < len(source) && isWordByte(source[end]) {
+			continue
+		}
+		return starts.rangeAt(source, start)
 	}
 	return starts.rangeAt(source, from)
 }
