@@ -20,13 +20,18 @@ import (
 	"github.com/shibukawa/tinygodriver/fasthttp/fasthttputil"
 )
 
-// Exchange runs one request through handler on a real fasthttp server and
-// returns what it answered.
-//
-// Real server, in-memory connection, the same as the other half: the request is
-// parsed and the response serialized, so what is tested is what the transport
-// does rather than what a hand-built request value was told to say.
-func Exchange(t pwtest.TestingT, handler fasthttp.RequestHandler, request pwtest.Request) pwtest.Response {
+// Harness is one running server and one client, shared by every exchange of a
+// test — the same shape as testutil.Harness, for the same reason: Exchange
+// starts and keeps a server per call, so a test making N requests against one
+// handler held N listeners and paid N startups.
+type Harness struct {
+	t      pwtest.TestingT
+	client *fasthttp.Client
+}
+
+// NewHarness starts a real fasthttp server for handler and returns the
+// harness that drives it. The server is shut down by t.Cleanup.
+func NewHarness(t pwtest.TestingT, handler fasthttp.RequestHandler) *Harness {
 	t.Helper()
 	listener := fasthttputil.NewInmemoryListener()
 	server := &fasthttp.Server{Handler: handler}
@@ -43,8 +48,14 @@ func Exchange(t pwtest.TestingT, handler fasthttp.RequestHandler, request pwtest
 			t.Errorf("the fasthttp server did not shut down")
 		}
 	})
-
 	client := &fasthttp.Client{Dial: func(string) (net.Conn, error) { return listener.Dial() }}
+	return &Harness{t: t, client: client}
+}
+
+// Exchange runs one request through the harness's server and returns what it
+// answered.
+func (h *Harness) Exchange(request pwtest.Request) pwtest.Response {
+	h.t.Helper()
 	outgoing, incoming := fasthttp.AcquireRequest(), fasthttp.AcquireResponse()
 	defer fasthttp.ReleaseRequest(outgoing)
 	defer fasthttp.ReleaseResponse(incoming)
@@ -57,8 +68,8 @@ func Exchange(t pwtest.TestingT, handler fasthttp.RequestHandler, request pwtest
 	if len(request.Body) > 0 {
 		outgoing.SetBody(request.Body)
 	}
-	if err := client.Do(outgoing, incoming); err != nil {
-		t.Fatalf("fasttestutil: request failed: %v", err)
+	if err := h.client.Do(outgoing, incoming); err != nil {
+		h.t.Fatalf("fasttestutil: request failed: %v", err)
 		return pwtest.Response{}
 	}
 
@@ -75,4 +86,18 @@ func Exchange(t pwtest.TestingT, handler fasthttp.RequestHandler, request pwtest
 		// reading whatever the next request put there.
 		Body: append([]byte(nil), incoming.Body()...),
 	}
+}
+
+// Exchange runs one request through handler on a real fasthttp server and
+// returns what it answered.
+//
+// Real server, in-memory connection, the same as the other half: the request is
+// parsed and the response serialized, so what is tested is what the transport
+// does rather than what a hand-built request value was told to say.
+//
+// Each call starts and keeps a server for the rest of the test; a test making
+// several requests against one handler builds a Harness once instead.
+func Exchange(t pwtest.TestingT, handler fasthttp.RequestHandler, request pwtest.Request) pwtest.Response {
+	t.Helper()
+	return NewHarness(t, handler).Exchange(request)
 }
