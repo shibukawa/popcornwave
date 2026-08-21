@@ -57,6 +57,10 @@ func EqualSecret(left, right string) bool {
 	return equalHash&equalLength == 1
 }
 
+// strictBase64URL refuses non-zero trailing padding bits, which is the one
+// non-canonical form a plain decode accepts.
+var strictBase64URL = base64.RawURLEncoding.Strict()
+
 // DecodeBase64URL strictly decodes canonical, unpadded Base64url.
 func DecodeBase64URL(value string, maxEncodedBytes, maxDecodedBytes int) ([]byte, error) {
 	if maxEncodedBytes <= 0 || maxDecodedBytes <= 0 {
@@ -65,11 +69,17 @@ func DecodeBase64URL(value string, maxEncodedBytes, maxDecodedBytes int) ([]byte
 	if len(value) > maxEncodedBytes || base64.RawURLEncoding.DecodedLen(len(value)) > maxDecodedBytes {
 		return nil, ErrLimitExceeded
 	}
-	if strings.ContainsRune(value, '=') {
+	// Newlines are refused here because the decoder silently skips them, and
+	// padding is refused because the unpadded form is the only canonical one.
+	// With those out and the strict decoder checking the trailing bits, every
+	// accepted value re-encodes to itself — the property this used to prove by
+	// actually re-encoding each decode, doubling the base64 work on paths that
+	// run several times per authenticated request.
+	if strings.ContainsAny(value, "=\r\n") {
 		return nil, ErrInvalidEncoding
 	}
-	decoded, err := base64.RawURLEncoding.DecodeString(value)
-	if err != nil || base64.RawURLEncoding.EncodeToString(decoded) != value {
+	decoded, err := strictBase64URL.DecodeString(value)
+	if err != nil {
 		return nil, ErrInvalidEncoding
 	}
 	return decoded, nil

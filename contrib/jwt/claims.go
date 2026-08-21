@@ -25,6 +25,12 @@ func parseClaims(data []byte) (Claims, error) {
 	if err := decoder.Decode(&raw); err != nil || raw == nil {
 		return Claims{}, ErrMalformed
 	}
+	return claimsFromRaw(raw)
+}
+
+// claimsFromRaw assembles the claims from an already-decoded member set,
+// which is what the validating walk in Parse hands over.
+func claimsFromRaw(raw map[string]json.RawMessage) (Claims, error) {
 	claims := Claims{Raw: raw}
 	if err := decodeOptionalString(raw, "iss", &claims.Issuer); err != nil {
 		return Claims{}, err

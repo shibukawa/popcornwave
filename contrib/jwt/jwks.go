@@ -47,6 +47,13 @@ type jwk struct {
 	Modulus   string `json:"n"`
 	Exponent  string `json:"e"`
 	Secret    string `json:"k"`
+	// resolved is the verification key materialized once at parse. The set is
+	// immutable after ParseJWKS, and decoding the modulus and rebuilding the
+	// big.Int per resolution made every bearer verification pay for it again.
+	// usable is false for an entry whose material would not decode, which
+	// resolves to ErrKeyNotFound exactly as the per-call decode did.
+	resolved VerificationKey
+	usable   bool
 }
 
 func ParseJWKS(data []byte, options JWKSOptions) (*JWKS, error) {
@@ -90,9 +97,47 @@ func ParseJWKS(data []byte, options JWKSOptions) (*JWKS, error) {
 		default:
 			continue
 		}
+		key.resolved, key.usable = materializeKey(key)
 		keys = append(keys, key)
 	}
 	return &JWKS{keys: keys}, nil
+}
+
+// materializeKey decodes one entry's material into the key a verifier uses.
+func materializeKey(key jwk) (VerificationKey, bool) {
+	switch key.KeyType {
+	case "oct":
+		secret, err := authn.DecodeBase64URL(key.Secret, 2048, 1024)
+		if err != nil || len(secret) < 32 {
+			return VerificationKey{}, false
+		}
+		return VerificationKey{Algorithm: "HS256", HMAC: secret}, true
+	case "RSA":
+		modulus, err := authn.DecodeBase64URL(key.Modulus, 4096, 2048)
+		if err != nil || len(modulus) < 256 {
+			return VerificationKey{}, false
+		}
+		exponentBytes, err := authn.DecodeBase64URL(key.Exponent, 8, 4)
+		if err != nil || len(exponentBytes) == 0 {
+			return VerificationKey{}, false
+		}
+		exponent := 0
+		for _, value := range exponentBytes {
+			if exponent > (math.MaxInt-int(value))/256 {
+				return VerificationKey{}, false
+			}
+			exponent = exponent*256 + int(value)
+		}
+		if exponent < 3 || exponent%2 == 0 {
+			return VerificationKey{}, false
+		}
+		return VerificationKey{
+			Algorithm: "RS256",
+			RSA:       &rsa.PublicKey{N: new(big.Int).SetBytes(modulus), E: exponent},
+		}, true
+	default:
+		return VerificationKey{}, false
+	}
 }
 
 func (set *JWKS) ResolveKey(header Header) (VerificationKey, error) {
@@ -110,40 +155,8 @@ func (set *JWKS) ResolveKey(header Header) (VerificationKey, error) {
 		}
 		match = candidate
 	}
-	if match == nil {
+	if match == nil || !match.usable {
 		return VerificationKey{}, ErrKeyNotFound
 	}
-	switch match.KeyType {
-	case "oct":
-		secret, err := authn.DecodeBase64URL(match.Secret, 2048, 1024)
-		if err != nil || len(secret) < 32 {
-			return VerificationKey{}, ErrKeyNotFound
-		}
-		return VerificationKey{Algorithm: "HS256", HMAC: secret}, nil
-	case "RSA":
-		modulus, err := authn.DecodeBase64URL(match.Modulus, 4096, 2048)
-		if err != nil || len(modulus) < 256 {
-			return VerificationKey{}, ErrKeyNotFound
-		}
-		exponentBytes, err := authn.DecodeBase64URL(match.Exponent, 8, 4)
-		if err != nil || len(exponentBytes) == 0 {
-			return VerificationKey{}, ErrKeyNotFound
-		}
-		exponent := 0
-		for _, value := range exponentBytes {
-			if exponent > (math.MaxInt-int(value))/256 {
-				return VerificationKey{}, ErrKeyNotFound
-			}
-			exponent = exponent*256 + int(value)
-		}
-		if exponent < 3 || exponent%2 == 0 {
-			return VerificationKey{}, ErrKeyNotFound
-		}
-		return VerificationKey{
-			Algorithm: "RS256",
-			RSA:       &rsa.PublicKey{N: new(big.Int).SetBytes(modulus), E: exponent},
-		}, nil
-	default:
-		return VerificationKey{}, ErrKeyNotFound
-	}
+	return match.resolved, nil
 }

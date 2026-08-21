@@ -226,6 +226,60 @@ func (p *Provider) refresh(ctx context.Context) error {
 	// cannot amplify a single verification into an unbounded request burst.
 	p.refreshMu.Lock()
 	defer p.refreshMu.Unlock()
+	return p.fetchKeySetLocked(ctx)
+}
+
+// refreshSince is refresh for a caller reacting to what it read at decidedAt —
+// an expired set, or a kid it could not resolve. A fetch that completed after
+// that moment already answers the reason, so the wait on the mutex was the
+// work and no second upstream request goes out: concurrent expiries collapse
+// to one request instead of one each, serially.
+func (p *Provider) refreshSince(ctx context.Context, decidedAt time.Time) error {
+	if p == nil || ctx == nil {
+		return ErrInvalidOptions
+	}
+	p.refreshMu.Lock()
+	defer p.refreshMu.Unlock()
+	p.mu.RLock()
+	keys, fetchedAt := p.keys, p.fetchedAt
+	p.mu.RUnlock()
+	if keys != nil && fetchedAt.After(decidedAt) {
+		return nil
+	}
+	return p.fetchKeySetLocked(ctx)
+}
+
+// refreshInBackground starts at most one detached refresh, for the stale
+// window: the cached set keeps verifying while it runs, so nothing may block
+// on it and it must not die with whichever request happened to trigger it.
+// The same shape jwt.RemoteKeySet uses. Failure is not reported to anyone —
+// the stale window already decided the cached set stays in use, and past the
+// window resolveKey stops serving it regardless.
+func (p *Provider) refreshInBackground(decidedAt time.Time) {
+	p.mu.Lock()
+	if p.refreshing {
+		p.mu.Unlock()
+		return
+	}
+	p.refreshing = true
+	p.mu.Unlock()
+	go func() {
+		timeout := p.options.requestTimeout
+		if timeout <= 0 {
+			timeout = defaultRequestTimeout
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		_ = p.refreshSince(ctx, decidedAt)
+		p.mu.Lock()
+		p.refreshing = false
+		p.mu.Unlock()
+	}()
+}
+
+// fetchKeySetLocked performs the fetch and installs the result. The caller
+// holds refreshMu.
+func (p *Provider) fetchKeySetLocked(ctx context.Context) error {
 	body, headers, err := p.getResponse(ctx, p.jwksURI)
 	if err != nil {
 		return err
@@ -264,17 +318,20 @@ func (p *Provider) resolveKey(ctx context.Context, header jwt.Header) (jwt.Verif
 	keys, cacheExpiresAt, staleExpiresAt := p.keys, p.cacheExpiresAt, p.staleExpiresAt
 	p.mu.RUnlock()
 	if keys == nil || (!staleExpiresAt.IsZero() && !now.Before(staleExpiresAt)) {
-		if err := p.refresh(ctx); err != nil {
+		if err := p.refreshSince(ctx, now); err != nil {
 			return jwt.VerificationKey{}, jwt.ErrKeyNotFound
 		}
 		p.mu.RLock()
 		keys = p.keys
 		p.mu.RUnlock()
 	} else if !cacheExpiresAt.IsZero() && !now.Before(cacheExpiresAt) {
-		_ = p.refresh(ctx)
-		p.mu.RLock()
-		keys = p.keys
-		p.mu.RUnlock()
+		// Past the TTL but inside the stale window the cached set keeps
+		// verifying: the keys did not become untrustworthy because the TTL
+		// elapsed, and queueing every concurrent verification behind one
+		// network fetch is what the window exists to avoid. One goroutine
+		// refreshes in the background; this verification proceeds on what is
+		// cached.
+		p.refreshInBackground(now)
 	}
 	key, err := keys.ResolveKey(header)
 	if err == nil {
@@ -282,7 +339,7 @@ func (p *Provider) resolveKey(ctx context.Context, header jwt.Header) (jwt.Verif
 	}
 	if errors.Is(err, jwt.ErrKeyNotFound) {
 		// A new key is allowed exactly one bounded refresh attempt.
-		if refreshErr := p.refresh(ctx); refreshErr == nil {
+		if refreshErr := p.refreshSince(ctx, now); refreshErr == nil {
 			p.mu.RLock()
 			keys = p.keys
 			p.mu.RUnlock()
