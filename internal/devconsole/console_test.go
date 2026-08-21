@@ -395,7 +395,7 @@ func TestReseedRunsTheActionAndReportsIt(t *testing.T) {
 	ran := false
 	console.SetReseed(func(context.Context) error { ran = true; return nil })
 
-	response, err := http.Post(console.URL()+"/api/reseed", "", nil)
+	response, err := postFromConsole(console, "/api/reseed")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestReseedReportsAFailure(t *testing.T) {
 	console := startConsole(t)
 	console.SetReseed(func(context.Context) error { return errors.New("dataset users.yaml: no such table") })
 
-	response, err := http.Post(console.URL()+"/api/reseed", "", nil)
+	response, err := postFromConsole(console, "/api/reseed")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,6 +423,72 @@ func TestReseedReportsAFailure(t *testing.T) {
 	body, _ := io.ReadAll(response.Body)
 	if !strings.Contains(string(body), "no such table") {
 		t.Errorf("the failure was not reported:\n%s", body)
+	}
+}
+
+func postFromConsole(console *Console, path string) (*http.Response, error) {
+	request, err := http.NewRequest(http.MethodPost, console.URL()+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Origin", console.URL())
+	return http.DefaultClient.Do(request)
+}
+
+func TestCrossSitePostCannotRunAConsoleAction(t *testing.T) {
+	console := startConsole(t)
+	ran := false
+	console.SetReseed(func(context.Context) error { ran = true; return nil })
+
+	request, err := http.NewRequest(http.MethodPost, console.URL()+"/api/reseed", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Origin", "https://attacker.example")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", response.StatusCode)
+	}
+	if ran {
+		t.Fatal("a cross-site request ran the reseed action")
+	}
+}
+
+func TestRebindingHostCannotReachTheConsole(t *testing.T) {
+	console := startConsole(t)
+	request, err := http.NewRequest(http.MethodGet, console.URL()+"/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The connection still goes to 127.0.0.1; only the HTTP authority is the
+	// attacker-controlled name a rebinding page would use.
+	request.Host = "project.attacker.example"
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", response.StatusCode)
+	}
+}
+
+func TestConsoleResponsesCanOnlyBeFramedByTheConsole(t *testing.T) {
+	console := startConsole(t)
+	response, err := http.Get(console.URL() + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if got := response.Header.Get("X-Frame-Options"); got != "SAMEORIGIN" {
+		t.Errorf("X-Frame-Options = %q, want SAMEORIGIN", got)
+	}
+	if got := response.Header.Get("Content-Security-Policy"); got != "frame-ancestors 'self'" {
+		t.Errorf("Content-Security-Policy = %q", got)
 	}
 }
 
