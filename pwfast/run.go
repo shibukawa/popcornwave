@@ -19,6 +19,7 @@ import (
 	"github.com/shibukawa/popcornweb/pwratelimit"
 	"github.com/shibukawa/popcornweb/pwruntime"
 	"github.com/shibukawa/popcornweb/pwsession"
+	"github.com/shibukawa/tinybind-go/fasthttpbind"
 	"github.com/shibukawa/tinygodriver/fasthttp"
 )
 
@@ -172,6 +173,12 @@ func start(ctx context.Context, handler fasthttp.RequestHandler, options startOp
 	if err := pwconfig.RefusePendingFrameworkAction(); err != nil {
 		return nil, err
 	}
+
+	// The CBOR body cap is process-wide in the binding runtime and shared with
+	// the other transport, so it is applied once at startup rather than woven
+	// into the chain. Zero restores the runtime's own 1 MiB default, which
+	// makes the unconditional call also the unconfigured case.
+	fasthttpbind.SetMaxCBORBodyBytes(pwconfig.Value[pwconfig.ServerConfig]().CBORMaxBody)
 
 	// The pool first, because the session backend and anything a plugin opens
 	// may read it, and because a deployment that cannot reach its database

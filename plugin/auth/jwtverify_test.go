@@ -232,6 +232,24 @@ func TestBearerVerificationRefusesATokenLongerThanTheDeclaredLifetime(t *testing
 	}
 }
 
+// NumericDate is seconds while time.Duration is nanoseconds. A direct
+// conversion can wrap 2^55 seconds into the same duration as zero seconds;
+// adding one minute made the old calculation see this enormous lifetime as one
+// minute and admit it under the ten-minute policy.
+func TestBearerVerificationRefusesALifetimeThatWrapsDuration(t *testing.T) {
+	issuer := newTestIssuer(t)
+	verifier := testVerifier(t, issuer, func(c *JWTConfig) { c.MaxTokenLifetime = 10 * time.Minute })
+	claims := issuer.standardClaims()
+	now := time.Now().Unix()
+	claims["iat"] = now
+	claims["exp"] = now + (int64(1) << 55) + 60
+	token := issuer.mint(t, map[string]any{"typ": "at+jwt"}, claims)
+
+	if _, err := verifier.verify(context.Background(), token); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("a duration-wrapping token was accepted: err = %v", err)
+	}
+}
+
 func TestBearerVerificationRefusesAForgedSignature(t *testing.T) {
 	issuer := newTestIssuer(t)
 	verifier := testVerifier(t, issuer, nil)

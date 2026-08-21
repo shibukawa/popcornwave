@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shibukawa/popcornweb/pwconfig"
+	tinybind "github.com/shibukawa/tinybind-go"
 	"github.com/shibukawa/tinygodriver/httpserver"
 )
 
@@ -84,6 +85,11 @@ func buildMiddlewares(handler http.Handler, option ...Option) (http.Handler, err
 	if err := validateConfiguredRuntime(); err != nil {
 		return nil, err
 	}
+	// The CBOR body cap is process-wide in the binding runtime and shared by
+	// both transports, so it is applied once here rather than woven into the
+	// middleware chain. Zero restores the runtime's own 1 MiB default, which
+	// makes the unconditional call also the unconfigured case.
+	tinybind.SetMaxCBORBodyBytes(server.CBORMaxBody)
 	if err := initializeRuntimeDatabase(); err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package pwdata
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -30,6 +31,12 @@ func (c *Connection) ExplainQuery(ctx context.Context, pkg, name string, args []
 	query, ok := lookupQuery(pkg, name)
 	if !ok {
 		return Result{Error: "no declared query named " + pkg + "." + name}
+	}
+	// The generated Build indexes args by position, so a short slice from a
+	// caller outside the HTTP handler would panic rather than error.
+	if len(args) != len(query.Params) {
+		return Result{Error: fmt.Sprintf("%s.%s takes %d arguments, got %d",
+			pkg, name, len(query.Params), len(args))}
 	}
 	statement, err := query.Build(args)
 	if err != nil {

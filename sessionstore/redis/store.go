@@ -164,7 +164,9 @@ func (s *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpir
 		}
 		return err
 	}
-	if idleExpiresAt.After(record.ExpiresAt) {
+	// The zero-time guard matches the other stores: a record carrying only an
+	// idle bound has no absolute deadline to renew past.
+	if !record.ExpiresAt.IsZero() && idleExpiresAt.After(record.ExpiresAt) {
 		return session.ErrNotFound
 	}
 	record.LastSeenAt = lastSeenAt

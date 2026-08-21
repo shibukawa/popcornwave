@@ -3,7 +3,6 @@ package pwfast
 import (
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornweb/internal/pathpattern"
@@ -203,26 +202,17 @@ func scheme(r *fasthttp.RequestCtx, proxies requestorigin.Proxies) string {
 		string(r.Request.Header.Peek("X-Forwarded-Proto")))
 }
 
-// safeMethod reports whether a method is one the check lets through, which is
-// the set HTTP defines as not changing state.
+// safeMethod and csrfHTMLRequest are this transport's header reads over the
+// shared decisions, so the two builds cannot drift on either answer. TRACE was
+// once in this build's safe set and the other's not — exactly the divergence
+// the shared function exists to prevent.
 func safeMethod(method string) bool {
-	switch method {
-	case fasthttp.MethodGet, fasthttp.MethodHead, fasthttp.MethodOptions, fasthttp.MethodTrace:
-		return true
-	}
-	return false
+	return pwruntime.CSRFSafeMethod(method)
 }
 
-// csrfHTMLRequest reports whether a safe request is expected to render HTML.
-//
-// Browsers send either an HTML Accept value or a document navigation target. A
-// generic */* request does not justify allocating session state merely in case
-// the handler might render a form.
 func csrfHTMLRequest(r *fasthttp.RequestCtx) bool {
-	if strings.EqualFold(string(r.Request.Header.Peek("Sec-Fetch-Mode")), "navigate") {
-		return true
-	}
-	return strings.Contains(string(r.Request.Header.Peek("Accept")), "text/html")
+	return pwruntime.CSRFHTMLRequest(string(r.Request.Header.Peek("Sec-Fetch-Dest")),
+		string(r.Request.Header.Peek("Accept")))
 }
 
 // writeCSRFStatus answers a refused request.

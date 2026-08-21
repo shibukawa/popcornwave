@@ -159,19 +159,29 @@ func NewManager(registry *Registry, backend RawStore, options Options) (*Manager
 		random:   random,
 	}
 
-	// The record cookie repeats the token cookie policy unless it was given one
-	// of its own, so both expire under the same rules.
+	// The record cookie repeats the token cookie policy field by field where it
+	// was given nothing of its own, so both expire under the same rules and a
+	// partially written RecordCookie inherits the rest instead of dropping it.
 	recordCookie := options.RecordCookie
 	if recordCookie.Name == "" {
 		recordCookie.Name = DefaultDataCookieName
 	}
 	if recordCookie.Path == "" {
 		recordCookie.Path = cookie.Path
-		recordCookie.Domain = cookie.Domain
-		recordCookie.Secure = cookie.Secure
-		recordCookie.HTTPOnly = cookie.HTTPOnly
-		recordCookie.SameSite = cookie.SameSite
 	}
+	if recordCookie.Domain == "" {
+		recordCookie.Domain = cookie.Domain
+	}
+	if recordCookie.SameSite == 0 {
+		recordCookie.SameSite = sameSite
+	}
+	// The record cookie carries the sealed record, so it is never weaker than
+	// the token cookie it accompanies: an opt-out applies to it only when the
+	// token cookie carries the same one.
+	recordCookie.AllowInsecure = recordCookie.AllowInsecure && cookie.AllowInsecure
+	recordCookie.ScriptReadable = recordCookie.ScriptReadable && cookie.ScriptReadable
+	recordCookie.Secure = recordCookie.Secure || cookie.Secure
+	recordCookie.HTTPOnly = recordCookie.HTTPOnly || cookie.HTTPOnly
 	if options.ServerSideAnonymous && backend != nil {
 		manager.server = Typed[slotMap](backend, codec)
 		manager.anon = manager.server
@@ -241,6 +251,7 @@ func slotCookie(base CookieOptions, entry *slot) CookieOptions {
 	if entry.placement == Shared || entry.placement == ReadOnly {
 		// The front end reads these, which an HttpOnly cookie forbids.
 		cookie.HTTPOnly = false
+		cookie.ScriptReadable = true
 	}
 	return cookie
 }

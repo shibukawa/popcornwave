@@ -125,6 +125,13 @@ func sanitizedProblem(p Problem) Problem {
 	if p.Status < 500 {
 		return p
 	}
+	// Title is reset too, matching the net/http ErrorHandler: a hand-built 5xx
+	// carrying a sensitive custom title (an internal hostname, a DSN) must not
+	// survive to the client's error page any more than Message does.
+	p.Title = http.StatusText(p.Status)
+	if p.Title == "" {
+		p.Title = "Internal Server Error"
+	}
 	p.Message = "internal error"
 	p.Code = "internal"
 	p.Fields = nil
@@ -855,13 +862,17 @@ const documentManifestElement = UpdateAttributePrefix + "-manifest"
 // The trailing marker is what makes the swap safe, and boundaryRuntimeScript
 // explains why it cannot be replaced by reacting to the template itself.
 func writeBoundaryCompletion(w io.Writer, content htmlbind.Content) error {
-	if _, err := io.WriteString(w, `<template data-tb-boundary="`+content.BoundaryID+`">`); err != nil {
+	// The ID is build-generated identifier data today, but it is written into
+	// an attribute, and every attribute this writer emits is escaped — an
+	// invariant simpler to keep than to remember.
+	boundaryID := htmlbind.Escape(content.BoundaryID)
+	if _, err := io.WriteString(w, `<template data-tb-boundary="`+boundaryID+`">`); err != nil {
 		return err
 	}
 	if _, err := w.Write(content.HTML); err != nil {
 		return err
 	}
-	_, err := io.WriteString(w, `</template><tb-apply for="`+content.BoundaryID+`"></tb-apply>`)
+	_, err := io.WriteString(w, `</template><tb-apply for="`+boundaryID+`"></tb-apply>`)
 	return err
 }
 

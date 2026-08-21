@@ -72,6 +72,9 @@ func (c *Connection) InsertRow(ctx context.Context, edit RowEdit) (int64, error)
 
 // insertRow is InsertRow over a catalog the caller already fetched.
 func (c *Connection) insertRow(ctx context.Context, columns []Column, edit RowEdit) (int64, error) {
+	if err := knownColumns(columns, edit); err != nil {
+		return 0, err
+	}
 	var names []string
 	var markers []string
 	var arguments []any
@@ -128,12 +131,28 @@ func (c *Connection) assignments(columns []Column, edit RowEdit) ([]string, []an
 			c.dialect.quote(column.Name)+" = "+c.dialect.placeholder(len(arguments)+1))
 		arguments = append(arguments, nullable(value, null))
 	}
-	for name := range edit.Values {
-		if !knownColumn(columns, name) {
-			return nil, nil, fmt.Errorf("no column named %q", name)
-		}
+	if err := knownColumns(columns, edit); err != nil {
+		return nil, nil, err
 	}
 	return assignments, arguments, nil
+}
+
+// knownColumns refuses an edit naming a column the table does not have. The
+// builders range over the catalog, so an unknown name could never reach the
+// statement — but it would be silently discarded, and silently doing nothing is
+// the worst answer a data editor can give.
+func knownColumns(columns []Column, edit RowEdit) error {
+	for name := range edit.Values {
+		if !knownColumn(columns, name) {
+			return fmt.Errorf("no column named %q", name)
+		}
+	}
+	for _, name := range edit.Nulls {
+		if !knownColumn(columns, name) {
+			return fmt.Errorf("no column named %q", name)
+		}
+	}
+	return nil
 }
 
 // keyPredicate builds the WHERE clause addressing one row. Offset continues the

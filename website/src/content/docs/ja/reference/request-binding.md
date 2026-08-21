@@ -87,6 +87,13 @@ input, err := pw.Parse[showUserInput](r)
 - `application/x-www-form-urlencoded`
 - `multipart/form-data`
 
+[`generate.api.cbor`](/ja/guides/backend/cbor/) を有効にしたプロジェクトでは
+`application/cbor`（および `+cbor` サフィックス型）が 4 つ目に加わります。ボディは
+テキストキーの CBOR map 1 つで、JSON ボディが埋めるのと同じフィールドを埋めます。
+上限は、下のマルチパート制限がアップロードを縛るのと同じ形で `server.cbor_max_body` が
+縛ります。`payload:"*"` の rest map には対応する CBOR の形がないため、この組み合わせは
+生成時にエラーとして報告されます。
+
 ### マルチパートのファイル
 
 ```go

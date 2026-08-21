@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"io"
+	"strings"
 )
 
 // CSRFCookieName is the companion cookie the browser runtime reads a token from.
@@ -155,4 +156,38 @@ func StoreCSRFSecret(store ValueStore, secret string) {
 		return
 	}
 	store.SetUserValue(csrfSecretKey{}, secret)
+}
+
+// CSRFSafeMethod reports whether a method is one the cross-site check lets
+// through — GET, HEAD, and OPTIONS, the set HTTP defines as not changing
+// state. TRACE is deliberately absent: nothing in this framework routes it,
+// and a state-changing handler bound to it would otherwise pass unchecked.
+// Both transports call this one function so the set cannot drift.
+func CSRFSafeMethod(method string) bool {
+	switch method {
+	case "GET", "HEAD", "OPTIONS":
+		return true
+	}
+	return false
+}
+
+// CSRFHTMLRequest reports whether a safe request is expected to render HTML,
+// given its Sec-Fetch-Dest and Accept header values. Browsers send either an
+// HTML Accept value or a document navigation target; a generic */* request
+// does not justify allocating session state merely in case the handler might
+// render a form. Both transports call this one function so the answer cannot
+// drift.
+func CSRFHTMLRequest(secFetchDest, accept string) bool {
+	if strings.EqualFold(strings.TrimSpace(secFetchDest), "document") {
+		return true
+	}
+	for remainder := accept; remainder != ""; {
+		var mediaRange string
+		mediaRange, remainder, _ = strings.Cut(remainder, ",")
+		mediaType, _, _ := strings.Cut(mediaRange, ";")
+		if strings.EqualFold(strings.TrimSpace(mediaType), "text/html") {
+			return true
+		}
+	}
+	return false
 }

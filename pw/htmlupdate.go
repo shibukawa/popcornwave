@@ -218,6 +218,12 @@ const updatePathPrefix = pwruntime.UpdatePathPrefix
 // with.
 var ErrUpdateKeyMissing = errors.New("popcornweb: html.update.validator_key is required when html.update.enabled is true")
 
+// ErrUpdateKeyTooShort reports a validator key too small to key anything. A
+// guessable key is equivalent to no key: anyone who can render the same page
+// and guess it recomputes every digest, which is the attack the key exists to
+// stop. The session keyring enforces the same 32-byte floor.
+var ErrUpdateKeyTooShort = errors.New("popcornweb: html.update.validator_key must carry at least 32 bytes of key material")
+
 // validateUpdateConfig refuses a configuration that would serve unkeyed
 // validators.
 //
@@ -229,6 +235,9 @@ func validateUpdateConfig(config HTMLConfig) error {
 	}
 	if config.Update.ValidatorKey == "" {
 		return ErrUpdateKeyMissing
+	}
+	if pwruntime.DigestKeyMaterial(config.Update.ValidatorKey) < 32 {
+		return ErrUpdateKeyTooShort
 	}
 	return updateOptions(config).Validate()
 }

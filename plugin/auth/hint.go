@@ -44,11 +44,14 @@ func hintJar(config HintConfig, policy sessionconfig.SessionCookieConfig) (*sess
 		return nil, err
 	}
 	cookie := session.CookieOptions{
-		Name:     config.Name,
-		Path:     "/",
-		Domain:   policy.Domain,
-		Secure:   policy.Secure,
-		HTTPOnly: true,
+		Name:   config.Name,
+		Path:   "/",
+		Domain: policy.Domain,
+		Secure: policy.Secure,
+		// The session policy already resolved its own Secure, so a false here
+		// is the deployment's written loopback decision and carries through.
+		AllowInsecure: !policy.Secure,
+		HTTPOnly:      true,
 		// The hint must survive the top-level navigation back from a provider,
 		// so it matches what the transaction cookie carries rather than
 		// tightening past it.

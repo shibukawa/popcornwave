@@ -106,6 +106,13 @@ func (l *Limiter) Identity(ctx context.Context, address string) (string, int) {
 // limiting is the state worth knowing about, which is why it is returned rather
 // than swallowed.
 func (l *Limiter) Admit(ctx context.Context, key string, limit int, now time.Time) (*pwruntime.RateLimit, error) {
+	if limit <= 0 {
+		// A non-positive limit means this caller is not counted. Falling
+		// through would sign-extend it into a near-infinite uint64 below, so a
+		// third-party frame that skips the Identity short-circuit fails open
+		// silently instead of not counting on purpose.
+		return nil, nil
+	}
 	count, err := l.counter.Increment(ctx, key, l.config.Window)
 	if err != nil {
 		return nil, err

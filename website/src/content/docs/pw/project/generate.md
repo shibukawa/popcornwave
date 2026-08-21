@@ -244,6 +244,25 @@ reference them. It is removed automatically when neither exists.
 `public.go` names the directory in a `go:embed` directive and the compiler reads
 the directive rather than the tree.
 
+### CBOR API bodies
+
+`generate.api.cbor` makes every generated binder and writer negotiate
+`application/cbor` request and response bodies beside JSON:
+
+```toml
+[generate.api.cbor]
+enabled = true
+```
+
+It is a generation-time, project-wide setting for the same reason
+`line_directives` is: which media types a service accepts is a property of the
+service, and output must not depend on who ran the command. The two profile
+keys beside it, `reject_floats` and `sorted_keys`, are part of the generation
+fingerprint, so changing either regenerates the codecs and shows up in
+[`pw check`](/pw/project/check/) until committed. What the switch changes on
+the wire, and when to leave it off, is the [CBOR guide](/guides/backend/cbor/)'s
+subject.
+
 ## The single-document rule
 
 A project has exactly one `document.pw.html`. If generation finds more anywhere

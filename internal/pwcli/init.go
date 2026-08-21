@@ -599,7 +599,13 @@ func runInit(args []string, stdout io.Writer) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := writeScaffoldFile(target, []byte(content)); err != nil {
+		mode := os.FileMode(0o644)
+		if strings.Contains(content, "keyring.secret") {
+			// The scaffolded development config carries a generated keyring
+			// secret, which no other local user has any business reading.
+			mode = 0o600
+		}
+		if err := writeScaffoldFileMode(target, []byte(content), mode); err != nil {
 			return err
 		}
 	}
@@ -769,13 +775,17 @@ func declinedCapabilities(options initOptions) []string {
 }
 
 func writeScaffoldFile(target string, content []byte) error {
+	return writeScaffoldFileMode(target, content, 0o644)
+}
+
+func writeScaffoldFileMode(target string, content []byte, mode os.FileMode) error {
 	temp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".tmp-*")
 	if err != nil {
 		return err
 	}
 	tempPath := temp.Name()
 	defer os.Remove(tempPath)
-	if err := temp.Chmod(0o644); err != nil {
+	if err := temp.Chmod(mode); err != nil {
 		_ = temp.Close()
 		return err
 	}
@@ -923,6 +933,14 @@ firestore = [` + quotedList(scaffoldGenerationScope(options).Firestore) + `]
 # wrote. It costs go test -cover: with this on, a coverage profile names lines
 # that do not exist in the file it reports them against. Take one or the other.
 line_directives = false
+
+# API handlers also speak application/cbor beside JSON: a request carrying it
+# binds from one CBOR map, and a response answers CBOR when Accept names it
+# outright. Settled at generation time; left off, no CBOR code is linked.
+# reject_floats refuses float64 fields for scaled-integer schemas, and
+# sorted_keys emits RFC 8949 bytewise key order for deterministic clients.
+[generate.api.cbor]
+enabled = false
 
 # pw dev walks the module for rebuild inputs. Add what the walk misses, and
 # exclude a subtree that only makes the walk slower.

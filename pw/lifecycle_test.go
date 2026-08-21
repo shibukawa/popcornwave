@@ -54,6 +54,9 @@ func TestValidateRuntimeConfig(t *testing.T) {
 		{name: "duplicate endpoint", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
 			s.Readiness = s.Health
 		}, want: "duplicates"},
+		{name: "cbor body cap", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
+			s.CBORMaxBody = -1
+		}, want: "server.cbor_max_body"},
 		{name: "proxy", mutate: func(s *ServerConfig, _ *SecurityConfig, _ *MiddlewareConfig, _ *ObservabilityConfig) {
 			s.TrustedProxies = []string{"not-a-network"}
 		}, want: "trusted_proxies"},

@@ -2,6 +2,7 @@ package devconsole
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -244,7 +245,8 @@ func (c *Console) announceListening(w http.ResponseWriter, r *http.Request) {
 // announced authenticates one announcement and returns its body. It writes the
 // refusal itself, so a caller that gets false has nothing left to do.
 func (c *Console) announced(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if c.attach == nil || c.attach.token == "" || r.Header.Get("X-Pw-Attach-Token") != c.attach.token {
+	if c.attach == nil || c.attach.token == "" ||
+		subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Pw-Attach-Token")), []byte(c.attach.token)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return "", false
 	}
@@ -311,7 +313,92 @@ func (c *Console) routes() http.Handler {
 			mux.Handle(path, pane.Handler)
 		}
 	}
-	return mux
+	return secureConsole(mux)
+}
+
+// secureConsole keeps the loopback listener from becoming a browser-reachable
+// authority for an unrelated web page.
+//
+// Binding 127.0.0.1 keeps remote TCP clients out, but it does not keep a page
+// open in the developer's browser from submitting a form to this known port.
+// Nor does it stop a DNS-rebinding name from resolving to loopback and making
+// its Origin agree with its attacker-controlled Host. The console can reseed a
+// database and its panes can edit one, so both checks belong in front of every
+// mounted handler rather than in the actions known today.
+func secureConsole(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Panes are framed by the console itself, so SAMEORIGIN rather than DENY
+		// prevents an unrelated page from clickjacking an action without breaking
+		// the data and telemetry panes.
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'self'")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		if !loopbackHost(r.Host) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if !consoleSafeMethod(r.Method) && !announcementPath(r.URL.Path) &&
+			browserOriginRequired(r) && !sameConsoleOrigin(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func consoleSafeMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	}
+	return false
+}
+
+// Announcements are service-to-service requests carrying a per-run secret and
+// no browser Origin. Their own authentication is stronger than the browser
+// comparison and remains the only exception to it.
+func announcementPath(path string) bool {
+	return path == "/api/attach" || path == "/api/listening"
+}
+
+// browserOriginRequired distinguishes a browser action from a service POST.
+// The telemetry pane is also an OTLP receiver, so its JSON and protobuf POSTs
+// carry neither Origin nor Referer and must remain usable. A browser cannot
+// send those media types cross-origin without a preflight; the eventual POST
+// carries Origin and is refused. The three form-capable media types are CORS
+// safelisted and need the comparison even when an older browser omits Origin.
+func browserOriginRequired(r *http.Request) bool {
+	if r.Header.Get("Origin") != "" || r.Header.Get("Referer") != "" {
+		return true
+	}
+	mediaType, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type"))), ";")
+	mediaType = strings.TrimSpace(mediaType)
+	switch mediaType {
+	case "", "application/x-www-form-urlencoded", "multipart/form-data", "text/plain":
+		return true
+	}
+	return false
+}
+
+// sameConsoleOrigin accepts an unsafe browser request only from the console
+// page that owns this Host. Origin is authoritative when present; Referer is a
+// fallback for clients that omit it. browserOriginRequired decides whether an
+// absent pair is a browser form to refuse or a non-browser service request.
+func sameConsoleOrigin(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		parsed, err := url.Parse(origin)
+		return err == nil && parsed.Scheme == "http" && parsed.User == nil && parsed.Opaque == "" &&
+			parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" &&
+			strings.EqualFold(parsed.Host, r.Host)
+	}
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		return false
+	}
+	parsed, err := url.Parse(referer)
+	return err == nil && parsed.Scheme == "http" && parsed.User == nil && parsed.Opaque == "" &&
+		strings.EqualFold(parsed.Host, r.Host)
 }
 
 // PanePrefixHeader tells a pane where it is mounted.
@@ -511,20 +598,31 @@ func allowLoopbackOrigin(w http.ResponseWriter, r *http.Request) {
 }
 
 func loopbackOrigin(origin string) bool {
-	address, ok := strings.CutPrefix(origin, "http://")
-	if !ok {
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Opaque != "" ||
+		parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return false
 	}
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		host = address
+	return loopbackHost(parsed.Host)
+}
+
+// loopbackHost validates the authority rather than resolving it. Resolving an
+// arbitrary name and accepting a loopback answer is exactly the DNS-rebinding
+// route this boundary must close.
+func loopbackHost(authority string) bool {
+	if authority == "" || strings.ContainsAny(authority, "/\\@") {
+		return false
 	}
+	host, _, err := net.SplitHostPort(authority)
+	if err != nil {
+		host = authority
+	}
+	host = strings.TrimSuffix(strings.ToLower(strings.Trim(host, "[]")), ".")
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return true
 	}
-	// An IPv6 literal arrives bracketed, and SplitHostPort has already
-	// unwrapped it when a port was present.
-	return net.ParseIP(strings.Trim(host, "[]")).IsLoopback()
+	address := net.ParseIP(host)
+	return address != nil && address.IsLoopback()
 }
 
 // Close stops the console with the developer loop. Nothing here is persisted,

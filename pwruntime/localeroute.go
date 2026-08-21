@@ -223,14 +223,23 @@ func LocaleChoicesFor(path, rawQuery string, current Locale, mode LocaleMode) []
 // header. It reports absence rather than the default, so the caller decides.
 //
 // The winner is the first entry, in header order, of those with the highest
-// quality that resolve against the declared set — the same answer collecting,
-// sorting, and scanning would give, found in one pass with the allocation-free
-// iterator AcceptsHTML already parses this grammar with.
+// quality that resolves against the declared set — the answer collecting,
+// sorting, and scanning would give, found in one pass with no slice and no
+// sort. The pass keeps both hard caps: a hostile "a,a,a,..." header carries
+// ~500k ranges under Go's 1 MiB header limit, and thirty-two well-formed
+// ranges is far past what any real client sends, while bounding the parts
+// examined stops an all-invalid header from scanning the whole megabyte.
 func negotiateAcceptLanguage(header string) (Locale, bool) {
+	const maxRanges = 32
+	const maxPartsExamined = 256
 	var best Locale
 	bestQuality := 0.0
 	found := false
-	for part := range splitAccept(header, ',') {
+	ranges := 0
+	remainder := header
+	for examined := 0; remainder != "" && examined < maxPartsExamined && ranges < maxRanges; examined++ {
+		var part string
+		part, remainder, _ = strings.Cut(remainder, ",")
 		tag := strings.TrimSpace(part)
 		quality := 1.0
 		if semicolon := strings.IndexByte(tag, ';'); semicolon >= 0 {
@@ -244,9 +253,13 @@ func negotiateAcceptLanguage(header string) (Locale, bool) {
 				}
 			}
 		}
+		if tag == "" || quality <= 0 {
+			continue
+		}
+		ranges++
 		// An earlier entry wins a quality tie, so only a strictly better
-		// quality displaces the held answer; this also drops q=0 entries.
-		if tag == "" || quality <= bestQuality {
+		// quality displaces the held answer.
+		if quality <= bestQuality {
 			continue
 		}
 		var locale Locale

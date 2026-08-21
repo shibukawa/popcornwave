@@ -245,8 +245,12 @@ that fails to arrive costs a delivery that was going to be sent anyway.
 
 Two instances can compare validators only if they share a key. Set
 `html.update.validator_key` and they do, whether or not you use partial updates.
-Without one each process keys its own, so a reconnect that returns to the same
-process transfers what changed and one that lands elsewhere transfers
+The key must carry at least 32 bytes of material — a base64 value counts
+decoded — or it is treated as absent and each process keys its own, the same
+floor partial updates enforce at startup, because a guessable key lets a log or
+proxy observer confirm a low-entropy region's content from its validator.
+Without a shared key each process keys its own, so a reconnect that returns to
+the same process transfers what changed and one that lands elsewhere transfers
 everything — which is what every reconnect did before. Traced responses report
 `pw.live.suppressed` and `pw.live.suppressed_bytes` when this is working.
 

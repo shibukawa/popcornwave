@@ -30,8 +30,12 @@ level=INFO msg="sql executed" sql="INSERT INTO items (name) VALUES ($1)"
 query itself, not the loop where you scan its rows — those rows belong to your
 code, so their cost is measured wherever you measure your handler.
 
-A statement that fails still gets a record, with `outcome=error` and the message
-beside the SQL that produced it. That pairing is often the whole diagnosis.
+A statement that fails still gets a record with `outcome=error`. With
+`bind_values` on it carries the driver's own message beside the SQL, which is
+often the whole diagnosis. With `bind_values` off it carries `error.type`
+instead — the error's classification, not its text — because a driver message
+routinely embeds the offending value (`Key (email)=(…) already exists`), and
+that value is the row data `bind_values` exists to keep out of the log.
 
 Inside a transaction, the record carries `tx_depth`, so a statement that ran in a
 savepoint two levels down says so.

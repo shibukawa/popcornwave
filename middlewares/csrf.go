@@ -3,7 +3,6 @@ package middlewares
 import (
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/shibukawa/popcornweb/internal/pathpattern"
@@ -117,32 +116,14 @@ func CSRF(config CSRFConfig, cookie session.CookieOptions, sameSite http.SameSit
 	}, nil
 }
 
-// csrfHTMLRequest reports whether a safe request is expected to render HTML.
-// Browsers send either an HTML Accept value or a document navigation target.
-// A generic */* request does not justify allocating session state merely in
-// case the handler might render a form.
+// csrfHTMLRequest and safeMethod are this transport's header reads over the
+// shared decisions, so the two builds cannot drift on either answer.
 func csrfHTMLRequest(r *http.Request) bool {
-	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Dest")), "document") {
-		return true
-	}
-	for remainder := r.Header.Get("Accept"); remainder != ""; {
-		var mediaRange string
-		mediaRange, remainder, _ = strings.Cut(remainder, ",")
-		mediaType, _, _ := strings.Cut(mediaRange, ";")
-		if strings.EqualFold(strings.TrimSpace(mediaType), "text/html") {
-			return true
-		}
-	}
-	return false
+	return pwruntime.CSRFHTMLRequest(r.Header.Get("Sec-Fetch-Dest"), r.Header.Get("Accept"))
 }
 
 func safeMethod(method string) bool {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-		return true
-	default:
-		return false
-	}
+	return pwruntime.CSRFSafeMethod(method)
 }
 
 func protectedPath(include, exclude []pathpattern.Pattern, path string) bool {

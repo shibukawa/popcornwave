@@ -72,11 +72,15 @@ func (c slotMapCodec) Decode(encoded []byte) (slotMap, error) {
 		}
 		key := string(rest[:keyLength])
 		rest = rest[keyLength:]
-		valueLength := int(binary.BigEndian.Uint32(rest[:4]))
+		// Compared in uint64 before narrowing: on a 32-bit build a length above
+		// MaxInt32 would convert to a negative int, pass an int comparison, and
+		// panic in the slice expression below.
+		encodedLength := binary.BigEndian.Uint32(rest[:4])
 		rest = rest[4:]
-		if valueLength > len(rest) {
+		if uint64(encodedLength) > uint64(len(rest)) {
 			return nil, fmt.Errorf("%w: record payload layout", ErrCodec)
 		}
+		valueLength := int(encodedLength)
 		values[key] = rest[:valueLength]
 		rest = rest[valueLength:]
 		if len(values) > maxSlotsPerRecord {

@@ -224,7 +224,11 @@ func (v *bearerVerifier) checkLifetime(claims jwt.Claims) error {
 	if claims.ExpiresAt == nil || claims.IssuedAt == nil {
 		return ErrInvalidToken
 	}
-	lifetime := time.Duration(*claims.ExpiresAt-*claims.IssuedAt) * time.Second
+	// time.Duration is nanoseconds. Multiplying attacker-controlled NumericDate
+	// seconds directly can wrap a multi-million-year lifetime into a small,
+	// positive duration that passes this upper bound. Time.Sub saturates at the
+	// duration limits instead, so every out-of-range interval remains too large.
+	lifetime := time.Unix(*claims.ExpiresAt, 0).Sub(time.Unix(*claims.IssuedAt, 0))
 	if lifetime <= 0 || lifetime > v.config.MaxTokenLifetime {
 		return ErrInvalidToken
 	}
