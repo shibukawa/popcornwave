@@ -599,7 +599,13 @@ func runInit(args []string, stdout io.Writer) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := writeScaffoldFile(target, []byte(content)); err != nil {
+		mode := os.FileMode(0o644)
+		if strings.Contains(content, "keyring.secret") {
+			// The scaffolded development config carries a generated keyring
+			// secret, which no other local user has any business reading.
+			mode = 0o600
+		}
+		if err := writeScaffoldFileMode(target, []byte(content), mode); err != nil {
 			return err
 		}
 	}
@@ -769,13 +775,17 @@ func declinedCapabilities(options initOptions) []string {
 }
 
 func writeScaffoldFile(target string, content []byte) error {
+	return writeScaffoldFileMode(target, content, 0o644)
+}
+
+func writeScaffoldFileMode(target string, content []byte, mode os.FileMode) error {
 	temp, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".tmp-*")
 	if err != nil {
 		return err
 	}
 	tempPath := temp.Name()
 	defer os.Remove(tempPath)
-	if err := temp.Chmod(0o644); err != nil {
+	if err := temp.Chmod(mode); err != nil {
 		_ = temp.Close()
 		return err
 	}

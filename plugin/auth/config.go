@@ -569,7 +569,8 @@ func (c Config) validateShape() error {
 		paths["auth.passkey.path"] = c.Passkey.Path
 	}
 	for key, value := range paths {
-		if !strings.HasPrefix(value, "/") || strings.Contains(value, "//") {
+		if !strings.HasPrefix(value, "/") || strings.Contains(value, "//") ||
+			strings.ContainsAny(value, "\\\x00") {
 			return fmt.Errorf("%s must be a rooted local path, got %q", key, value)
 		}
 	}
@@ -773,7 +774,8 @@ func (c Config) validateOIDCRedirect() error {
 	if !c.OIDC.AllowLoopbackHTTP {
 		return errors.New("a path-only auth.oidc.redirect_url requires auth.oidc.allow_loopback_http")
 	}
-	if parsed.Path != raw || !strings.HasPrefix(raw, "/") || strings.Contains(raw, "//") {
+	if parsed.Path != raw || !strings.HasPrefix(raw, "/") || strings.Contains(raw, "//") ||
+		strings.ContainsAny(raw, "\\\x00") {
 		return fmt.Errorf("auth.oidc.redirect_url must be an absolute URL or a rooted local path, got %q", raw)
 	}
 	if raw != c.CallbackPath {

@@ -119,8 +119,8 @@ func (store *Store) resolve(ctx context.Context) (*dynamodb.Client, string, erro
 
 // Put replaces one key. PutItem is atomic per item, so no condition is needed.
 func (store *Store) Put(ctx context.Context, keyHash string, record session.RawRecord) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	client, table, err := store.resolve(ctx)
 	if err != nil {
@@ -160,8 +160,8 @@ func (store *Store) Put(ctx context.Context, keyHash string, record session.RawR
 // pays the cheap read; the case the retry exists for is the false miss right
 // after a login rotation, which a consistent read cannot produce.
 func (store *Store) Get(ctx context.Context, keyHash string) (session.RawRecord, error) {
-	if keyHash == "" {
-		return session.RawRecord{}, fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return session.RawRecord{}, fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	client, table, err := store.resolve(ctx)
 	if err != nil {
@@ -197,8 +197,8 @@ func (store *Store) Get(ctx context.Context, keyHash string) (session.RawRecord,
 // carries the whole guarantee: the item must exist and still be alive, so no
 // read-then-write window exists for a concurrent delete to fall into.
 func (store *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	client, table, err := store.resolve(ctx)
 	if err != nil {
@@ -242,8 +242,8 @@ func (store *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleE
 // Delete removes one record. DeleteItem succeeds on an absent key, which is the
 // idempotence the contract asks for.
 func (store *Store) Delete(ctx context.Context, keyHash string) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	client, table, err := store.resolve(ctx)
 	if err != nil {
@@ -308,4 +308,22 @@ func readEpoch(item dynamodb.Item, name string) time.Time {
 // driver sentinel reachable through errors.Is.
 func unavailable(err error) error {
 	return fmt.Errorf("%w: %w", session.ErrUnavailable, err)
+}
+
+// validKeyHash reports whether value has the syntax of a store key. Rejecting
+// foreign syntax keeps a malformed cookie away from the server, the same guard
+// every other backend applies before a key reaches storage.
+func validKeyHash(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for index := range len(value) {
+		c := value[index]
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }

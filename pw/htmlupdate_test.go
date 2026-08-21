@@ -19,7 +19,7 @@ import (
 
 func updateConfig() HTMLConfig {
 	config := pwconfig.DefaultHTMLConfig()
-	config.Update = HTMLUpdateConfig{Enabled: true, ValidatorKey: "test-validator-key", MaxManifestBytes: 8 << 10}
+	config.Update = HTMLUpdateConfig{Enabled: true, ValidatorKey: "test-validator-key-test-validator-key-0123456789", MaxManifestBytes: 8 << 10}
 	return config
 }
 
@@ -149,6 +149,19 @@ func TestUpdatesRequireAValidatorKey(t *testing.T) {
 	config.Update.ValidatorKey = ""
 	if err := validateUpdateConfig(config); err == nil {
 		t.Fatal("updates were accepted with no validator key")
+	}
+	// A guessable key is equivalent to an unkeyed digest, so a short one is
+	// refused the same way.
+	config.Update.ValidatorKey = "short"
+	if err := validateUpdateConfig(config); err != ErrUpdateKeyTooShort {
+		t.Fatalf("a short validator key was accepted: %v", err)
+	}
+	// A base64 value is measured decoded: 32 random bytes encode to 44
+	// characters and pass, while 16 bytes encode to 24 characters and fail
+	// even though the string itself is longer than 32.
+	config.Update.ValidatorKey = "AAAAAAAAAAAAAAAAAAAAAAAA" // 24 chars = 18 decoded bytes
+	if err := validateUpdateConfig(config); err != ErrUpdateKeyTooShort {
+		t.Fatalf("a short base64 validator key was accepted: %v", err)
 	}
 	if err := validateUpdateConfig(updateConfig()); err != nil {
 		t.Fatalf("a keyed configuration was refused: %v", err)

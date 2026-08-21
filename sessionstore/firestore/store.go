@@ -222,8 +222,8 @@ func (e *entity) DecodeEntity(stored datastore.Entity) error {
 // Put replaces one key. A commit replaces the whole entity atomically, and the
 // entity carries no version, so nothing conditions the write.
 func (store *Store) Put(ctx context.Context, keyHash string, record session.RawRecord) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	// The payload arrives already encoded: session.Typed owns the codec, so a
 	// backend never sees the application type.
@@ -250,8 +250,8 @@ func (store *Store) Put(ctx context.Context, keyHash string, record session.RawR
 // The read is strongly consistent, which is the default in Datastore mode, so
 // there is no false miss after a login rotation and nothing to retry.
 func (store *Store) Get(ctx context.Context, keyHash string) (session.RawRecord, error) {
-	if keyHash == "" {
-		return session.RawRecord{}, fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return session.RawRecord{}, fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	loaded, err := store.load(ctx, keyHash)
 	if err != nil {
@@ -274,8 +274,8 @@ func (store *Store) Get(ctx context.Context, keyHash string) (session.RawRecord,
 // backend gets from a condition: a record rotated or deleted in between is at a
 // different version, and the write is refused rather than reviving it.
 func (store *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleExpiresAt time.Time) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	loaded, err := store.load(ctx, keyHash)
 	if err != nil {
@@ -315,8 +315,8 @@ func (store *Store) Touch(ctx context.Context, keyHash string, lastSeenAt, idleE
 // Delete removes one record. A delete of an absent key succeeds, which is the
 // idempotence the contract asks for.
 func (store *Store) Delete(ctx context.Context, keyHash string) error {
-	if keyHash == "" {
-		return fmt.Errorf("%w: empty key", session.ErrInvalidKey)
+	if !validKeyHash(keyHash) {
+		return fmt.Errorf("%w: key syntax", session.ErrInvalidKey)
 	}
 	handle, err := firestore.Handle(ctx)
 	if err != nil {
@@ -394,4 +394,22 @@ func storeError(err error) error {
 			session.ErrUnavailable)
 	}
 	return fmt.Errorf("%w: %w", session.ErrUnavailable, err)
+}
+
+// validKeyHash reports whether value has the syntax of a store key. Rejecting
+// foreign syntax keeps a malformed cookie away from the server, the same guard
+// every other backend applies before a key reaches storage.
+func validKeyHash(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for index := range len(value) {
+		c := value[index]
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }

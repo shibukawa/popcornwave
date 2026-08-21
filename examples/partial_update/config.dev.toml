@@ -17,7 +17,9 @@ async_timeout = "3s"
 # serving one.
 [html.update]
 enabled = true
-validator_key = "dev-only-not-a-secret"
+# Development-only key, published with this example: rotate it for any real
+# deployment. The framework refuses a key shorter than 32 bytes.
+validator_key = "nD20aGUfD4QnZMPpu+U89HGvNyRiEo/ts6IDUKca2+E="
 
 [middleware]
 # Off, so what the network tab reports is the size of the response rather than

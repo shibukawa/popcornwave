@@ -329,6 +329,15 @@ func (r *checkRun) checkDependencies() {
 var placeholderSecrets = map[string]bool{
 	"changeme": true, "change-me": true, "change_me": true, "secret": true,
 	"password": true, "todo": true, "xxx": true, "replace-me": true, "example": true,
+	// The secrets published in this repository's own examples. Random-looking
+	// or not, a value anyone can read out of the framework's source is a known
+	// credential, and a project that copied an example forward should hear so.
+	"dev-only-not-a-secret":                        true,
+	"JYETkv6QoCX3YYcTQj/DwRzVPgXbJLcry0+i5DvL2Vs=": true,
+	"teAl0D8gj0CeAqIlB5aKJfATJ9osTqvNIM9n4gcV79A=": true,
+	"TrNuSu4f6F2TIZweewu0m3KBJMEg3KMRYdoWsJHPQbQ=": true,
+	"w7pGbK0UFoQhTImvxy9KptkfwkIki7dm94avz1Pi4UY=": true,
+	"nD20aGUfD4QnZMPpu+U89HGvNyRiEo/ts6IDUKca2+E=": true,
 }
 
 func (r *checkRun) checkSecrets() {

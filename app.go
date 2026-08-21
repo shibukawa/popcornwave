@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/shibukawa/popcornweb/internal/requestorigin"
+	"github.com/shibukawa/popcornweb/middlewares"
 	"github.com/shibukawa/tinygodriver/httpmux"
 )
 
@@ -206,6 +208,15 @@ func (a *App) Handler() http.Handler {
 	for i := len(a.middlewares) - 1; i >= 0; i-- {
 		handler = a.middlewares[i](handler)
 	}
+	// The configured limits sit outside user middleware, so a middleware that
+	// reads the body is bounded too, and everything downstream sees the client
+	// address resolved through the declared proxies.
+	handler = middlewares.MaxRequestBody(a.config.MaxRequestBody)(handler)
+	proxies, err := requestorigin.Compile(a.config.TrustedProxies)
+	if err != nil {
+		panic(fmt.Errorf("petitweb: invalid trusted proxy: %w", err))
+	}
+	handler = middlewares.ResolveClientAddress(proxies.Networks())(handler)
 	a.handler = handler
 	return handler
 }

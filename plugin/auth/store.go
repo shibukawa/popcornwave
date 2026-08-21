@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -171,10 +172,34 @@ type executor interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
+// rebind rewrites ? placeholders into the $n form the Postgres driver
+// requires; the other engines keep ? unchanged. The framework-owned stores
+// write every statement with ? and rebind it here, the same numbering the
+// RevocationStore produces per-parameter.
+func rebind(dialect, statement string) string {
+	if dialect != "postgres" {
+		return statement
+	}
+	var builder strings.Builder
+	builder.Grow(len(statement) + 8)
+	index := 0
+	for _, r := range statement {
+		if r != '?' {
+			builder.WriteRune(r)
+			continue
+		}
+		index++
+		builder.WriteByte('$')
+		builder.WriteString(strconv.Itoa(index))
+	}
+	return builder.String()
+}
+
 // dbStore is the framework-owned store over the popcornweb_ tables. It is used
 // only when the application installed no store of its own.
 type dbStore struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect string
 }
 
 func (s dbStore) executor(ctx context.Context) executor {
@@ -188,10 +213,10 @@ func (s dbStore) Find(ctx context.Context, credentialID []byte) (Credential, err
 	if len(credentialID) == 0 {
 		return Credential{}, ErrUnknownCredential
 	}
-	row := s.executor(ctx).QueryRowContext(ctx, `SELECT credential_id, account_id, user_handle, public_key,
+	row := s.executor(ctx).QueryRowContext(ctx, rebind(s.dialect, `SELECT credential_id, account_id, user_handle, public_key,
 		public_key_x, public_key_y, algorithm, sign_count, backup_eligible, backup_state, transports,
 		label, created_at, last_used_at
-		FROM `+CredentialTable+` WHERE credential_id = ?`, credentialID)
+		FROM `+CredentialTable+` WHERE credential_id = ?`), credentialID)
 	return scanCredential(row)
 }
 
@@ -199,10 +224,10 @@ func (s dbStore) ListByAccount(ctx context.Context, accountID string) ([]Credent
 	if accountID == "" {
 		return nil, nil
 	}
-	rows, err := s.executor(ctx).QueryContext(ctx, `SELECT credential_id, account_id, user_handle, public_key,
+	rows, err := s.executor(ctx).QueryContext(ctx, rebind(s.dialect, `SELECT credential_id, account_id, user_handle, public_key,
 		public_key_x, public_key_y, algorithm, sign_count, backup_eligible, backup_state, transports,
 		label, created_at, last_used_at
-		FROM `+CredentialTable+` WHERE account_id = ? ORDER BY created_at`, accountID)
+		FROM `+CredentialTable+` WHERE account_id = ? ORDER BY created_at`), accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -227,10 +252,10 @@ func (s dbStore) Save(ctx context.Context, credential Credential, within func(co
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO `+CredentialTable+` (credential_id, account_id, user_handle,
+	if _, err := tx.ExecContext(ctx, rebind(s.dialect, `INSERT INTO `+CredentialTable+` (credential_id, account_id, user_handle,
 		public_key, public_key_x, public_key_y, algorithm, sign_count, backup_eligible, backup_state,
 		transports, label, created_at, last_used_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`),
 		credential.CredentialID, credential.AccountID, credential.UserHandle, credential.PublicKey,
 		credential.PublicKeyX, credential.PublicKeyY,
 		credential.Algorithm, credential.SignCount, credential.BackupEligible, credential.BackupState,
@@ -268,7 +293,7 @@ func (s dbStore) UpdateOnAssertion(ctx context.Context, credentialID []byte, sig
 		statement += ` AND sign_count < ?`
 		arguments = append(arguments, signCount)
 	}
-	result, err := s.executor(ctx).ExecContext(ctx, statement, arguments...)
+	result, err := s.executor(ctx).ExecContext(ctx, rebind(s.dialect, statement), arguments...)
 	if err != nil {
 		return err
 	}
@@ -277,7 +302,7 @@ func (s dbStore) UpdateOnAssertion(ctx context.Context, credentialID []byte, sig
 
 func (s dbStore) Delete(ctx context.Context, accountID string, credentialID []byte) error {
 	result, err := s.executor(ctx).ExecContext(ctx,
-		`DELETE FROM `+CredentialTable+` WHERE account_id = ? AND credential_id = ?`, accountID, credentialID)
+		rebind(s.dialect, `DELETE FROM `+CredentialTable+` WHERE account_id = ? AND credential_id = ?`), accountID, credentialID)
 	if err != nil {
 		return err
 	}
@@ -288,7 +313,8 @@ func (s dbStore) Delete(ctx context.Context, accountID string, credentialID []by
 // rather than more methods on dbStore, because both interfaces declare Find and
 // they return different records.
 type bootstrapStore struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect string
 }
 
 func (s bootstrapStore) executor(ctx context.Context) executor {
@@ -299,9 +325,9 @@ func (s bootstrapStore) Issue(ctx context.Context, credential BootstrapCredentia
 	if credential.LoginID == "" || credential.AccountID == "" || len(credential.SecretDigest) == 0 {
 		return errors.New("auth: bootstrap credential needs a login ID, an account, and a secret digest")
 	}
-	_, err := s.executor(ctx).ExecContext(ctx, `INSERT INTO `+BootstrapTable+` (login_id, account_id,
+	_, err := s.executor(ctx).ExecContext(ctx, rebind(s.dialect, `INSERT INTO `+BootstrapTable+` (login_id, account_id,
 		secret_digest, purpose, issued_at, expires_at, attempts_remaining, consumed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`),
 		credential.LoginID, credential.AccountID, credential.SecretDigest, credential.Purpose,
 		credential.IssuedAt, credential.ExpiresAt, credential.AttemptsRemaining)
 	return err
@@ -313,9 +339,9 @@ func (s bootstrapStore) Find(ctx context.Context, loginID string) (BootstrapCred
 	}
 	var credential BootstrapCredential
 	var consumed sql.NullTime
-	err := s.executor(ctx).QueryRowContext(ctx, `SELECT login_id, account_id, secret_digest, purpose,
+	err := s.executor(ctx).QueryRowContext(ctx, rebind(s.dialect, `SELECT login_id, account_id, secret_digest, purpose,
 		issued_at, expires_at, attempts_remaining, consumed_at FROM `+BootstrapTable+`
-		WHERE login_id = ? AND consumed_at IS NULL`, loginID).Scan(
+		WHERE login_id = ? AND consumed_at IS NULL`), loginID).Scan(
 		&credential.LoginID, &credential.AccountID, &credential.SecretDigest, &credential.Purpose,
 		&credential.IssuedAt, &credential.ExpiresAt, &credential.AttemptsRemaining, &consumed)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -333,9 +359,9 @@ func (s bootstrapStore) Find(ctx context.Context, loginID string) (BootstrapCred
 func (s bootstrapStore) RecordAttempt(ctx context.Context, loginID string) (int, error) {
 	// One statement, so two parallel guesses cannot both read the same budget
 	// and both decide they have an attempt left.
-	result, err := s.executor(ctx).ExecContext(ctx, `UPDATE `+BootstrapTable+`
+	result, err := s.executor(ctx).ExecContext(ctx, rebind(s.dialect, `UPDATE `+BootstrapTable+`
 		SET attempts_remaining = attempts_remaining - 1
-		WHERE login_id = ? AND consumed_at IS NULL AND attempts_remaining > 0`, loginID)
+		WHERE login_id = ? AND consumed_at IS NULL AND attempts_remaining > 0`), loginID)
 	if err != nil {
 		return 0, err
 	}
@@ -344,15 +370,15 @@ func (s bootstrapStore) RecordAttempt(ctx context.Context, loginID string) (int,
 	}
 	var remaining int
 	if err := s.executor(ctx).QueryRowContext(ctx,
-		`SELECT attempts_remaining FROM `+BootstrapTable+` WHERE login_id = ?`, loginID).Scan(&remaining); err != nil {
+		rebind(s.dialect, `SELECT attempts_remaining FROM `+BootstrapTable+` WHERE login_id = ?`), loginID).Scan(&remaining); err != nil {
 		return 0, err
 	}
 	return remaining, nil
 }
 
 func (s bootstrapStore) Consume(ctx context.Context, loginID string, at time.Time) error {
-	result, err := s.executor(ctx).ExecContext(ctx, `UPDATE `+BootstrapTable+`
-		SET consumed_at = ? WHERE login_id = ? AND consumed_at IS NULL`, at, loginID)
+	result, err := s.executor(ctx).ExecContext(ctx, rebind(s.dialect, `UPDATE `+BootstrapTable+`
+		SET consumed_at = ? WHERE login_id = ? AND consumed_at IS NULL`), at, loginID)
 	if err != nil {
 		return err
 	}

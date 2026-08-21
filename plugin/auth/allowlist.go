@@ -71,17 +71,18 @@ func allowlistCandidates(claims []string, identity Identity) []AllowlistCandidat
 
 // resolveAllowlistStore prefers the application store and falls back to the
 // framework table, matching how the credential and bootstrap stores resolve.
-func resolveAllowlistStore(db *sql.DB) AllowlistStore {
+func resolveAllowlistStore(db *sql.DB, dialect string) AllowlistStore {
 	if store := installedAllowlistStore(); store != nil {
 		return store
 	}
-	return sqlAllowlist{db: db}
+	return sqlAllowlist{db: db, dialect: dialect}
 }
 
 // sqlAllowlist reads the pre-registration table owned by this package. It is
 // used only when the application installed no store of its own.
 type sqlAllowlist struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect string
 }
 
 // Registered matches each candidate as one (issuer, claim, value) row. The
@@ -98,8 +99,8 @@ func (a sqlAllowlist) Registered(ctx context.Context, issuer string, candidates 
 		conditions = append(conditions, `(claim = ? AND value = ?)`)
 		arguments = append(arguments, candidate.Claim, candidate.Value)
 	}
-	query := `SELECT 1 FROM ` + AllowlistTable + ` WHERE issuer = ? AND (` +
-		strings.Join(conditions, " OR ") + `) LIMIT 1`
+	query := rebind(a.dialect, `SELECT 1 FROM `+AllowlistTable+` WHERE issuer = ? AND (`+
+		strings.Join(conditions, " OR ")+`) LIMIT 1`)
 	var found int
 	err := a.db.QueryRowContext(ctx, query, arguments...).Scan(&found)
 	if errors.Is(err, sql.ErrNoRows) {

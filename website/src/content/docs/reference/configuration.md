@@ -194,7 +194,7 @@ startup. See [Firestore](/guides/storage/firestore/).
 | `live_max_boundaries` | `32` | boundaries one live connection may serve; zero or less is unbounded |
 | `live_max_responses` | `4` | concurrent live connections per client; zero or less is unbounded |
 | `update.enabled` | `false` | answer navigation deltas, redraws, and action responses |
-| `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true |
+| `update.validator_key` | — | secret keying the boundary digests; required when `update.enabled` is true, and refused under 32 bytes of key material |
 | `update.max_manifest_bytes` | `8192` | cap on the digest hint a request may carry |
 | `cache.enabled` | `true` | reuse the rendered output of `@cache` components |
 | `cache.max_entries` | `1024` | entries the in-process render cache holds; zero or less is unbounded |
@@ -220,7 +220,10 @@ buys.
 
 `update.validator_key` is refused at startup when it is missing and updates are
 on, rather than serving unkeyed digests: an unkeyed digest of low-entropy content
-lets a guess be confirmed by comparing digests. Rotating it is not a break —
+lets a guess be confirmed by comparing digests. A key carrying fewer than 32
+bytes of material is refused the same way, because a guessable key is an unkeyed
+digest with extra steps — a base64 value is measured decoded, anything else as
+the bytes it is, the same floor the session keyring enforces. Rotating it is not a break —
 comparisons miss and the next response is a complete document. An oversized
 manifest is dropped rather than rejected, so a request past
 `update.max_manifest_bytes` costs a larger delta instead of an error. See

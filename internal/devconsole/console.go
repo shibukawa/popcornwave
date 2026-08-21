@@ -2,6 +2,7 @@ package devconsole
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -244,7 +245,8 @@ func (c *Console) announceListening(w http.ResponseWriter, r *http.Request) {
 // announced authenticates one announcement and returns its body. It writes the
 // refusal itself, so a caller that gets false has nothing left to do.
 func (c *Console) announced(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if c.attach == nil || c.attach.token == "" || r.Header.Get("X-Pw-Attach-Token") != c.attach.token {
+	if c.attach == nil || c.attach.token == "" ||
+		subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Pw-Attach-Token")), []byte(c.attach.token)) != 1 {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return "", false
 	}

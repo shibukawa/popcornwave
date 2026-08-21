@@ -643,9 +643,13 @@ func (rt *runtime) redirect(x Exchange, location string) {
 }
 
 // localReturnPath accepts only a rooted same-site path. An absolute or
-// protocol-relative value would turn login into an open redirect.
+// protocol-relative value would turn login into an open redirect. Backslashes
+// are refused outright: the WHATWG URL parser treats them as slashes, so a
+// browser resolves "/\evil.example" as the protocol-relative "//evil.example"
+// even though Go's parser sees a plain rooted path.
 func localReturnPath(value string) string {
-	if value == "" || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") {
+	if value == "" || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") ||
+		strings.ContainsAny(value, "\\\x00") {
 		return ""
 	}
 	parsed, err := url.Parse(value)
